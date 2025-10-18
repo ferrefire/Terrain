@@ -8,32 +8,31 @@ layout(set = 0, binding = 0) uniform Variables
 	mat4 projection;
 	vec4 viewPosition;
 	vec4 lightDirection;
+	vec4 resolution;
 } variables;
 
-//layout(set = 1, binding = 0) uniform sampler2D textures[3];
+layout(set = 1, binding = 0) uniform sampler2D rockTextures[3];
+layout(set = 1, binding = 1) uniform sampler2D grassTextures[3];
 
 layout(location = 0) in vec3 worldPosition;
+layout(location = 1) in vec3 worldNormal;
 
 layout(location = 0) out vec4 pixelColor;
 
 #include "lighting.glsl"
 #include "sampling.glsl"
+#include "functions.glsl"
+#include "noise.glsl"
 
-void main()
+vec3 GetColor(sampler2D samplers[3], vec3 _worldNormal, vec3 triplanarUV)
 {
-	//vec3 color = texture(textures[0], worldCoordinate).rgb;
-	//vec3 weights = GetWeights(normalize(worldNormal), 1.0);
-	//vec3 normal = SampleNormal(textures[1], worldCoordinate, normalize(worldNormal)).rgb;
-	//vec3 arm = texture(textures[2], worldCoordinate).rgb;
-	//float roughness = arm.g;
-	//float metallic = arm.b;
-	//float ao = arm.r;
-
-	vec3 color = vec3(0.25, 1.0, 0.25);
-	vec3 normal = normalize(vec3(0, 1, 0));
-	float roughness = 0.5;
-	float metallic = 0.0;
-	float ao = 0.0;
+	vec3 weights = GetWeights(normalize(_worldNormal), 2.0);
+	vec3 color = SampleTriplanarColor(samplers[0], triplanarUV, weights);
+	vec3 normal = SampleTriplanarNormal(samplers[1], triplanarUV, weights, normalize(_worldNormal), 1.0);
+	vec3 arm = SampleTriplanarColor(samplers[2], triplanarUV, weights);
+	float roughness = arm.g;
+	float metallic = arm.b;
+	float ao = arm.r;
 
 	PBRInput data;
 	data.N = normal;
@@ -50,5 +49,76 @@ void main()
 	vec3 ambient = ambientDiffuse * ao;
 	diffuse += ambient;
 
-	pixelColor = vec4(diffuse, 1.0);
+	return (diffuse);
+}
+
+void main()
+{
+	vec2 uv = (worldPosition.xz / 10000.0) + 0.5;
+	vec3 noise = fbm2D_withDeriv(uv + 2, 6, 4.0, 0.2);
+
+	const int power = 3;
+	float height = pow(noise.x, power);
+	float hx = power * pow(noise.x, power - 1) * noise.y;
+	float hz = power * pow(noise.x, power - 1) * noise.z;
+
+	vec3 _worldNormal = DerivativeToNormal(vec2(hx, hz));
+	vec3 triplanarUV = worldPosition;
+
+	float steepness = 1.0 - (dot(_worldNormal, vec3(0, 1, 0)) * 0.5 + 0.5);
+
+	vec3 diffuse = vec3(0);
+	if (steepness <= 0.18)
+	{
+		float strength = 1.0 - clamp(steepness - 0.12, 0.0, 0.06) / 0.06;
+		diffuse += GetColor(grassTextures, _worldNormal, triplanarUV) * strength;
+	}
+	if (steepness >= 0.12)
+	{
+		float strength = 1.0 - clamp(0.18 - steepness, 0.0, 0.06) / 0.06;
+		diffuse += GetColor(rockTextures, _worldNormal, triplanarUV * 0.005) * strength;
+	}
+
+	/*int total = int(floor(abs(worldPosition.x)) + floor(abs(worldPosition.z)));
+
+	vec3 color = vec3(0.25, 1.0, 0.25);
+	if (SquaredDistance(worldPosition, variables.viewPosition.xyz) < 100 * 100) color *= (total % 2 == 0 ? 1 : 0.5);
+	color *= ((total / 100) % 2 == 0 ? 1 : 0.5);
+	color *= ((total / 1000) % 2 == 0 ? 1 : 0.5);
+
+	if (dot(normalize(worldPosition.xz), normalize(variables.lightDirection.xz)) > 0.999) color = vec3(1, 0, 0);
+
+	//vec3 normal = normalize(vec3(0, 1, 0));
+	vec3 normal = worldNormal;
+	float roughness = 0.5;
+	float metallic = 0.0;
+	float ao = 0.4;
+
+	PBRInput data;
+	data.N = normal;
+	data.V = normalize(variables.viewPosition.xyz - worldPosition);
+	data.L = variables.lightDirection.xyz;
+	data.albedo = color;
+	data.metallic = metallic;
+	data.roughness = roughness;
+	data.lightColor = vec3(1.0, 0.9, 0.7) * 4;
+
+	vec3 diffuse = PBRLighting(data);
+
+	vec3 ambientDiffuse = 0.1 * color * vec3(1.0, 0.9, 0.7);
+	vec3 ambient = ambientDiffuse * ao;
+	diffuse += ambient;*/
+
+	float viewDistance = distance(variables.viewPosition.xyz, worldPosition);
+	//float fog = exp(-(viewDistance / 10000.0));
+	float fog = viewDistance / 10000.0;
+
+	vec3 finalColor = mix(diffuse, vec3(0.75), clamp(pow(fog, 3), 0.0, 1.0));
+
+	pixelColor = vec4(finalColor, 1.0);
+	//pixelColor = vec4(normal * 0.5 + 0.5, 1.0);
+	//pixelColor = vec4((texture(textures[1], worldPosition.xz * vec2(0.25, 0.25)).rgb ), 1.0);
+
+	//if (worldPosition.z > 0 && abs(worldPosition.x) < 100) pixelColor = vec4(0, 0, 1, 1);
+	//if (worldPosition.x > 0 && abs(worldPosition.z) < 100) pixelColor = vec4(0, 1, 0, 1);
 }
