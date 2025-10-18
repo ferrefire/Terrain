@@ -23,10 +23,11 @@ struct UniformData
 	point4D viewPosition;
 	point4D lightDirection;
 	point4D resolution;
+	point4D terrainOffset;
 };
 
 UniformData data{};
-std::vector<mat4> models(1);
+std::vector<mat4> models(49);
 std::vector<Buffer> frameBuffers;
 std::vector<Buffer> objectBuffers;
 
@@ -59,9 +60,16 @@ void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 	materialDescriptor.Bind(0, commandBuffer, pipeline);
 
 	pipeline.Bind(commandBuffer);
-	objectDescriptor.BindDynamic(0, commandBuffer, pipeline, 0);
 	planeMesh.Bind(commandBuffer);
-	vkCmdDrawIndexed(commandBuffer, planeMesh.GetIndices().size(), 1, 0, 0, 0);
+
+	//objectDescriptor.BindDynamic(0, commandBuffer, pipeline, 0);
+	//vkCmdDrawIndexed(commandBuffer, planeMesh.GetIndices().size(), 1, 0, 0, 0);
+
+	for (size_t i = 0; i < models.size(); i++)
+	{
+		objectDescriptor.BindDynamic(0, commandBuffer, pipeline, i * sizeof(mat4));
+		vkCmdDrawIndexed(commandBuffer, planeMesh.GetIndices().size(), 1, 0, 0, 0);
+	}
 
 	//screenPipeline.Bind(commandBuffer);
 	//objectDescriptor.BindDynamic(0, commandBuffer, screenPipeline, 1 * sizeof(mat4));
@@ -124,6 +132,7 @@ void Start()
 	data.projection = Manager::GetCamera().GetProjection();
 	data.lightDirection = point4D(point3D(0.2, 0.5, -0.4).Unitized());
 	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 0, 0);
+	data.terrainOffset = point4D(0.0);
 
 	BufferConfig frameBufferConfig{};
 	frameBufferConfig.mapped = true;
@@ -202,7 +211,8 @@ void Start()
 	//computePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), computeDescriptor.GetLayout() };
 	//computePipeline.Create(computePipelineConfig);
 
-	Manager::GetCamera().Move(point3D(-5000, 2500, 5000));
+	//Manager::GetCamera().Move(point3D(-5000, 2500, 5000));
+	Manager::GetCamera().Move(point3D(0, 2500, 0));
 	//Manager::GetCamera().Move(point3D(0, 10, 0));
 
 	Renderer::RegisterCall(0, Render);
@@ -215,17 +225,48 @@ void Frame()
 		Input::TriggerMouse();
 	}
 
+	if (abs(Manager::GetCamera().GetPosition().x()) > 1000.0)
+	{
+		data.terrainOffset.x() += Manager::GetCamera().GetPosition().x() / 10000.0f;
+		Manager::GetCamera().Move(point3D(-Manager::GetCamera().GetPosition().x(), 0, 0));
+	}
+	if (abs(Manager::GetCamera().GetPosition().z()) > 1000.0)
+	{
+		data.terrainOffset.z() += Manager::GetCamera().GetPosition().z() / 10000.0f;
+		Manager::GetCamera().Move(point3D(0, 0, -Manager::GetCamera().GetPosition().z()));
+	}
+
 	Manager::GetCamera().UpdateView();
 
 	data.view = Manager::GetCamera().GetView();
 	data.viewPosition = Manager::GetCamera().GetPosition();
 
-	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 0, 0);
+	//data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 0, 0);
+
+	if (Input::GetKey(GLFW_KEY_E).pressed)
+	{
+		data.resolution.z() = 1.0 - data.resolution.z();
+	}
 
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));
 
-	models[0] = mat4::Identity();
-	models[0].Scale(point3D(10000, 10000, 10000));
+	//models[0] = mat4::Identity();
+	//models[0].Scale(point3D(10000, 10000, 10000));
+	//models[1] = mat4::Identity();
+	//models[1].Scale(point3D(10000, 10000, 10000));
+	//models[1].Translate(point3D(5000, 0, 5000));
+
+	int radius = 3;
+	for (int x = -radius; x <= radius; x++)
+	{
+		for (int z = -radius; z <= radius; z++)
+		{
+			int index = (x + radius) * (radius * 2 + 1) + (z + radius); 
+			models[index] = mat4::Identity();
+			models[index].Scale(point3D(10000, 10000, 10000));
+			models[index].Translate(point3D(10000 * x, 0, 10000 * z));
+		}
+	}
 
 	objectBuffers[Renderer::GetCurrentFrame()].Update(models.data(), sizeof(mat4) * models.size());
 

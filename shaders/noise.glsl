@@ -98,24 +98,37 @@ vec3 valueNoise2D_deriv_tiled(vec2 x, float T)
 }
 
 // Returns fBm value and gradient (d/dx, d/dy)
-vec3 fbm2D_withDeriv(vec2 x, int octaves, float lacunarity, float gain)
+vec3 fbm2D_withDeriv(vec2 x, int octaves, float lacunarity, float gain, bool erode)
 {
     float amp = 1.0;
-    float freq = 2.5;
+    //float amp = 0.75008;
+    //float freq = 2.5;
+    float freq = 1.5;
 	float div = 0.0;
+	vec2 erosionVector = vec2(0.0);
+	float erodeScale = 1.0;
 
     float v = 0.0;
     vec2  g = vec2(0.0);
 
     for (int i = 0; i < octaves; ++i)
 	{
-        vec3 nd = valueNoise2D_deriv_tiled(x * freq, 100);
+        vec3 nd = valueNoise2D_deriv_tiled(x * freq, 10000);
 
-        v += amp * nd.x;
+		erosionVector += nd.yz * erodeScale;
+		//float steepness = 1.0 / (1.0 + length(erosionVector) * 1.5);
+		float steepness = 1.0 / (1.0 + length(nd.yz) * 0.1);
+		//steepness = 1;
+		v += amp * nd.x;
         g += amp * nd.yz * freq; // chain rule
 		div += amp;
+        //v += amp * nd.x / (erode ? steepness : 1.0);
+        //g += amp * nd.yz * freq / (erode ? steepness : 1.0); // chain rule
+		//div += amp / (erode ? steepness : 1.0);
         freq *= lacunarity;
         amp *= gain;
+		erodeScale *= 0.85;
+        //amp = pow(gain, i + 1) * steepness;
     }
 
 	//v /= div;
@@ -124,28 +137,46 @@ vec3 fbm2D_withDeriv(vec2 x, int octaves, float lacunarity, float gain)
     return vec3(v, g) / div;
 }
 
-vec3 fbm(in vec2 uv, int count)
+vec3 fbm(in vec2 uv, int octaves, float lacunarity, float gain)
 {
 	float w = 2.5;
+	//float w = 1.5;
 	float div = 0.0;
 	float scale = 1.0;
 	float strength = 1.0;
 	vec3 result = vec3(0);
 
-	for (int i = 0; i < count; i++)
+	for (int i = 0; i < octaves; i++)
 	{
 		vec3 noise = noised(uv * (w * scale));
 		noise.yz *= (w * scale);
 		result += noise * strength;
 		div += strength;
 
-		scale *= 4.0;
-		strength *= 0.2;
+		scale *= lacunarity;
+		strength *= gain;
 	}
 
 	result /= div;
 
 	return (result);
+}
+
+vec3 TerrainHeight(vec2 uv, bool erode)
+{
+	vec3 noise = fbm2D_withDeriv(uv + 17, 6, 4, 0.2, erode);
+	//vec3 noise = fbm(uv, 5, 2, 0.5);
+
+	const int power = 4;
+	//float height = pow(noise.x, power);
+	//float hx = power * pow(noise.x, power - 1) * noise.y;
+	//float hz = power * pow(noise.x, power - 1) * noise.z;
+
+	float height = exp(-power * noise.x);
+	float hx = -power * exp(-power * noise.x) * noise.y;
+	float hz = -power * exp(-power * noise.x) * noise.z;
+
+	return (vec3(height, hx, hz));
 }
 
 #endif

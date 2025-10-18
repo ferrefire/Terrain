@@ -9,6 +9,7 @@ layout(set = 0, binding = 0) uniform Variables
 	vec4 viewPosition;
 	vec4 lightDirection;
 	vec4 resolution;
+	vec4 terrainOffset;
 } variables;
 
 layout(set = 1, binding = 0) uniform sampler2D rockTextures[3];
@@ -54,15 +55,19 @@ vec3 GetColor(sampler2D samplers[3], vec3 _worldNormal, vec3 triplanarUV)
 
 void main()
 {
-	vec2 uv = (worldPosition.xz / 10000.0) + 0.5;
-	vec3 noise = fbm2D_withDeriv(uv + 2, 6, 4.0, 0.2);
+	vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz + 0.5;
+	//vec3 noise = fbm2D_withDeriv(uv + 2, 6, 4, 0.2);
+	//vec3 noise = fbm(uv + 2, 6, 3.75, 0.2);
 
-	const int power = 3;
-	float height = pow(noise.x, power);
-	float hx = power * pow(noise.x, power - 1) * noise.y;
-	float hz = power * pow(noise.x, power - 1) * noise.z;
+	//const int power = 3;
+	//float height = pow(noise.x, power);
+	//float hx = power * pow(noise.x, power - 1) * noise.y;
+	//float hz = power * pow(noise.x, power - 1) * noise.z;
 
-	vec3 _worldNormal = DerivativeToNormal(vec2(hx, hz));
+	vec3 tnoise = TerrainHeight(uv, variables.resolution.z > 0.5);
+
+	vec3 _worldNormal = DerivativeToNormal(vec2(tnoise.y, tnoise.z));
+	//vec3 triplanarUV = worldPosition + (variables.terrainOffset.xyz * 10000.0);
 	vec3 triplanarUV = worldPosition;
 
 	float steepness = 1.0 - (dot(_worldNormal, vec3(0, 1, 0)) * 0.5 + 0.5);
@@ -78,6 +83,15 @@ void main()
 		float strength = 1.0 - clamp(0.18 - steepness, 0.0, 0.06) / 0.06;
 		diffuse += GetColor(rockTextures, _worldNormal, triplanarUV * 0.005) * strength;
 	}
+
+	//if (steepness <= 0.15)
+	//{
+	//	diffuse = GetColor(grassTextures, _worldNormal, triplanarUV);
+	//}
+	//else if (steepness > 0.15)
+	//{
+	//	diffuse = GetColor(rockTextures, _worldNormal, triplanarUV * 0.005);
+	//}
 
 	/*int total = int(floor(abs(worldPosition.x)) + floor(abs(worldPosition.z)));
 
@@ -109,11 +123,17 @@ void main()
 	vec3 ambient = ambientDiffuse * ao;
 	diffuse += ambient;*/
 
+	//int centerDistance = int(length(worldPosition));
+	//if (centerDistance % 1000 <= 10) diffuse *= 0.0;
+
 	float viewDistance = distance(variables.viewPosition.xyz, worldPosition);
 	//float fog = exp(-(viewDistance / 10000.0));
 	float fog = viewDistance / 10000.0;
+	vec3 finalColor = mix(diffuse, vec3(0.75), clamp(pow(1.0 - exp(-fog), 2.0), 0.0, 1.0));
 
-	vec3 finalColor = mix(diffuse, vec3(0.75), clamp(pow(fog, 3), 0.0, 1.0));
+	//int total = int(floor(abs(worldPosition.x) * 0.01) * 100 + floor(abs(worldPosition.z) * 0.01) * 100);
+
+	//finalColor *= (total % 1000 == 0 ? 0.0 : 1.0);
 
 	pixelColor = vec4(finalColor, 1.0);
 	//pixelColor = vec4(normal * 0.5 + 0.5, 1.0);

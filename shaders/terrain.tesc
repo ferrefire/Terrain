@@ -9,6 +9,7 @@ layout(set = 0, binding = 0) uniform Variables
 	vec4 viewPosition;
 	vec4 lightDirection;
 	vec4 resolution;
+	vec4 terrainOffset;
 } variables;
 
 //layout(set = 1, binding = 0) uniform sampler2D heightmap;

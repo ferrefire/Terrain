@@ -9,6 +9,7 @@ layout(set = 0, binding = 0) uniform Variables
 	vec4 viewPosition;
 	vec4 lightDirection;
 	vec4 resolution;
+	vec4 terrainOffset;
 } variables;
 
 //layout(set = 1, binding = 0) uniform sampler2D heightmap;
@@ -31,13 +32,10 @@ layout(location = 1) out vec3 worldNormal;
 void main()
 {
 	vec4 tesselatedPosition = gl_in[0].gl_Position * gl_TessCoord[0] + gl_in[1].gl_Position * gl_TessCoord[1] + gl_in[2].gl_Position * gl_TessCoord[2];
-	vec2 uv = (tesselatedPosition.xz / 10000.0) + 0.5;
-	vec3 noise = fbm2D_withDeriv(uv + 2, 6, 4.0, 0.2);
-
-	const int power = 3;
-	float height = pow(noise.x, power);
-	//float hx = power * pow(noise.x, power - 1) * noise.y;
-	//float hz = power * pow(noise.x, power - 1) * noise.z;
+	vec2 uv = (tesselatedPosition.xz / 10000.0) + variables.terrainOffset.xz + 0.5;
+	//vec3 noise = fbm2D_withDeriv(uv + 2, 6, 4, 0.2);
+	
+	float height = TerrainHeight(uv, variables.resolution.z > 0.5).x;
 
 	//worldNormal = DerivativeToNormal(vec2(hx, hz));
 	worldNormal = vec3(0);
