@@ -129,7 +129,8 @@ void main()
 	float viewDistance = distance(variables.viewPosition.xyz, worldPosition);
 	//float fog = exp(-(viewDistance / 10000.0));
 	float fog = viewDistance / 10000.0;
-	vec3 finalColor = mix(diffuse, vec3(0.75), clamp(pow(1.0 - exp(-fog), 2.0), 0.0, 1.0));
+	vec3 finalColor = mix(diffuse, vec3(0.75), clamp(pow(1.0 - exp(-fog), 3.0), 0.0, 1.0));
+	//finalColor = diffuse;
 
 	//int total = int(floor(abs(worldPosition.x) * 0.01) * 100 + floor(abs(worldPosition.z) * 0.01) * 100);
 
