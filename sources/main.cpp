@@ -27,7 +27,7 @@ struct UniformData
 };
 
 UniformData data{};
-std::vector<mat4> models(49);
+std::vector<mat4> models(1);
 std::vector<Buffer> frameBuffers;
 std::vector<Buffer> objectBuffers;
 
@@ -35,6 +35,7 @@ Pass pass;
 
 Pipeline pipeline;
 meshP32 planeMesh;
+meshP32 planeLodMesh;
 
 //Pipeline screenPipeline;
 //meshP16 quadMesh;
@@ -54,22 +55,35 @@ Image grass_diff;
 Image grass_norm;
 Image grass_arm;
 
+int terrainRadius = 8;
+int terrainLength = 2 * terrainRadius + 1;
+int terrainCount = terrainLength * terrainLength;
+
 void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
 	frameDescriptor.BindDynamic(0, commandBuffer, pipeline);
 	materialDescriptor.Bind(0, commandBuffer, pipeline);
 
 	pipeline.Bind(commandBuffer);
+
+	//int centerIndex = 3 * 7 + 3;
 	planeMesh.Bind(commandBuffer);
+	objectDescriptor.BindDynamic(0, commandBuffer, pipeline, 0 * sizeof(mat4));
+	vkCmdDrawIndexed(commandBuffer, planeMesh.GetIndices().size(), 1, 0, 0, 0);
+
 
 	//objectDescriptor.BindDynamic(0, commandBuffer, pipeline, 0);
 	//vkCmdDrawIndexed(commandBuffer, planeMesh.GetIndices().size(), 1, 0, 0, 0);
 
-	for (size_t i = 0; i < models.size(); i++)
-	{
-		objectDescriptor.BindDynamic(0, commandBuffer, pipeline, i * sizeof(mat4));
-		vkCmdDrawIndexed(commandBuffer, planeMesh.GetIndices().size(), 1, 0, 0, 0);
-	}
+	planeLodMesh.Bind(commandBuffer);
+	//objectDescriptor.BindDynamic(0, commandBuffer, pipeline, 0 * sizeof(mat4));
+	vkCmdDrawIndexed(commandBuffer, planeLodMesh.GetIndices().size(), terrainCount - 1, 0, 0, 1);
+	//for (size_t i = 0; i < models.size(); i++)
+	//{
+	//	if (i == centerIndex) continue;
+	//	objectDescriptor.BindDynamic(0, commandBuffer, pipeline, i * sizeof(mat4));
+	//	vkCmdDrawIndexed(commandBuffer, planeLodMesh.GetIndices().size(), 1, 0, 0, 0);
+	//}
 
 	//screenPipeline.Bind(commandBuffer);
 	//objectDescriptor.BindDynamic(0, commandBuffer, screenPipeline, 1 * sizeof(mat4));
@@ -89,9 +103,13 @@ void Start()
 	Renderer::AddPass(passInfo);
 
 	ShapeSettings shapeSettings{};
-	shapeSettings.resolution = 128;
+	shapeSettings.resolution = 256;
 	shapeP32 planeShape(ShapeType::Plane, shapeSettings);
 	planeMesh.Create(planeShape);
+
+	shapeSettings.resolution = 4;
+	shapeP32 planeLodShape(ShapeType::Plane, shapeSettings);
+	planeLodMesh.Create(planeLodShape);
 
 	//quadMesh.Create(ShapeType::Quad);
 
@@ -104,7 +122,7 @@ void Start()
 	ImageConfig imageConfig = Image::DefaultConfig();
 	imageConfig.createMipmaps = true;
 	imageConfig.samplerConfig.anisotropyEnabled = VK_TRUE;
-	imageConfig.samplerConfig.maxAnisotropy = 8;
+	imageConfig.samplerConfig.maxAnisotropy = 2;
 	ImageConfig imageNormalConfig = Image::DefaultNormalConfig();
 	imageNormalConfig.createMipmaps = true;
 	imageNormalConfig.samplerConfig.anisotropyEnabled = VK_TRUE;
@@ -130,8 +148,9 @@ void Start()
 	loaders.clear();
 
 	data.projection = Manager::GetCamera().GetProjection();
-	data.lightDirection = point4D(point3D(0.2, 0.5, -0.4).Unitized());
-	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 0, 0);
+	data.lightDirection = point4D(point3D(0.2, 0.25, -0.4).Unitized());
+	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 
+		Manager::GetCamera().GetConfig().near, Manager::GetCamera().GetConfig().far);
 	data.terrainOffset = point4D(0.0);
 
 	BufferConfig frameBufferConfig{};
@@ -227,21 +246,24 @@ void Frame()
 
 	if (abs(Manager::GetCamera().GetPosition().x()) > 1000.0)
 	{
-		data.terrainOffset.x() += Manager::GetCamera().GetPosition().x() / 10000.0f;
-		Manager::GetCamera().Move(point3D(-Manager::GetCamera().GetPosition().x(), 0, 0));
+		data.terrainOffset.x() += std::round(Manager::GetCamera().GetPosition().x()) / 10000.0f;
+		Manager::GetCamera().Move(point3D(std::round(-Manager::GetCamera().GetPosition().x()), 0, 0));
 	}
 	if (abs(Manager::GetCamera().GetPosition().z()) > 1000.0)
 	{
-		data.terrainOffset.z() += Manager::GetCamera().GetPosition().z() / 10000.0f;
-		Manager::GetCamera().Move(point3D(0, 0, -Manager::GetCamera().GetPosition().z()));
+		data.terrainOffset.z() += std::round(Manager::GetCamera().GetPosition().z()) / 10000.0f;
+		Manager::GetCamera().Move(point3D(0, 0, std::round(-Manager::GetCamera().GetPosition().z())));
 	}
+
+	glfwSetWindowTitle(Manager::GetWindow().GetData(), std::to_string(1.0 / Time::deltaTime).c_str());
 
 	Manager::GetCamera().UpdateView();
 
 	data.view = Manager::GetCamera().GetView();
 	data.viewPosition = Manager::GetCamera().GetPosition();
 
-	//data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 0, 0);
+	data.resolution.x() = Manager::GetCamera().GetConfig().width;
+	data.resolution.y() = Manager::GetCamera().GetConfig().height;
 
 	if (Input::GetKey(GLFW_KEY_E).pressed)
 	{
@@ -256,17 +278,17 @@ void Frame()
 	//models[1].Scale(point3D(10000, 10000, 10000));
 	//models[1].Translate(point3D(5000, 0, 5000));
 
-	int radius = 3;
-	for (int x = -radius; x <= radius; x++)
-	{
-		for (int z = -radius; z <= radius; z++)
-		{
-			int index = (x + radius) * (radius * 2 + 1) + (z + radius); 
-			models[index] = mat4::Identity();
-			models[index].Scale(point3D(10000, 10000, 10000));
-			models[index].Translate(point3D(10000 * x, 0, 10000 * z));
-		}
-	}
+	//int radius = 3;
+	//for (int x = -radius; x <= radius; x++)
+	//{
+	//	for (int z = -radius; z <= radius; z++)
+	//	{
+	//		int index = (x + radius) * (radius * 2 + 1) + (z + radius); 
+	//		models[index] = mat4::Identity();
+	//		models[index].Scale(point3D(10000, 10000, 10000));
+	//		models[index].Translate(point3D(10000 * x, 0, 10000 * z));
+	//	}
+	//}
 
 	objectBuffers[Renderer::GetCurrentFrame()].Update(models.data(), sizeof(mat4) * models.size());
 
@@ -292,6 +314,7 @@ void Frame()
 void End()
 {
 	planeMesh.Destroy();
+	planeLodMesh.Destroy();
 	//quadMesh.Destroy();
 
 	for (Buffer& buffer : frameBuffers) { buffer.Destroy(); }
@@ -325,6 +348,11 @@ int main(int argc, char** argv)
 	Manager::GetConfig().deviceConfig.tesselation = true;
 	//Manager::GetConfig().wireframe = true;
 	Manager::Create();
+
+	CameraConfig cameraConfig = Manager::GetCamera().GetConfig();
+	cameraConfig.near = 0.1;
+	cameraConfig.far = 50000.0;
+	Manager::GetCamera().SetConfig(cameraConfig);
 
 	Manager::RegisterStartCall(Start);
 	Manager::RegisterFrameCall(Frame);

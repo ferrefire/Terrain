@@ -1,6 +1,6 @@
 #version 460
 
-#extension GL_ARB_shading_language_include : require
+#extension GL_GOOGLE_include_directive : require
 
 layout(set = 0, binding = 0) uniform Variables
 {
@@ -21,20 +21,38 @@ layout(location = 0) in vec3 localPosition;
 //layout(location = 0) out vec3 worldPosition;
 //layout(location = 1) out vec3 worldNormal;
 
+layout(location = 0) flat out int lod;
+
 #include "noise.glsl"
 #include "sampling.glsl"
 
+const int terrainRadius = 8;
+const int terrainLength = 2 * terrainRadius + 1;
+const int terrainCount = terrainLength * terrainLength;
+const float terrainSize = 5000.0;
+
 void main()
 {
-	vec3 worldPosition = (object.model * vec4(localPosition, 1.0)).xyz;
+	//vec3 worldPosition = (object.model * vec4(localPosition, 1.0)).xyz;
+	vec3 worldPosition = localPosition * terrainSize;
+	int instanceIndex = gl_InstanceIndex;
+	lod = gl_InstanceIndex;
+	if (instanceIndex > 0)
+	{
+		instanceIndex -= 1;
+		if (instanceIndex >= terrainRadius * terrainLength + terrainRadius) instanceIndex += 1;
+		int xi = instanceIndex % terrainLength;
+		int yi = instanceIndex / terrainLength;
+		worldPosition += vec3(xi - terrainRadius, 0.0, yi - terrainRadius) * terrainSize;
+	}
 
 	//vec2 uv = localPosition.xz + 0.5;
-	vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz + 0.5;
+	vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz;
 	//float height = texture(heightmap, uv).r;
 
 	//vec3 noise = fbm2D_withDeriv(uv + 2, 6, 4, 0.2);
 	
-	float height = TerrainHeight(uv, variables.resolution.z > 0.5).x;
+	float height = TerrainData(uv, 15, true, false).x;
 
 	//worldNormal = (object.model * vec4(DerivativeToNormal(vec2(hx, hz)), 0.0)).xyz;
 

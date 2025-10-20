@@ -227,15 +227,17 @@ vec3 fbmTest( in vec2 x, in int octaves )
 }
 
 const mat2 m = mat2(0.8,-0.6,0.6,0.8);
-float terrain( in vec2 p )
+const mat2 mi = mat2(0.8,0.6,-0.6,0.8);
+
+float terrain(in vec2 p, int octaves)
 {
     float a = 0.0;
     float b = 1.0;
     vec2  d = vec2(0.0,0.0);
 	float total = 0.0;
-    for( int i=0; i<15; i++ )
+    for( int i=0; i<octaves; i++ )
     {
-        vec3 n=valueNoise2D_deriv_tiled(p, 1000);
+        vec3 n=valueNoise2D_deriv_tiled(p, 10);
         d += n.yz;
         a += b*n.x/(1.0+dot(d,d));
 		total += b;
@@ -243,6 +245,41 @@ float terrain( in vec2 p )
         p = m*p*2.0;
     }
     return a / total;
+}
+
+vec3 terrainDiv( in vec2 p )
+{
+    float a = 0.0;
+	vec2 ga = vec2(0.0);
+    float b = 1.0;
+    vec2  d = vec2(0.0,0.0);
+	float total = 0.0;
+	mat2 j = mat2(1.0);
+    for( int i=0; i<15; i++ )
+    {
+        vec3 n=valueNoise2D_deriv_tiled(p, 1000);
+        //vec3 n=noised(p);
+
+		vec2 grad_p = j * n.yz;
+
+        d += n.yz;
+
+		float w = b / (1.0 + dot(d, d));
+
+        a += w * n.x;
+		ga += w * grad_p;
+
+		total += b;
+        b *= 0.5;
+
+        p = m * p * 2.0;
+		j = inverse(m) * 2.0 * j;
+    }
+
+	a /= total;
+	ga /= total;
+	//ga *= 4;
+    return vec3(a, ga);
 }
 
 vec3 ErosionFbm(vec2 x, int octaves, float lacunarity, float gain, bool erode)
@@ -357,16 +394,18 @@ vec3 fbm(in vec2 uv, int octaves, float lacunarity, float gain)
 	return (result);
 }
 
-vec3 TerrainHeight(vec2 uv, bool erode)
+vec3 TerrainData(vec2 uv, int octaves, bool heightOnly, bool quality)
 {
 	//vec3 noise = valueNoiseFbm(uv + 17, 7, 4, 0.2, erode);
-	float noise = terrain(uv);
+	float noise = terrain(uv, octaves);
+	//vec3 noise = terrainDiv(uv);
 	//vec3 noise = ErosionFbm(uv + 17, 7, 4, 0.2, erode);
 	//vec3 noise = valueNoiseFbmErosion(uv, 4, 4, 0.2, erode);
 	//vec3 noise = fbm(uv, 5, 2, 0.5);
 	//noise.x += 0.5;
 
 	const float power = 2.0;
+	//const float power = 1.0;
 	//float height = pow(noise.x, power);
 	//float hx = power * pow(noise.x, power - 1) * noise.y;
 	//float hz = power * pow(noise.x, power - 1) * noise.z;
@@ -375,23 +414,33 @@ vec3 TerrainHeight(vec2 uv, bool erode)
 	//float hx = -power * exp(-power * noise.x) * noise.y;
 	//float hz = -power * exp(-power * noise.x) * noise.z;
 
-	float dis = 0.00001;
-	//float noiserx = terrain(uv + (vec2(dis, 0)));
-	//float noiselx = terrain(uv + (vec2(-dis, 0)));
-	//float noiseuy = terrain(uv + (vec2(0, dis)));
-	//float noisedy = terrain(uv + (vec2(0, -dis)));
-
-	float noiserx = pow(terrain(uv + (vec2(dis, 0))), power);
-	float noiselx = pow(terrain(uv + (vec2(-dis, 0))), power);
-	float noiseuy = pow(terrain(uv + (vec2(0, dis))), power);
-	float noisedy = pow(terrain(uv + (vec2(0, -dis))), power);
-
-	vec2 derivatives = vec2((noiserx - noiselx) / (dis * 2), (noiseuy - noisedy) / (dis * 2));
-
-	//float height = noise;
+	//float height = noise.x;
 	float height = pow(noise, power);
-	float hx = 0;
-	float hz = 0;
+	vec2 derivatives = vec2(0.0);
+
+	if (!heightOnly)
+	{
+		float dis = 0.00001;
+
+		float noiserx;
+		float noiselx;
+		float noiseuy;
+		float noisedy;
+
+		//float noiserx = terrain(uv + (vec2(dis, 0)));
+		//float noiselx = terrain(uv + (vec2(-dis, 0)));
+		//float noiseuy = terrain(uv + (vec2(0, dis)));
+		//float noisedy = terrain(uv + (vec2(0, -dis)));
+
+		noiserx = pow(terrain(uv + (vec2(dis, 0)), octaves), power);
+		if (quality) noiselx = pow(terrain(uv + (vec2(-dis, 0)), octaves), power);
+		noiseuy = pow(terrain(uv + (vec2(0, dis)), octaves), power);
+		if (quality) noisedy = pow(terrain(uv + (vec2(0, -dis)), octaves), power);
+		if (quality) derivatives = vec2((noiserx - noiselx) / (dis * 2), (noiseuy - noisedy) / (dis * 2));
+		else derivatives = vec2((noiserx - height) / (dis), (noiseuy - height) / (dis));
+
+		//derivatives = noise.yz;
+	}
 
 	return (vec3(height, derivatives));
 }

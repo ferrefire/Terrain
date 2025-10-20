@@ -1,6 +1,6 @@
 #version 460
 
-#extension GL_ARB_shading_language_include : require
+#extension GL_GOOGLE_include_directive : require
 
 layout(set = 0, binding = 0) uniform Variables
 {
