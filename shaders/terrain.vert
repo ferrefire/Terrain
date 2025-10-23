@@ -10,9 +10,10 @@ layout(set = 0, binding = 0) uniform Variables
 	vec4 lightDirection;
 	vec4 resolution;
 	vec4 terrainOffset;
+	vec4 heightmapOffsets[8];
 } variables;
 
-//layout(set = 1, binding = 0) uniform sampler2D heightmap;
+
 
 layout(set = 2, binding = 0) uniform models { mat4 model; } object;
 
@@ -25,6 +26,7 @@ layout(location = 0) flat out int lod;
 
 #include "noise.glsl"
 #include "sampling.glsl"
+#include "terrainFunctions.glsl"
 
 const int terrainRadius = 8;
 const int terrainLength = 2 * terrainRadius + 1;
@@ -36,23 +38,32 @@ void main()
 	//vec3 worldPosition = (object.model * vec4(localPosition, 1.0)).xyz;
 	vec3 worldPosition = localPosition * terrainSize;
 	int instanceIndex = gl_InstanceIndex;
+	int xi = terrainRadius;
+	int yi = terrainRadius;
 	lod = gl_InstanceIndex;
 	if (instanceIndex > 0)
 	{
 		instanceIndex -= 1;
 		if (instanceIndex >= terrainRadius * terrainLength + terrainRadius) instanceIndex += 1;
-		int xi = instanceIndex % terrainLength;
-		int yi = instanceIndex / terrainLength;
+		xi = instanceIndex % terrainLength;
+		yi = instanceIndex / terrainLength;
 		worldPosition += vec3(xi - terrainRadius, 0.0, yi - terrainRadius) * terrainSize;
 	}
 
 	//vec2 uv = localPosition.xz + 0.5;
-	vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz;
+	//vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz;
+	vec2 uv = (worldPosition.xz / 5000.0) + 0.5;
 	//float height = texture(heightmap, uv).r;
 
 	//vec3 noise = fbm2D_withDeriv(uv + 2, 6, 4, 0.2);
+
+	float lodInter = float(max(abs(xi - terrainRadius), abs(yi - terrainRadius))) / float(terrainRadius);
+	lod = int(round(mix(0, 10, lodInter)));
 	
-	float height = TerrainData(uv, 15, true, false).x;
+	//float height = TerrainData(uv, int(variables.terrainOffset.w) - lod, true).x;
+	//float height = TerrainData(uv, int(variables.terrainOffset.w) - (lod == 0 ? 0 : 5), true).x;
+	//float height = texture(heightmaps[1], uv).r;
+	float height = TerrainValues(worldPosition.xz).r;
 
 	//worldNormal = (object.model * vec4(DerivativeToNormal(vec2(hx, hz)), 0.0)).xyz;
 

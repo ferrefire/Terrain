@@ -394,9 +394,10 @@ vec3 fbm(in vec2 uv, int octaves, float lacunarity, float gain)
 	return (result);
 }
 
-vec3 TerrainData(vec2 uv, int octaves, bool heightOnly, bool quality)
+vec3 TerrainData(vec2 uv, int octaves, float sampleDis, bool heightOnly)
 {
 	//vec3 noise = valueNoiseFbm(uv + 17, 7, 4, 0.2, erode);
+	octaves = clamp(octaves, 1, 20);
 	float noise = terrain(uv, octaves);
 	//vec3 noise = terrainDiv(uv);
 	//vec3 noise = ErosionFbm(uv + 17, 7, 4, 0.2, erode);
@@ -420,7 +421,8 @@ vec3 TerrainData(vec2 uv, int octaves, bool heightOnly, bool quality)
 
 	if (!heightOnly)
 	{
-		float dis = 0.00001;
+		//float dis = 0.0001;
+		float dis = sampleDis;
 
 		float noiserx;
 		float noiselx;
@@ -433,11 +435,11 @@ vec3 TerrainData(vec2 uv, int octaves, bool heightOnly, bool quality)
 		//float noisedy = terrain(uv + (vec2(0, -dis)));
 
 		noiserx = pow(terrain(uv + (vec2(dis, 0)), octaves), power);
-		if (quality) noiselx = pow(terrain(uv + (vec2(-dis, 0)), octaves), power);
+		//if (quality) noiselx = pow(terrain(uv + (vec2(-dis, 0)), octaves), power);
 		noiseuy = pow(terrain(uv + (vec2(0, dis)), octaves), power);
-		if (quality) noisedy = pow(terrain(uv + (vec2(0, -dis)), octaves), power);
-		if (quality) derivatives = vec2((noiserx - noiselx) / (dis * 2), (noiseuy - noisedy) / (dis * 2));
-		else derivatives = vec2((noiserx - height) / (dis), (noiseuy - height) / (dis));
+		//if (quality) noisedy = pow(terrain(uv + (vec2(0, -dis)), octaves), power);
+		//if (quality) derivatives = vec2((noiserx - noiselx) / (dis * 2), (noiseuy - noisedy) / (dis * 2));
+		derivatives = vec2((noiserx - height) / (dis), (noiseuy - height) / (dis));
 
 		//derivatives = noise.yz;
 	}

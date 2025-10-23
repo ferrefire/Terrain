@@ -10,6 +10,7 @@ layout(set = 0, binding = 0) uniform Variables
 	vec4 lightDirection;
 	vec4 resolution;
 	vec4 terrainOffset;
+	vec4 heightmapOffsets[8];
 } variables;
 
 layout(set = 1, binding = 0) uniform sampler2D rockTextures[3];
@@ -24,6 +25,7 @@ layout(location = 0) out vec4 pixelColor;
 #include "sampling.glsl"
 #include "functions.glsl"
 #include "noise.glsl"
+#include "terrainFunctions.glsl"
 
 vec3 GetColor(sampler2D samplers[3], vec3 _worldNormal, vec3 triplanarUV, bool lod)
 {
@@ -57,7 +59,8 @@ vec3 GetColor(sampler2D samplers[3], vec3 _worldNormal, vec3 triplanarUV, bool l
 
 void main()
 {
-	vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz;
+	//vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz;
+	vec2 uv = (worldPosition.xz / 5000.0) + 0.5;
 	//vec3 noise = fbm2D_withDeriv(uv + 2, 6, 4, 0.2);
 	//vec3 noise = fbm(uv + 2, 6, 3.75, 0.2);
 
@@ -67,10 +70,18 @@ void main()
 	//float hz = power * pow(noise.x, power - 1) * noise.z;
 
 	float viewDistance = distance(variables.viewPosition.xyz, worldPosition);
+	float qualityInter = clamp(viewDistance, 0.0, 2500.0) / 2500.0;
+	int qualityDescrease = int(round(mix(0, 5, qualityInter)));
 
-	vec3 tnoise = TerrainData(uv, 15, false, false);
+	//vec3 tnoise = TerrainData(uv, int(variables.terrainOffset.w) - qualityDescrease, false);
+	//vec3 _worldNormal = DerivativeToNormal(vec2(tnoise.y, tnoise.z));
 
-	vec3 _worldNormal = DerivativeToNormal(vec2(tnoise.y, tnoise.z));
+	//vec4 heightData = texture(heightmaps[1], uv).rgba;
+	//vec3 _worldNormal = normalize(heightData.gba * 2.0 - 1.0);
+
+	vec3 _worldNormal = TerrainValues(worldPosition.xz).yzw;
+
+	//vec3 _worldNormal = worldNormal;
 	vec3 triplanarUV = worldPosition + mod(variables.terrainOffset.xyz * 10000.0, 5000.0);
 	//vec3 triplanarUV = worldPosition;
 

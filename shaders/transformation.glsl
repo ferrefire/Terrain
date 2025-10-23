@@ -9,7 +9,7 @@ vec3 WorldToClip(vec3 worldSpace)
     clipSpace /= viewSpace.w;
 
     clipSpace.xy = clipSpace.xy * 0.5 + 0.5;
-    clipSpace.z = viewSpace.w * variables.resolution.w;
+    clipSpace.z = viewSpace.w / variables.resolution.w;
 
     return (clipSpace);
 }

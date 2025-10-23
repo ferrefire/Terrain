@@ -16,6 +16,8 @@
 
 #include <iostream>
 
+const int computeCascade = 8;
+
 struct UniformData
 {
 	mat4 view;
@@ -24,6 +26,7 @@ struct UniformData
 	point4D lightDirection;
 	point4D resolution;
 	point4D terrainOffset;
+	point4D heightmapOffsets[computeCascade]{};
 };
 
 UniformData data{};
@@ -40,9 +43,20 @@ meshP32 planeLodMesh;
 //Pipeline screenPipeline;
 //meshP16 quadMesh;
 
-//Pipeline computePipeline;
-//Descriptor computeDescriptor;
+Pipeline computePipeline;
+Descriptor computeDescriptor;
+
+std::vector<Image> computeImages(computeCascade);
+
 //Image computeImage;
+//Image computeImageLod;
+//Image computeImageLod2;
+//Image computeImageLod3;
+//Image computeImageLod4;
+//Image computeImageLod5;
+//Image computeImageLod6;
+
+std::vector<Buffer> computeBuffers;
 
 Descriptor frameDescriptor;
 Descriptor materialDescriptor;
@@ -58,6 +72,9 @@ Image grass_arm;
 int terrainRadius = 8;
 int terrainLength = 2 * terrainRadius + 1;
 int terrainCount = terrainLength * terrainLength;
+
+int heightmapResolution = 2048;
+float heightmapBaseSize = 0.05;
 
 void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
@@ -107,17 +124,29 @@ void Start()
 	shapeP32 planeShape(ShapeType::Plane, shapeSettings);
 	planeMesh.Create(planeShape);
 
-	shapeSettings.resolution = 4;
+	shapeSettings.resolution = 8;
 	shapeP32 planeLodShape(ShapeType::Plane, shapeSettings);
 	planeLodMesh.Create(planeLodShape);
 
 	//quadMesh.Create(ShapeType::Quad);
 
-	//ImageConfig imageStorageConfig = Image::DefaultStorageConfig();
-	//imageStorageConfig.width = 1024;
-	//imageStorageConfig.height = 1024;
-	//imageStorageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	ImageConfig imageStorageConfig = Image::DefaultStorageConfig();
+	imageStorageConfig.width = heightmapResolution;
+	imageStorageConfig.height = heightmapResolution;
+	imageStorageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+
+	for (Image& image : computeImages)
+	{
+		image.Create(imageStorageConfig);
+	}
+
 	//computeImage.Create(imageStorageConfig);
+	//computeImageLod.Create(imageStorageConfig);
+	//computeImageLod2.Create(imageStorageConfig);
+	//computeImageLod3.Create(imageStorageConfig);
+	//computeImageLod4.Create(imageStorageConfig);
+	//computeImageLod5.Create(imageStorageConfig);
+	//computeImageLod6.Create(imageStorageConfig);
 
 	ImageConfig imageConfig = Image::DefaultConfig();
 	imageConfig.createMipmaps = true;
@@ -140,6 +169,7 @@ void Start()
 	mud_diff.Create(*loaders[0], imageConfig);
 	mud_norm.Create(*loaders[1], imageNormalConfig);
 	mud_arm.Create(*loaders[2], imageNormalConfig);
+	imageNormalConfig.samplerConfig.maxAnisotropy = 2;
 	grass_diff.Create(*loaders[3], imageConfig);
 	grass_norm.Create(*loaders[4], imageNormalConfig);
 	grass_arm.Create(*loaders[5], imageNormalConfig);
@@ -152,6 +182,7 @@ void Start()
 	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 
 		Manager::GetCamera().GetConfig().near, Manager::GetCamera().GetConfig().far);
 	data.terrainOffset = point4D(0.0);
+	data.terrainOffset.w() = 15;
 
 	BufferConfig frameBufferConfig{};
 	frameBufferConfig.mapped = true;
@@ -165,10 +196,14 @@ void Start()
 	objectBuffers.resize(Renderer::GetFrameCount());
 	for (Buffer& buffer : objectBuffers) { buffer.Create(objectBufferConfig); }
 
-	std::vector<DescriptorConfig> frameDescriptorConfigs(1);
+	std::vector<DescriptorConfig> frameDescriptorConfigs(2);
 	frameDescriptorConfigs[0].type = DescriptorType::UniformBuffer;
 	frameDescriptorConfigs[0].stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | 
 		VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
+	frameDescriptorConfigs[1].type = DescriptorType::CombinedSampler;
+	frameDescriptorConfigs[1].stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | 
+		VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
+	frameDescriptorConfigs[1].count = computeCascade;
 	frameDescriptor.Create(0, frameDescriptorConfigs);
 
 	std::vector<DescriptorConfig> materialDescriptorConfigs(2);
@@ -187,6 +222,7 @@ void Start()
 
 	frameDescriptor.GetNewSetDynamic();
 	frameDescriptor.UpdateDynamic(0, 0, Utilities::Pointerize(frameBuffers));
+	for (int i = 0; i < Renderer::GetFrameCount(); i++) frameDescriptor.Update(i, 1, Utilities::Pointerize(computeImages));
 
 	materialDescriptor.GetNewSet();
 	materialDescriptor.Update(0, 0, {&mud_diff, &mud_norm, &mud_arm});
@@ -195,12 +231,68 @@ void Start()
 	objectDescriptor.GetNewSetDynamic();
 	objectDescriptor.UpdateDynamic(0, 0, Utilities::Pointerize(objectBuffers), sizeof(mat4));
 
-	//std::vector<DescriptorConfig> computeDescriptorConfigs(1);
-	//computeDescriptorConfigs[0].type = DescriptorType::StorageImage;
-	//computeDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
-	//computeDescriptor.Create(1, computeDescriptorConfigs);
+	BufferConfig computeBufferConfig{};
+	computeBufferConfig.mapped = true;
+	computeBufferConfig.size = sizeof(point4D);
+	computeBuffers.resize(computeCascade);
+	//std::vector<point4D> cascadeSizes(computeCascade);
+	for (int i = 0; i < computeCascade; i++)
+	{
+		point4D cascadeSize = point4D(heightmapBaseSize * pow(2.0, i), i, 0.0, 0.0);
+		computeBuffers[i].Create(computeBufferConfig, &cascadeSize);
+	}
+
+	//point4D heightMapConfig = point4D(heightmapBaseSize, 0.0, 0.0, 0.0);
+	//point4D heightMapLodConfig = point4D(0.1, 0.0, 0.0, 0.0);
+	//point4D heightMapLod2Config = point4D(0.2, 0.0, 0.0, 0.0);
+	//point4D heightMapLod3Config = point4D(0.4, 0.0, 0.0, 0.0);
+	//point4D heightMapLod4Config = point4D(0.8, 0.0, 0.0, 0.0);
+	//point4D heightMapLod5Config = point4D(1.6, 0.0, 0.0, 0.0);
+	//point4D heightMapLod6Config = point4D(3.2, 0.0, 0.0, 0.0);
+
+	//computeBuffers[0].Create(computeBufferConfig, &heightMapConfig);
+	//computeBuffers[1].Create(computeBufferConfig, &heightMapLodConfig);
+	//computeBuffers[2].Create(computeBufferConfig, &heightMapLod2Config);
+	//computeBuffers[3].Create(computeBufferConfig, &heightMapLod3Config);
+	//computeBuffers[4].Create(computeBufferConfig, &heightMapLod4Config);
+	//computeBuffers[5].Create(computeBufferConfig, &heightMapLod5Config);
+	//computeBuffers[6].Create(computeBufferConfig, &heightMapLod6Config);
+
+	std::vector<DescriptorConfig> computeDescriptorConfigs(2);
+	computeDescriptorConfigs[0].type = DescriptorType::StorageImage;
+	computeDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	computeDescriptorConfigs[1].type = DescriptorType::UniformBuffer;
+	computeDescriptorConfigs[1].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	computeDescriptor.Create(1, computeDescriptorConfigs);
+
+	for (int i = 0; i < computeCascade; i++)
+	{
+		computeDescriptor.GetNewSet();
+		computeDescriptor.Update(i, 0, computeImages[i]);
+		computeDescriptor.Update(i, 1, computeBuffers[i]);
+	}
+
 	//computeDescriptor.GetNewSet();
 	//computeDescriptor.Update(0, 0, computeImage);
+	//computeDescriptor.Update(0, 1, computeBuffers[0]);
+	//computeDescriptor.GetNewSet();
+	//computeDescriptor.Update(1, 0, computeImageLod);
+	//computeDescriptor.Update(1, 1, computeBuffers[1]);
+	//computeDescriptor.GetNewSet();
+	//computeDescriptor.Update(2, 0, computeImageLod2);
+	//computeDescriptor.Update(2, 1, computeBuffers[2]);
+	//computeDescriptor.GetNewSet();
+	//computeDescriptor.Update(3, 0, computeImageLod3);
+	//computeDescriptor.Update(3, 1, computeBuffers[3]);
+	//computeDescriptor.GetNewSet();
+	//computeDescriptor.Update(4, 0, computeImageLod4);
+	//computeDescriptor.Update(4, 1, computeBuffers[4]);
+	//computeDescriptor.GetNewSet();
+	//computeDescriptor.Update(5, 0, computeImageLod5);
+	//computeDescriptor.Update(5, 1, computeBuffers[5]);
+	//computeDescriptor.GetNewSet();
+	//computeDescriptor.Update(6, 0, computeImageLod6);
+	//computeDescriptor.Update(6, 1, computeBuffers[6]);
 
 	PipelineConfig pipelineConfig = Pipeline::DefaultConfig();
 	pipelineConfig.shader = "terrain";
@@ -224,36 +316,88 @@ void Start()
 	//screenPipelineConfig.rasterization.cullMode = VK_CULL_MODE_NONE;
 	//screenPipeline.Create(screenPipelineConfig);
 
-	//PipelineConfig computePipelineConfig{};
-	//computePipelineConfig.shader = "heightmap";
-	//computePipelineConfig.type = PipelineType::Compute;
-	//computePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), computeDescriptor.GetLayout() };
-	//computePipeline.Create(computePipelineConfig);
+	PipelineConfig computePipelineConfig{};
+	computePipelineConfig.shader = "heightmap";
+	computePipelineConfig.type = PipelineType::Compute;
+	computePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), computeDescriptor.GetLayout() };
+	computePipeline.Create(computePipelineConfig);
 
 	//Manager::GetCamera().Move(point3D(-5000, 2500, 5000));
 	Manager::GetCamera().Move(point3D(0, 2500, 0));
+	//Manager::GetCamera().Move(point3D(7523.26, 643.268, 518.602));
 	//Manager::GetCamera().Move(point3D(0, 10, 0));
 
 	Renderer::RegisterCall(0, Render);
 }
 
+void Compute(int lod)
+{
+	CommandConfig commandConfig{};
+	//commandConfig.wait = false;
+	Command computeCommand(commandConfig);
+	computeCommand.Begin();
+
+	frameDescriptor.BindDynamic(0, computeCommand.GetBuffer(), computePipeline);
+
+	computeDescriptor.Bind(lod, computeCommand.GetBuffer(), computePipeline);
+	computePipeline.Bind(computeCommand.GetBuffer());
+	vkCmdDispatch(computeCommand.GetBuffer(), (heightmapResolution) / 8, (heightmapResolution) / 8, 1);
+
+	computeCommand.End();
+	computeCommand.Submit();
+
+	//std::cout << "Compute shader executed." << std::endl;
+}
+
 void Frame()
 {
+	//static int lodMoved = 0;
+	//static bool created = false;
+
 	if (Input::GetKey(GLFW_KEY_M).pressed)
 	{
 		Input::TriggerMouse();
 	}
 
-	if (abs(Manager::GetCamera().GetPosition().x()) > 1000.0)
+	if (Input::GetKey(GLFW_KEY_C).pressed)
 	{
-		data.terrainOffset.x() += std::round(Manager::GetCamera().GetPosition().x()) / 10000.0f;
+		//std::cout << Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0 << std::endl;
+		std::cout << data.terrainOffset.w() << std::endl;
+	}
+
+	if (Input::GetKey(GLFW_KEY_UP).pressed) data.terrainOffset.w() += 1;
+	if (Input::GetKey(GLFW_KEY_DOWN).pressed) data.terrainOffset.w() -= 1;
+	data.terrainOffset.w() = std::clamp(data.terrainOffset.w(), 1.0f, 20.0f);
+
+	if (abs(Manager::GetCamera().GetPosition().x()) > (heightmapBaseSize * 10000.0f * 0.125f))
+	{
+		float camOffset = std::round(Manager::GetCamera().GetPosition().x()) / 10000.0f;
+		data.terrainOffset.x() += camOffset;
 		Manager::GetCamera().Move(point3D(std::round(-Manager::GetCamera().GetPosition().x()), 0, 0));
+		//lodMoved = 0;
+
+		//std::cout << "camOffset: " << data.terrainOffset << std::endl;
 	}
-	if (abs(Manager::GetCamera().GetPosition().z()) > 1000.0)
+	if (abs(Manager::GetCamera().GetPosition().z()) > (heightmapBaseSize * 10000.0f * 0.125f))
 	{
-		data.terrainOffset.z() += std::round(Manager::GetCamera().GetPosition().z()) / 10000.0f;
+		float camOffset = std::round(Manager::GetCamera().GetPosition().z()) / 10000.0f;
+		data.terrainOffset.z() += camOffset;
 		Manager::GetCamera().Move(point3D(0, 0, std::round(-Manager::GetCamera().GetPosition().z())));
+		//lodMoved = 0;
 	}
+
+	//if (abs((data.heightmapOffsets[0].x() * 10000.0f) - Manager::GetCamera().GetPosition().x()) > 25.0)
+	//{
+	//	float camOffset = std::round(Manager::GetCamera().GetPosition().x()) / 10000.0f;
+	//	data.heightmapOffsets[0].x() = camOffset;
+	//	lodMoved = 0;
+	//}
+	//if (abs((data.heightmapOffsets[0].y() * 10000.0f) - Manager::GetCamera().GetPosition().z()) > 25.0)
+	//{
+	//	float camOffset = std::round(Manager::GetCamera().GetPosition().z()) / 10000.0f;
+	//	data.heightmapOffsets[0].y() = camOffset;
+	//	lodMoved = 0;
+	//}
 
 	glfwSetWindowTitle(Manager::GetWindow().GetData(), std::to_string(1.0 / Time::deltaTime).c_str());
 
@@ -268,6 +412,25 @@ void Frame()
 	if (Input::GetKey(GLFW_KEY_E).pressed)
 	{
 		data.resolution.z() = 1.0 - data.resolution.z();
+	}
+
+	int currentLod = -1;
+
+	for (int i = 0; i < computeCascade; i++)
+	{
+		if (fabs(data.terrainOffset.x() - data.heightmapOffsets[i].x()) > (heightmapBaseSize * pow(2.0, i)) * 0.125 || 
+			fabs(data.terrainOffset.z() - data.heightmapOffsets[i].y()) > (heightmapBaseSize * pow(2.0, i)) * 0.125)
+		{
+			currentLod = i;
+			break;
+		}
+	}
+
+	//if (lodMoved <= 5)
+	if (currentLod >= 0)
+	{
+		data.heightmapOffsets[currentLod].x() = data.terrainOffset.x();
+		data.heightmapOffsets[currentLod].y() = data.terrainOffset.z();
 	}
 
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));
@@ -292,23 +455,21 @@ void Frame()
 
 	objectBuffers[Renderer::GetCurrentFrame()].Update(models.data(), sizeof(mat4) * models.size());
 
-	/*if (Input::GetKey(GLFW_KEY_P).pressed)
+	//if (lodMoved <= 5)
+	if (currentLod >= 0)
 	{
-		CommandConfig commandConfig{};
-		commandConfig.wait = false;
-		Command computeCommand(commandConfig);
-		computeCommand.Begin();
+		//data.heightmapOffsets[lodMoved].x() = data.terrainOffset.x();
+		//data.heightmapOffsets[lodMoved].y() = data.terrainOffset.z();
+		Compute(currentLod);
+		//lodMoved = lodMoved + 1;
+		//Compute(0);
+		//Compute(1);
+		//Compute(2);
+		//Compute(3);
+		//Compute(4);
 
-		frameDescriptor.BindDynamic(0, computeCommand.GetBuffer(), computePipeline);
-		computeDescriptor.Bind(0, computeCommand.GetBuffer(), computePipeline);
-		computePipeline.Bind(computeCommand.GetBuffer());
-		vkCmdDispatch(computeCommand.GetBuffer(), 1024 / 8, 1024 / 8, 1);
-
-		computeCommand.End();
-		computeCommand.Submit();
-
-		//std::cout << "Compute shader executed." << std::endl;
-	}*/
+		//if (!created && lodMoved >= 6) created = true;
+	}
 }
 
 void End()
@@ -323,7 +484,19 @@ void End()
 	for (Buffer& buffer : objectBuffers) { buffer.Destroy(); }
 	objectBuffers.clear();
 
+	for (Buffer& buffer : computeBuffers) { buffer.Destroy(); }
+	computeBuffers.clear();
+
+	for (Image& image : computeImages) { image.Destroy(); }
+	computeImages.clear();
+
 	//computeImage.Destroy();
+	//computeImageLod.Destroy();
+	//computeImageLod2.Destroy();
+	//computeImageLod3.Destroy();
+	//computeImageLod4.Destroy();
+	//computeImageLod5.Destroy();
+	//computeImageLod6.Destroy();
 	mud_diff.Destroy();
 	mud_norm.Destroy();
 	mud_arm.Destroy();
@@ -335,10 +508,10 @@ void End()
 	frameDescriptor.Destroy();
 	materialDescriptor.Destroy();
 	objectDescriptor.Destroy();
-	//computeDescriptor.Destroy();
+	computeDescriptor.Destroy();
 	pipeline.Destroy();
 	//screenPipeline.Destroy();
-	//computePipeline.Destroy();
+	computePipeline.Destroy();
 }
 
 int main(int argc, char** argv)
@@ -347,11 +520,15 @@ int main(int argc, char** argv)
 	Manager::GetConfig().deviceConfig.anisotropic = true;
 	Manager::GetConfig().deviceConfig.tesselation = true;
 	//Manager::GetConfig().wireframe = true;
+
+	for (int i = 1; i < argc; i++) if (std::string(argv[i]) == "wf") Manager::GetConfig().wireframe = true;
+
 	Manager::Create();
 
 	CameraConfig cameraConfig = Manager::GetCamera().GetConfig();
 	cameraConfig.near = 0.1;
 	cameraConfig.far = 50000.0;
+	//cameraConfig.fov = 75;
 	Manager::GetCamera().SetConfig(cameraConfig);
 
 	Manager::RegisterStartCall(Start);
