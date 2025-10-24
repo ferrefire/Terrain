@@ -47,6 +47,7 @@ Pipeline computePipeline;
 Descriptor computeDescriptor;
 
 std::vector<Image> computeImages(computeCascade);
+Image temporaryComputeImage;
 
 //Image computeImage;
 //Image computeImageLod;
@@ -57,6 +58,7 @@ std::vector<Image> computeImages(computeCascade);
 //Image computeImageLod6;
 
 std::vector<Buffer> computeBuffers;
+std::vector<point4D> computeDatas;
 
 Descriptor frameDescriptor;
 Descriptor materialDescriptor;
@@ -75,6 +77,10 @@ int terrainCount = terrainLength * terrainLength;
 
 int heightmapResolution = 2048;
 float heightmapBaseSize = 0.05;
+int computeIterations = 1;
+int totalComputeIterations = int(pow(4, computeIterations));
+
+int currentLod = -1;
 
 void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
@@ -134,19 +140,16 @@ void Start()
 	imageStorageConfig.width = heightmapResolution;
 	imageStorageConfig.height = heightmapResolution;
 	imageStorageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	imageStorageConfig.format = VK_FORMAT_R16G16B16A16_UNORM;
+	imageStorageConfig.viewConfig.format = VK_FORMAT_R16G16B16A16_UNORM;
 
-	for (Image& image : computeImages)
-	{
-		image.Create(imageStorageConfig);
-	}
+	ImageConfig imageStorageTempConfig = imageStorageConfig;
 
-	//computeImage.Create(imageStorageConfig);
-	//computeImageLod.Create(imageStorageConfig);
-	//computeImageLod2.Create(imageStorageConfig);
-	//computeImageLod3.Create(imageStorageConfig);
-	//computeImageLod4.Create(imageStorageConfig);
-	//computeImageLod5.Create(imageStorageConfig);
-	//computeImageLod6.Create(imageStorageConfig);
+	imageStorageConfig.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	imageStorageTempConfig.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	
+	for (Image& image : computeImages) {image.Create(imageStorageConfig);}
+	temporaryComputeImage.Create(imageStorageTempConfig);
 
 	ImageConfig imageConfig = Image::DefaultConfig();
 	imageConfig.createMipmaps = true;
@@ -183,6 +186,12 @@ void Start()
 		Manager::GetCamera().GetConfig().near, Manager::GetCamera().GetConfig().far);
 	data.terrainOffset = point4D(0.0);
 	data.terrainOffset.w() = 15;
+
+	for (size_t i = 0; i < computeCascade; i++)
+	{
+		data.heightmapOffsets[i].x() = 100;
+		data.heightmapOffsets[i].y() = 100;
+	}
 
 	BufferConfig frameBufferConfig{};
 	frameBufferConfig.mapped = true;
@@ -235,28 +244,13 @@ void Start()
 	computeBufferConfig.mapped = true;
 	computeBufferConfig.size = sizeof(point4D);
 	computeBuffers.resize(computeCascade);
-	//std::vector<point4D> cascadeSizes(computeCascade);
+	computeDatas.resize(computeCascade);
 	for (int i = 0; i < computeCascade; i++)
 	{
 		point4D cascadeSize = point4D(heightmapBaseSize * pow(2.0, i), i, 0.0, 0.0);
+		computeDatas[i] = cascadeSize;
 		computeBuffers[i].Create(computeBufferConfig, &cascadeSize);
 	}
-
-	//point4D heightMapConfig = point4D(heightmapBaseSize, 0.0, 0.0, 0.0);
-	//point4D heightMapLodConfig = point4D(0.1, 0.0, 0.0, 0.0);
-	//point4D heightMapLod2Config = point4D(0.2, 0.0, 0.0, 0.0);
-	//point4D heightMapLod3Config = point4D(0.4, 0.0, 0.0, 0.0);
-	//point4D heightMapLod4Config = point4D(0.8, 0.0, 0.0, 0.0);
-	//point4D heightMapLod5Config = point4D(1.6, 0.0, 0.0, 0.0);
-	//point4D heightMapLod6Config = point4D(3.2, 0.0, 0.0, 0.0);
-
-	//computeBuffers[0].Create(computeBufferConfig, &heightMapConfig);
-	//computeBuffers[1].Create(computeBufferConfig, &heightMapLodConfig);
-	//computeBuffers[2].Create(computeBufferConfig, &heightMapLod2Config);
-	//computeBuffers[3].Create(computeBufferConfig, &heightMapLod3Config);
-	//computeBuffers[4].Create(computeBufferConfig, &heightMapLod4Config);
-	//computeBuffers[5].Create(computeBufferConfig, &heightMapLod5Config);
-	//computeBuffers[6].Create(computeBufferConfig, &heightMapLod6Config);
 
 	std::vector<DescriptorConfig> computeDescriptorConfigs(2);
 	computeDescriptorConfigs[0].type = DescriptorType::StorageImage;
@@ -268,31 +262,10 @@ void Start()
 	for (int i = 0; i < computeCascade; i++)
 	{
 		computeDescriptor.GetNewSet();
-		computeDescriptor.Update(i, 0, computeImages[i]);
+		//computeDescriptor.Update(i, 0, computeImages[i]);
+		computeDescriptor.Update(i, 0, temporaryComputeImage);
 		computeDescriptor.Update(i, 1, computeBuffers[i]);
 	}
-
-	//computeDescriptor.GetNewSet();
-	//computeDescriptor.Update(0, 0, computeImage);
-	//computeDescriptor.Update(0, 1, computeBuffers[0]);
-	//computeDescriptor.GetNewSet();
-	//computeDescriptor.Update(1, 0, computeImageLod);
-	//computeDescriptor.Update(1, 1, computeBuffers[1]);
-	//computeDescriptor.GetNewSet();
-	//computeDescriptor.Update(2, 0, computeImageLod2);
-	//computeDescriptor.Update(2, 1, computeBuffers[2]);
-	//computeDescriptor.GetNewSet();
-	//computeDescriptor.Update(3, 0, computeImageLod3);
-	//computeDescriptor.Update(3, 1, computeBuffers[3]);
-	//computeDescriptor.GetNewSet();
-	//computeDescriptor.Update(4, 0, computeImageLod4);
-	//computeDescriptor.Update(4, 1, computeBuffers[4]);
-	//computeDescriptor.GetNewSet();
-	//computeDescriptor.Update(5, 0, computeImageLod5);
-	//computeDescriptor.Update(5, 1, computeBuffers[5]);
-	//computeDescriptor.GetNewSet();
-	//computeDescriptor.Update(6, 0, computeImageLod6);
-	//computeDescriptor.Update(6, 1, computeBuffers[6]);
 
 	PipelineConfig pipelineConfig = Pipeline::DefaultConfig();
 	pipelineConfig.shader = "terrain";
@@ -332,6 +305,8 @@ void Start()
 
 void Compute(int lod)
 {
+	computeBuffers[lod].Update(&computeDatas[lod], sizeof(point4D));
+
 	CommandConfig commandConfig{};
 	//commandConfig.wait = false;
 	Command computeCommand(commandConfig);
@@ -341,10 +316,14 @@ void Compute(int lod)
 
 	computeDescriptor.Bind(lod, computeCommand.GetBuffer(), computePipeline);
 	computePipeline.Bind(computeCommand.GetBuffer());
-	vkCmdDispatch(computeCommand.GetBuffer(), (heightmapResolution) / 8, (heightmapResolution) / 8, 1);
+	//vkCmdDispatch(computeCommand.GetBuffer(), (heightmapResolution) / 8, (heightmapResolution) / 8, 1);
+	vkCmdDispatch(computeCommand.GetBuffer(), (heightmapResolution / int(pow(2, computeIterations))) / 8, 
+		(heightmapResolution / int(pow(2, computeIterations))) / 8, 1);
 
 	computeCommand.End();
 	computeCommand.Submit();
+
+	if (computeDatas[lod].w() == (totalComputeIterations - 1)) temporaryComputeImage.CopyTo(computeImages[lod]); //Add this function to the main Limcore repo!!!!!!!
 
 	//std::cout << "Compute shader executed." << std::endl;
 }
@@ -369,7 +348,7 @@ void Frame()
 	if (Input::GetKey(GLFW_KEY_DOWN).pressed) data.terrainOffset.w() -= 1;
 	data.terrainOffset.w() = std::clamp(data.terrainOffset.w(), 1.0f, 20.0f);
 
-	if (abs(Manager::GetCamera().GetPosition().x()) > (heightmapBaseSize * 10000.0f * 0.125f))
+	if (fabs(Manager::GetCamera().GetPosition().x()) > (heightmapBaseSize * 10000.0f * 0.125f))
 	{
 		float camOffset = std::round(Manager::GetCamera().GetPosition().x()) / 10000.0f;
 		data.terrainOffset.x() += camOffset;
@@ -378,7 +357,7 @@ void Frame()
 
 		//std::cout << "camOffset: " << data.terrainOffset << std::endl;
 	}
-	if (abs(Manager::GetCamera().GetPosition().z()) > (heightmapBaseSize * 10000.0f * 0.125f))
+	if (fabs(Manager::GetCamera().GetPosition().z()) > (heightmapBaseSize * 10000.0f * 0.125f))
 	{
 		float camOffset = std::round(Manager::GetCamera().GetPosition().z()) / 10000.0f;
 		data.terrainOffset.z() += camOffset;
@@ -414,44 +393,41 @@ void Frame()
 		data.resolution.z() = 1.0 - data.resolution.z();
 	}
 
-	int currentLod = -1;
-
-	for (int i = 0; i < computeCascade; i++)
+	if (currentLod >= 0)
 	{
-		if (fabs(data.terrainOffset.x() - data.heightmapOffsets[i].x()) > (heightmapBaseSize * pow(2.0, i)) * 0.125 || 
-			fabs(data.terrainOffset.z() - data.heightmapOffsets[i].y()) > (heightmapBaseSize * pow(2.0, i)) * 0.125)
+		computeDatas[currentLod].w() += 1;
+		if (computeDatas[currentLod].w() >= totalComputeIterations)
 		{
-			currentLod = i;
-			break;
+			computeDatas[currentLod].w() = 0;
+			currentLod = -1;
+		}
+	}
+
+	if (currentLod == -1)
+	{
+		for (int i = computeCascade - 1; i >= 0; i--)
+		{
+			if (fabs(data.terrainOffset.x() - data.heightmapOffsets[i].x()) > (heightmapBaseSize * pow(2.0, i)) * 0.125 || 
+				fabs(data.terrainOffset.z() - data.heightmapOffsets[i].y()) > (heightmapBaseSize * pow(2.0, i)) * 0.125)
+			{
+				currentLod = i;
+				computeDatas[currentLod].y() = data.terrainOffset.x();
+				computeDatas[currentLod].z() = data.terrainOffset.z();
+				break;
+			}
 		}
 	}
 
 	//if (lodMoved <= 5)
-	if (currentLod >= 0)
+	if (currentLod >= 0 && computeDatas[currentLod].w() == (totalComputeIterations - 1))
 	{
-		data.heightmapOffsets[currentLod].x() = data.terrainOffset.x();
-		data.heightmapOffsets[currentLod].y() = data.terrainOffset.z();
+		//data.heightmapOffsets[currentLod].x() = data.terrainOffset.x();
+		//data.heightmapOffsets[currentLod].y() = data.terrainOffset.z();
+		data.heightmapOffsets[currentLod].x() = computeDatas[currentLod].y();
+		data.heightmapOffsets[currentLod].y() = computeDatas[currentLod].z();
 	}
 
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));
-
-	//models[0] = mat4::Identity();
-	//models[0].Scale(point3D(10000, 10000, 10000));
-	//models[1] = mat4::Identity();
-	//models[1].Scale(point3D(10000, 10000, 10000));
-	//models[1].Translate(point3D(5000, 0, 5000));
-
-	//int radius = 3;
-	//for (int x = -radius; x <= radius; x++)
-	//{
-	//	for (int z = -radius; z <= radius; z++)
-	//	{
-	//		int index = (x + radius) * (radius * 2 + 1) + (z + radius); 
-	//		models[index] = mat4::Identity();
-	//		models[index].Scale(point3D(10000, 10000, 10000));
-	//		models[index].Translate(point3D(10000 * x, 0, 10000 * z));
-	//	}
-	//}
 
 	objectBuffers[Renderer::GetCurrentFrame()].Update(models.data(), sizeof(mat4) * models.size());
 
@@ -490,13 +466,8 @@ void End()
 	for (Image& image : computeImages) { image.Destroy(); }
 	computeImages.clear();
 
-	//computeImage.Destroy();
-	//computeImageLod.Destroy();
-	//computeImageLod2.Destroy();
-	//computeImageLod3.Destroy();
-	//computeImageLod4.Destroy();
-	//computeImageLod5.Destroy();
-	//computeImageLod6.Destroy();
+	temporaryComputeImage.Destroy();
+
 	mud_diff.Destroy();
 	mud_norm.Destroy();
 	mud_arm.Destroy();
@@ -521,7 +492,7 @@ int main(int argc, char** argv)
 	Manager::GetConfig().deviceConfig.tesselation = true;
 	//Manager::GetConfig().wireframe = true;
 
-	for (int i = 1; i < argc; i++) if (std::string(argv[i]) == "wf") Manager::GetConfig().wireframe = true;
+	//for (int i = 1; i < argc; i++) if (std::string(argv[i]) == "wf") Manager::GetConfig().wireframe = true;
 
 	Manager::Create();
 

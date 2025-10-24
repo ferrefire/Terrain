@@ -20,17 +20,28 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 #include "noise.glsl"
 
+const int res = 2048;
+const int iterations = 1;
+const int iterationDiv = int(pow(2, iterations));
+const int iterationRes = res / iterationDiv;
+
 void main()
 {
-	vec2 dispatchUV = vec2(float(gl_GlobalInvocationID.x) / (2048.0), float(gl_GlobalInvocationID.y) / (2048.0));
+	ivec2 invocationID = ivec2(gl_GlobalInvocationID.xy);
+	invocationID.x += iterationRes * (int(config.sizes.w) % iterationDiv);
+	invocationID.y += iterationRes * (int(config.sizes.w) / iterationDiv);
+	//if (int(config.sizes.w) % 2 == 1) invocationID.x += res / 2;
+	//if (int(config.sizes.w) / 2 > 0) invocationID.y += res / 2;
+	vec2 dispatchUV = vec2(float(invocationID.x) / float(res), float(invocationID.y) / float(res));
 	vec2 uv = (dispatchUV - vec2(0.5, 0.5)) * config.sizes.x;
 	
-	if (config.sizes.y > 0.0 && max(abs(dispatchUV.x - 0.5), abs(dispatchUV.y - 0.5)) < 0.1) return;
+	//if (config.sizes.y > 0.0 && max(abs(dispatchUV.x - 0.5), abs(dispatchUV.y - 0.5)) < 0.1) return;
 
 	//float height = TerrainData(uv + variables.terrainOffset.xz, int(variables.terrainOffset.w), true).x;
-	vec3 tnoise = TerrainData(uv + variables.terrainOffset.xz, int(variables.terrainOffset.w), 0.00001, false);
+	//vec3 tnoise = TerrainData(uv + variables.terrainOffset.xz, int(variables.terrainOffset.w), 0.00001, false);
+	vec3 tnoise = TerrainData(uv + config.sizes.yz, int(variables.terrainOffset.w), 0.00001, false);
 
 	vec3 normal = DerivativeToNormal(vec2(tnoise.y, tnoise.z)) * 0.5 + 0.5;
 
-	imageStore(target, ivec2(gl_GlobalInvocationID.xy), vec4(tnoise.x, normal.x, normal.y, normal.z));
+	imageStore(target, invocationID.xy, vec4(tnoise.x, normal.x, normal.y, normal.z));
 }
