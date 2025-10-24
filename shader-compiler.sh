@@ -13,9 +13,9 @@ if ! test -f $glslang_path; then
 	exit 1
 fi
 
-compile_shader () 
+compile_shader ()
 {
-	"$glslang_path" -V -t $1 -o $1.spv
+	"$glslang_path" -t -V --spirv-val --target-env vulkan1.3 $1 -o $1.spv
 }
 
 if [[ $@ == "ALL" ]] || [[ $@ == "all" ]]; then

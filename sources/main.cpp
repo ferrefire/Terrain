@@ -10,6 +10,7 @@
 #include "input.hpp"
 #include "time.hpp"
 #include "loader.hpp"
+#include "command.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -59,6 +60,7 @@ Image temporaryComputeImage;
 
 std::vector<Buffer> computeBuffers;
 std::vector<point4D> computeDatas;
+std::vector<Command> computeCommands;
 
 Descriptor frameDescriptor;
 Descriptor materialDescriptor;
@@ -308,6 +310,21 @@ void Start()
 	//Manager::GetCamera().Move(point3D(7523.26, 643.268, 518.602));
 	//Manager::GetCamera().Move(point3D(0, 10, 0));
 
+	computeCommands.resize(Renderer::GetFrameCount());
+
+	for (int i = 0; i < Renderer::GetFrameCount(); i++)
+	{
+		CommandConfig commandConfig{};
+		commandConfig.queueIndex = Manager::GetDevice().GetQueueIndex(QueueType::Graphics);
+		commandConfig.wait = true;
+		//commandConfig.fence = fences[i];
+		//commandConfig.waitSemaphores = {renderSemaphores[i]};
+		//commandConfig.waitDestinations = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+		//commandConfig.signalSemaphores = {presentSemaphores[i]};
+
+		computeCommands[i].Create(commandConfig, i, &Manager::GetDevice());
+	}
+
 	Renderer::RegisterCall(0, Render);
 }
 
@@ -315,26 +332,26 @@ void Compute(int lod)
 {
 	computeBuffers[lod].Update(&computeDatas[lod], sizeof(point4D));
 
-	CommandConfig commandConfig{};
-	//commandConfig.wait = false;
-	Command computeCommand(commandConfig);
-	computeCommand.Begin();
+	//CommandConfig commandConfig{};
+	////commandConfig.wait = false;
+	//Command computeCommand(commandConfig);
+	computeCommands[Renderer::GetCurrentFrame()].Begin();
 
-	frameDescriptor.BindDynamic(0, computeCommand.GetBuffer(), computePipeline);
+	frameDescriptor.BindDynamic(0, computeCommands[Renderer::GetCurrentFrame()].GetBuffer(), computePipeline);
 
-	computeDescriptor.Bind(lod, computeCommand.GetBuffer(), computePipeline);
-	computePipeline.Bind(computeCommand.GetBuffer());
-	//vkCmdDispatch(computeCommand.GetBuffer(), (heightmapResolution) / 8, (heightmapResolution) / 8, 1);
-	vkCmdDispatch(computeCommand.GetBuffer(), (heightmapResolution / int(pow(2, computeIterations))) / 8, 
+	computeDescriptor.Bind(lod, computeCommands[Renderer::GetCurrentFrame()].GetBuffer(), computePipeline);
+	computePipeline.Bind(computeCommands[Renderer::GetCurrentFrame()].GetBuffer());
+	//vkCmdDispatch(computeCommands[Renderer::GetCurrentFrame()].GetBuffer(), (heightmapResolution) / 8, (heightmapResolution) / 8, 1);
+	vkCmdDispatch(computeCommands[Renderer::GetCurrentFrame()].GetBuffer(), (heightmapResolution / int(pow(2, computeIterations))) / 8, 
 		(heightmapResolution / int(pow(2, computeIterations))) / 8, 1);
 
-	computeCommand.End();
-	computeCommand.Submit();
+	computeCommands[Renderer::GetCurrentFrame()].End();
+	computeCommands[Renderer::GetCurrentFrame()].Submit();
 
 	if (computeIterations > 0 && computeDatas[lod].w() == (totalComputeIterations - 1)) 
-		temporaryComputeImage.CopyTo(computeImages[lod]);
+		temporaryComputeImage.CopyTo(computeImages[lod], computeCommands[Renderer::GetCurrentFrame()]);
 
-	//std::cout << "Compute shader executed." << std::endl;
+	//std::cout << "Compute shader executed at: " << Time::GetCurrentTime() << std::endl;
 }
 
 void Frame()
@@ -487,6 +504,9 @@ void End()
 
 	temporaryComputeImage.Destroy();
 
+	for (Command& command : computeCommands) {command.Destroy();}
+	computeCommands.clear();
+
 	mud_diff.Destroy();
 	mud_norm.Destroy();
 	mud_arm.Destroy();
@@ -509,6 +529,7 @@ int main(int argc, char** argv)
 	Manager::ParseArguments(argv, argc);
 	Manager::GetConfig().deviceConfig.anisotropic = true;
 	Manager::GetConfig().deviceConfig.tesselation = true;
+	Manager::GetConfig().framesInFlight = 1;
 	//Manager::GetConfig().wireframe = true;
 
 	//for (int i = 1; i < argc; i++) if (std::string(argv[i]) == "wf") Manager::GetConfig().wireframe = true;
