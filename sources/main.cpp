@@ -37,8 +37,8 @@ std::vector<Buffer> objectBuffers;
 Pass pass;
 
 Pipeline pipeline;
-meshP32 planeMesh;
-meshP32 planeLodMesh;
+meshP16 planeMesh;
+meshP16 planeLodMesh;
 
 //Pipeline screenPipeline;
 //meshP16 quadMesh;
@@ -75,10 +75,14 @@ int terrainRadius = 8;
 int terrainLength = 2 * terrainRadius + 1;
 int terrainCount = terrainLength * terrainLength;
 
-int heightmapResolution = 2048;
-float heightmapBaseSize = 0.05;
-int computeIterations = 1;
+int heightmapResolution = 4096;
+float heightmapBaseSize = 0.075;
+int computeIterations = 2;
 int totalComputeIterations = int(pow(4, computeIterations));
+
+int terrainRes = 192;
+int terrainLodRes = 8;
+float terrainResetDis = 5000.0f / float(terrainLodRes);
 
 int currentLod = -1;
 
@@ -126,12 +130,12 @@ void Start()
 	Renderer::AddPass(passInfo);
 
 	ShapeSettings shapeSettings{};
-	shapeSettings.resolution = 256;
-	shapeP32 planeShape(ShapeType::Plane, shapeSettings);
+	shapeSettings.resolution = terrainRes;
+	shapeP16 planeShape(ShapeType::Plane, shapeSettings);
 	planeMesh.Create(planeShape);
 
-	shapeSettings.resolution = 8;
-	shapeP32 planeLodShape(ShapeType::Plane, shapeSettings);
+	shapeSettings.resolution = terrainLodRes;
+	shapeP16 planeLodShape(ShapeType::Plane, shapeSettings);
 	planeLodMesh.Create(planeLodShape);
 
 	//quadMesh.Create(ShapeType::Quad);
@@ -140,16 +144,18 @@ void Start()
 	imageStorageConfig.width = heightmapResolution;
 	imageStorageConfig.height = heightmapResolution;
 	imageStorageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	imageStorageConfig.format = VK_FORMAT_R16G16B16A16_UNORM;
-	imageStorageConfig.viewConfig.format = VK_FORMAT_R16G16B16A16_UNORM;
+	//imageStorageConfig.format = VK_FORMAT_R16G16B16A16_UNORM;
+	//imageStorageConfig.viewConfig.format = VK_FORMAT_R16G16B16A16_UNORM;
+	imageStorageConfig.format = VK_FORMAT_R8G8B8A8_UNORM;
+	imageStorageConfig.viewConfig.format = VK_FORMAT_R8G8B8A8_UNORM;
 
 	ImageConfig imageStorageTempConfig = imageStorageConfig;
 
-	imageStorageConfig.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	if (computeIterations > 0) imageStorageConfig.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	imageStorageTempConfig.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	
 	for (Image& image : computeImages) {image.Create(imageStorageConfig);}
-	temporaryComputeImage.Create(imageStorageTempConfig);
+	if (computeIterations > 0) temporaryComputeImage.Create(imageStorageTempConfig);
 
 	ImageConfig imageConfig = Image::DefaultConfig();
 	imageConfig.createMipmaps = true;
@@ -247,7 +253,7 @@ void Start()
 	computeDatas.resize(computeCascade);
 	for (int i = 0; i < computeCascade; i++)
 	{
-		point4D cascadeSize = point4D(heightmapBaseSize * pow(2.0, i), i, 0.0, 0.0);
+		point4D cascadeSize = point4D(heightmapBaseSize * pow(2.0, i), 0.0, 0.0, 0.0);
 		computeDatas[i] = cascadeSize;
 		computeBuffers[i].Create(computeBufferConfig, &cascadeSize);
 	}
@@ -262,8 +268,10 @@ void Start()
 	for (int i = 0; i < computeCascade; i++)
 	{
 		computeDescriptor.GetNewSet();
-		//computeDescriptor.Update(i, 0, computeImages[i]);
-		computeDescriptor.Update(i, 0, temporaryComputeImage);
+
+		if (computeIterations == 0) {computeDescriptor.Update(i, 0, computeImages[i]);}
+		else {computeDescriptor.Update(i, 0, temporaryComputeImage);}
+
 		computeDescriptor.Update(i, 1, computeBuffers[i]);
 	}
 
@@ -323,7 +331,8 @@ void Compute(int lod)
 	computeCommand.End();
 	computeCommand.Submit();
 
-	if (computeDatas[lod].w() == (totalComputeIterations - 1)) temporaryComputeImage.CopyTo(computeImages[lod]); //Add this function to the main Limcore repo!!!!!!!
+	if (computeIterations > 0 && computeDatas[lod].w() == (totalComputeIterations - 1)) 
+		temporaryComputeImage.CopyTo(computeImages[lod]);
 
 	//std::cout << "Compute shader executed." << std::endl;
 }
@@ -348,20 +357,24 @@ void Frame()
 	if (Input::GetKey(GLFW_KEY_DOWN).pressed) data.terrainOffset.w() -= 1;
 	data.terrainOffset.w() = std::clamp(data.terrainOffset.w(), 1.0f, 20.0f);
 
-	if (fabs(Manager::GetCamera().GetPosition().x()) > (heightmapBaseSize * 10000.0f * 0.125f))
+	//if (std::round(fabs(Manager::GetCamera().GetPosition().x())) > (heightmapBaseSize * 10000.0f * 0.125f))
+	if (fabs(Manager::GetCamera().GetPosition().x()) > terrainResetDis)
 	{
-		float camOffset = std::round(Manager::GetCamera().GetPosition().x()) / 10000.0f;
-		data.terrainOffset.x() += camOffset;
-		Manager::GetCamera().Move(point3D(std::round(-Manager::GetCamera().GetPosition().x()), 0, 0));
+		//float camOffset = std::round(Manager::GetCamera().GetPosition().x()) / 10000.0f;
+		float camOffset = ((int(Manager::GetCamera().GetPosition().x()) / int(terrainResetDis)) * terrainResetDis);
+		data.terrainOffset.x() += camOffset / 10000.0f;
+		Manager::GetCamera().Move(point3D(-camOffset, 0, 0));
 		//lodMoved = 0;
 
 		//std::cout << "camOffset: " << data.terrainOffset << std::endl;
 	}
-	if (fabs(Manager::GetCamera().GetPosition().z()) > (heightmapBaseSize * 10000.0f * 0.125f))
+	//if (std::round(fabs(Manager::GetCamera().GetPosition().z())) > (heightmapBaseSize * 10000.0f * 0.125f))
+	if (fabs(Manager::GetCamera().GetPosition().z()) > terrainResetDis)
 	{
-		float camOffset = std::round(Manager::GetCamera().GetPosition().z()) / 10000.0f;
-		data.terrainOffset.z() += camOffset;
-		Manager::GetCamera().Move(point3D(0, 0, std::round(-Manager::GetCamera().GetPosition().z())));
+		//float camOffset = std::round(Manager::GetCamera().GetPosition().z()) / 10000.0f;
+		float camOffset = ((int(Manager::GetCamera().GetPosition().z()) / int(terrainResetDis)) * terrainResetDis);
+		data.terrainOffset.z() += camOffset / 10000.0f;
+		Manager::GetCamera().Move(point3D(0, 0, -camOffset));
 		//lodMoved = 0;
 	}
 
@@ -393,6 +406,8 @@ void Frame()
 		data.resolution.z() = 1.0 - data.resolution.z();
 	}
 
+	if (computeIterations == 0) currentLod = -1;
+
 	if (currentLod >= 0)
 	{
 		computeDatas[currentLod].w() += 1;
@@ -407,19 +422,23 @@ void Frame()
 	{
 		for (int i = computeCascade - 1; i >= 0; i--)
 		{
-			if (fabs(data.terrainOffset.x() - data.heightmapOffsets[i].x()) > (heightmapBaseSize * pow(2.0, i)) * 0.125 || 
-				fabs(data.terrainOffset.z() - data.heightmapOffsets[i].y()) > (heightmapBaseSize * pow(2.0, i)) * 0.125)
+			//if (fabs(data.terrainOffset.x() - data.heightmapOffsets[i].x()) > (heightmapBaseSize * pow(2.0, i)) * 0.125 || 
+			//	fabs(data.terrainOffset.z() - data.heightmapOffsets[i].y()) > (heightmapBaseSize * pow(2.0, i)) * 0.125)
+			if (fabs(data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f) - data.heightmapOffsets[i].x()) > (heightmapBaseSize * pow(2.0, i)) * 0.125 || 
+				fabs(data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f) - data.heightmapOffsets[i].y()) > (heightmapBaseSize * pow(2.0, i)) * 0.125)
 			{
 				currentLod = i;
-				computeDatas[currentLod].y() = data.terrainOffset.x();
-				computeDatas[currentLod].z() = data.terrainOffset.z();
+				//computeDatas[currentLod].y() = data.terrainOffset.x();
+				//computeDatas[currentLod].z() = data.terrainOffset.z();
+				computeDatas[currentLod].y() = data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f);
+				computeDatas[currentLod].z() = data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f);
 				break;
 			}
 		}
 	}
 
 	//if (lodMoved <= 5)
-	if (currentLod >= 0 && computeDatas[currentLod].w() == (totalComputeIterations - 1))
+	if (currentLod >= 0 && (computeIterations == 0 || computeDatas[currentLod].w() == (totalComputeIterations - 1)))
 	{
 		//data.heightmapOffsets[currentLod].x() = data.terrainOffset.x();
 		//data.heightmapOffsets[currentLod].y() = data.terrainOffset.z();

@@ -68,22 +68,32 @@ void main()
 	bool cull = false;
 	vec3 centerClip = WorldToClip(center);
 
-	if (centerClip.z > 0.001)
+	if (centerClip.z > 0.01)
 	{
 		bool centerInView = InView(center, vec3(0)) == 1;
 		bool cornersInView = InView(p0, vec3(0)) == 1 || InView(p1, vec3(0)) == 1 || InView(p2, vec3(0)) == 1;
+
+		vec4 terrainValues = vec4(-1);
 
 		if (!centerInView)
 		{
 			//vec2 uv = (center.xz / 10000.0) + variables.terrainOffset.xz;
 			//float height = TerrainData(uv, int(variables.terrainOffset.w) - lod[0], true).x;
 			//float height = TerrainData(uv, int(variables.terrainOffset.w) - (lod[0] == 0 ? 0 : 5), true).x;
-			float height = TerrainValues(center.xz).r;
+			terrainValues = TerrainValues(center.xz);
+			float height = terrainValues.x;
 			center.y = (height * 0.5) * 10000.0;
 			centerInView = InView(center, vec3(0)) == 1;
 		}
 
 		cull = (!centerInView && !cornersInView);
+
+		if (!cull && lod[0] == 0)
+		{
+			//if (terrainValues.x == -1) {terrainValues = TerrainValues(center.xz);}
+			terrainValues = TerrainValuesLod(center.xz, 5);
+			if (dot(terrainValues.yzw, normalize(center - variables.viewPosition.xyz)) > 0.75) {cull = true;}
+		}
 	}
 	
 	if (cull)

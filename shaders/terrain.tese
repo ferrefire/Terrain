@@ -25,7 +25,7 @@ layout(triangles, fractional_odd_spacing, cw) in;
 layout(location = 0) patch in int patchLod;
 
 layout(location = 0) out vec3 worldPosition;
-layout(location = 1) out vec3 worldNormal;
+//layout(location = 1) out vec3 worldNormal;
 
 #include "noise.glsl"
 #include "sampling.glsl"
@@ -64,10 +64,12 @@ void main()
 	//float height = TerrainData(uv, int(variables.terrainOffset.w) - patchLod, true).x;
 	//float height = TerrainData(uv, int(variables.terrainOffset.w) - (patchLod == 0 ? 0 : 5), true).x;
 	//float height = texture(heightmaps[1], uv).r;
-	float height = TerrainValues(tesselatedPosition.xz).r;
+	//float height = TerrainValues(tesselatedPosition.xz).r;
+	vec4 heightValues = TerrainValues(tesselatedPosition.xz);
 
 	//worldNormal = DerivativeToNormal(vec2(hx, hz));
-	worldNormal = vec3(0);
+	//worldNormal = vec3(0);
+	//worldNormal = heightValues.yzw;
 
 	//float viewDistance = distance(variables.viewPosition.xyz, tesselatedPosition.xyz);
 	//float qualityInter = clamp(viewDistance, 0.0, 2500.0) / 2500.0;
@@ -77,7 +79,7 @@ void main()
 	//float height = tnoise.x;
 
 	vec3 sampledPosition = tesselatedPosition.xyz;
-	sampledPosition.y = (height * 0.5) * 10000.0;
+	sampledPosition.y = (heightValues.x * 0.5) * 10000.0;
 
 	worldPosition = sampledPosition;
 

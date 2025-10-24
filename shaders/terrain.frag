@@ -17,7 +17,7 @@ layout(set = 1, binding = 0) uniform sampler2D rockTextures[3];
 layout(set = 1, binding = 1) uniform sampler2D grassTextures[3];
 
 layout(location = 0) in vec3 worldPosition;
-layout(location = 1) in vec3 worldNormal;
+//layout(location = 1) in vec3 worldNormal;
 
 layout(location = 0) out vec4 pixelColor;
 
@@ -38,6 +38,10 @@ vec3 GetColor(sampler2D samplers[3], vec3 _worldNormal, vec3 triplanarUV, bool l
 	float roughness = arm.g;
 	float metallic = arm.b;
 	float ao = arm.r;
+
+	//vec2 cascadeDebug = TerrainCascadeLod(worldPosition.xz);
+	//if (cascadeDebug.y > 0.49) color = RandomColor(int(cascadeDebug.x));
+	//color = RandomColor(int(cascadeDebug.x));
 
 	PBRInput data;
 	data.N = normal;
@@ -80,6 +84,8 @@ void main()
 	//vec3 _worldNormal = normalize(heightData.gba * 2.0 - 1.0);
 
 	vec3 _worldNormal = TerrainValues(worldPosition.xz).yzw;
+	//if (viewDistance > 75.0) {_worldNormal = TerrainValues(worldPosition.xz).yzw;}
+	//else {_worldNormal = normalize(worldNormal);}
 
 	//vec3 _worldNormal = worldNormal;
 	vec3 triplanarUV = worldPosition + mod(variables.terrainOffset.xyz * 10000.0, 5000.0);
