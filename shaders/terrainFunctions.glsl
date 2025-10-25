@@ -31,11 +31,11 @@ vec4 TerrainValues(vec2 worldPosition)
 			//vec3 terrainNormal = DerivativeToNormal(heightData.zw * 2.0 - 1.0);
 			vec3 terrainNormal = UnpackNormal(vec4(heightData.zw, 0.0, 0.0), 1.0).xzy;
 
-			return (vec4(height, terrainNormal));
+			return (vec4(height - 0.5, terrainNormal));
 		}
 	}
 
-	return (vec4(0, 0, 1, 0));
+	return (vec4(-0.5, 0, 1, 0));
 }
 
 vec4 TerrainValuesLod(vec2 worldPosition, int targetLod)
@@ -54,10 +54,10 @@ vec4 TerrainValuesLod(vec2 worldPosition, int targetLod)
 		float height = unpackRG8ToFloat(heightData.xy);
 		vec3 terrainNormal = UnpackNormal(vec4(heightData.zw, 0.0, 0.0), 1.0).xzy;
 
-		return (vec4(height, terrainNormal));
+		return (vec4(height - 0.5, terrainNormal));
 	}
 
-	return (vec4(0, 0, 1, 0));
+	return (vec4(-0.5, 0, 1, 0));
 }
 
 vec2 TerrainCascadeLod(vec2 worldPosition)

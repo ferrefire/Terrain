@@ -226,7 +226,8 @@ vec3 fbmTest( in vec2 x, in int octaves )
     return vec3( a, d );
 }
 
-const mat2 m = mat2(0.8,-0.6,0.6,0.8);
+//const mat2 m = mat2(0.8,-0.6,0.6,0.8);
+const mat2 m = mat2(0.825,-0.6,0.6,0.825);
 const mat2 mi = mat2(0.8,0.6,-0.6,0.8);
 
 float terrain(in vec2 p, int octaves)
@@ -394,6 +395,16 @@ vec3 fbm(in vec2 uv, int octaves, float lacunarity, float gain)
 	return (result);
 }
 
+float HeightPower(float height, float power)
+{
+	//height = height * 2.0 - 1.0;
+	//float heightSign = sign(height);
+	//float result = clamp(pow(abs(height), power) * heightSign, 0.0, 1.0);
+	//result *= heightSign;
+
+	return (pow(height, power));
+}
+
 vec3 TerrainData(vec2 uv, int octaves, float sampleDis, bool heightOnly)
 {
 	//vec3 noise = valueNoiseFbm(uv + 17, 7, 4, 0.2, erode);
@@ -416,7 +427,7 @@ vec3 TerrainData(vec2 uv, int octaves, float sampleDis, bool heightOnly)
 	//float hz = -power * exp(-power * noise.x) * noise.z;
 
 	//float height = noise.x;
-	float height = pow(noise, power);
+	float height = HeightPower(noise, power);
 	vec2 derivatives = vec2(0.0);
 
 	if (!heightOnly)
@@ -434,9 +445,11 @@ vec3 TerrainData(vec2 uv, int octaves, float sampleDis, bool heightOnly)
 		//float noiseuy = terrain(uv + (vec2(0, dis)));
 		//float noisedy = terrain(uv + (vec2(0, -dis)));
 
-		noiserx = pow(terrain(uv + (vec2(dis, 0)), octaves), power);
+		//noiserx = pow(terrain(uv + (vec2(dis, 0)), octaves), power);
+		noiserx = HeightPower(terrain(uv + (vec2(dis, 0)), octaves), power);
 		//if (quality) noiselx = pow(terrain(uv + (vec2(-dis, 0)), octaves), power);
-		noiseuy = pow(terrain(uv + (vec2(0, dis)), octaves), power);
+		//noiseuy = pow(terrain(uv + (vec2(0, dis)), octaves), power);
+		noiseuy = HeightPower(terrain(uv + (vec2(0, dis)), octaves), power);
 		//if (quality) noisedy = pow(terrain(uv + (vec2(0, -dis)), octaves), power);
 		//if (quality) derivatives = vec2((noiserx - noiselx) / (dis * 2), (noiseuy - noisedy) / (dis * 2));
 		derivatives = vec2((noiserx - height) / (dis), (noiseuy - height) / (dis));

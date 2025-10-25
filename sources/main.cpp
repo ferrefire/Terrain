@@ -61,6 +61,7 @@ Image temporaryComputeImage;
 std::vector<Buffer> computeBuffers;
 std::vector<point4D> computeDatas;
 std::vector<Command> computeCommands;
+std::vector<Command> computeCopyCommands;
 
 Descriptor frameDescriptor;
 Descriptor materialDescriptor;
@@ -77,7 +78,7 @@ int terrainRadius = 8;
 int terrainLength = 2 * terrainRadius + 1;
 int terrainCount = terrainLength * terrainLength;
 
-int heightmapResolution = 4096;
+int heightmapResolution = 2048;
 float heightmapBaseSize = 0.075;
 int computeIterations = 2;
 int totalComputeIterations = int(pow(4, computeIterations));
@@ -306,12 +307,11 @@ void Start()
 	computePipeline.Create(computePipelineConfig);
 
 	//Manager::GetCamera().Move(point3D(-5000, 2500, 5000));
-	Manager::GetCamera().Move(point3D(0, 2500, 0));
+	Manager::GetCamera().Move(point3D(0, 0, 0));
 	//Manager::GetCamera().Move(point3D(7523.26, 643.268, 518.602));
 	//Manager::GetCamera().Move(point3D(0, 10, 0));
 
 	computeCommands.resize(Renderer::GetFrameCount());
-
 	for (int i = 0; i < Renderer::GetFrameCount(); i++)
 	{
 		CommandConfig commandConfig{};
@@ -321,8 +321,20 @@ void Start()
 		//commandConfig.waitSemaphores = {renderSemaphores[i]};
 		//commandConfig.waitDestinations = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 		//commandConfig.signalSemaphores = {presentSemaphores[i]};
-
 		computeCommands[i].Create(commandConfig, i, &Manager::GetDevice());
+	}
+
+	computeCopyCommands.resize(Renderer::GetFrameCount());
+	for (int i = 0; i < Renderer::GetFrameCount(); i++)
+	{
+		CommandConfig commandConfig{};
+		commandConfig.queueIndex = Manager::GetDevice().GetQueueIndex(QueueType::Graphics);
+		commandConfig.wait = false;
+		//commandConfig.fence = fences[i];
+		//commandConfig.waitSemaphores = {renderSemaphores[i]};
+		//commandConfig.waitDestinations = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+		//commandConfig.signalSemaphores = {presentSemaphores[i]};
+		computeCopyCommands[i].Create(commandConfig, i, &Manager::GetDevice());
 	}
 
 	Renderer::RegisterCall(0, Render);
@@ -349,7 +361,7 @@ void Compute(int lod)
 	computeCommands[Renderer::GetCurrentFrame()].Submit();
 
 	if (computeIterations > 0 && computeDatas[lod].w() == (totalComputeIterations - 1)) 
-		temporaryComputeImage.CopyTo(computeImages[lod], computeCommands[Renderer::GetCurrentFrame()]);
+		temporaryComputeImage.CopyTo(computeImages[lod], computeCopyCommands[Renderer::GetCurrentFrame()]);
 
 	//std::cout << "Compute shader executed at: " << Time::GetCurrentTime() << std::endl;
 }
@@ -506,6 +518,9 @@ void End()
 
 	for (Command& command : computeCommands) {command.Destroy();}
 	computeCommands.clear();
+
+	for (Command& command : computeCopyCommands) {command.Destroy();}
+	computeCopyCommands.clear();
 
 	mud_diff.Destroy();
 	mud_norm.Destroy();
