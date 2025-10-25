@@ -85,7 +85,7 @@ void main()
 	worldPosition = sampledPosition;
 
 	if (patchLod == 1) worldPosition.y -= 5.0;
-	if (patchLod == 2) worldPosition.y -= 25.0;
+	else if (patchLod == 2) worldPosition.y -= 25.0;
 
 	chunkLod = patchLod;
 
