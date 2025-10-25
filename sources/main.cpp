@@ -446,6 +446,7 @@ void Frame()
 	Manager::GetCamera().UpdateView();
 
 	data.view = Manager::GetCamera().GetView();
+	data.projection = Manager::GetCamera().GetProjection();
 	data.viewPosition = Manager::GetCamera().GetPosition();
 
 	data.resolution.x() = Manager::GetCamera().GetConfig().width;
