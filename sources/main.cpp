@@ -40,6 +40,7 @@ Pass pass;
 Pipeline pipeline;
 meshP16 planeMesh;
 meshP16 planeLodMesh;
+meshP16 planeLod2Mesh;
 
 //Pipeline screenPipeline;
 //meshP16 quadMesh;
@@ -60,6 +61,7 @@ Image temporaryComputeImage;
 
 std::vector<Buffer> computeBuffers;
 std::vector<point4D> computeDatas;
+std::vector<VkSemaphore> computeSemaphores;
 std::vector<Command> computeCommands;
 std::vector<Command> computeCopyCommands;
 
@@ -74,9 +76,13 @@ Image grass_diff;
 Image grass_norm;
 Image grass_arm;
 
-int terrainRadius = 8;
+int terrainRadius = 2;
 int terrainLength = 2 * terrainRadius + 1;
 int terrainCount = terrainLength * terrainLength;
+
+int terrainLodRadius = 8;
+int terrainLodLength = 2 * terrainLodRadius + 1;
+int terrainLodCount = terrainLodLength * terrainLodLength;
 
 int heightmapResolution = 2048;
 float heightmapBaseSize = 0.075;
@@ -84,8 +90,9 @@ int computeIterations = 2;
 int totalComputeIterations = int(pow(4, computeIterations));
 
 int terrainRes = 192;
-int terrainLodRes = 8;
-float terrainResetDis = 5000.0f / float(terrainLodRes);
+int terrainLodRes = 16;
+int terrainLod2Res = 8;
+float terrainResetDis = 5000.0f / float(terrainLod2Res);
 
 int currentLod = -1;
 
@@ -106,8 +113,11 @@ void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 	//vkCmdDrawIndexed(commandBuffer, planeMesh.GetIndices().size(), 1, 0, 0, 0);
 
 	planeLodMesh.Bind(commandBuffer);
-	//objectDescriptor.BindDynamic(0, commandBuffer, pipeline, 0 * sizeof(mat4));
 	vkCmdDrawIndexed(commandBuffer, planeLodMesh.GetIndices().size(), terrainCount - 1, 0, 0, 1);
+
+	planeLod2Mesh.Bind(commandBuffer);
+	vkCmdDrawIndexed(commandBuffer, planeLod2Mesh.GetIndices().size(), terrainLodCount - terrainCount, 0, 0, terrainCount);
+	//vkCmdDrawIndexed(commandBuffer, planeLodMesh.GetIndices().size(), terrainCount - 1, 0, 0, 1);
 	//for (size_t i = 0; i < models.size(); i++)
 	//{
 	//	if (i == centerIndex) continue;
@@ -140,6 +150,10 @@ void Start()
 	shapeSettings.resolution = terrainLodRes;
 	shapeP16 planeLodShape(ShapeType::Plane, shapeSettings);
 	planeLodMesh.Create(planeLodShape);
+
+	shapeSettings.resolution = terrainLod2Res;
+	shapeP16 planeLod2Shape(ShapeType::Plane, shapeSettings);
+	planeLod2Mesh.Create(planeLod2Shape);
 
 	//quadMesh.Create(ShapeType::Quad);
 
@@ -311,16 +325,22 @@ void Start()
 	//Manager::GetCamera().Move(point3D(7523.26, 643.268, 518.602));
 	//Manager::GetCamera().Move(point3D(0, 10, 0));
 
+	VkSemaphoreCreateInfo semaphoreCreateInfo{};
+	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	computeSemaphores.resize(Renderer::GetFrameCount());
+	for (int i = 0; i < Renderer::GetFrameCount(); i++)
+	{
+		if (vkCreateSemaphore(Manager::GetDevice().GetLogicalDevice(), &semaphoreCreateInfo, nullptr, &computeSemaphores[i]) != VK_SUCCESS)
+			throw (std::runtime_error("Failed to create render semaphore"));
+	}
+
 	computeCommands.resize(Renderer::GetFrameCount());
 	for (int i = 0; i < Renderer::GetFrameCount(); i++)
 	{
 		CommandConfig commandConfig{};
 		commandConfig.queueIndex = Manager::GetDevice().GetQueueIndex(QueueType::Graphics);
-		commandConfig.wait = true;
-		//commandConfig.fence = fences[i];
-		//commandConfig.waitSemaphores = {renderSemaphores[i]};
-		//commandConfig.waitDestinations = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-		//commandConfig.signalSemaphores = {presentSemaphores[i]};
+		commandConfig.wait = false;
+		commandConfig.signalSemaphores = {computeSemaphores[i]};
 		computeCommands[i].Create(commandConfig, i, &Manager::GetDevice());
 	}
 
@@ -330,10 +350,9 @@ void Start()
 		CommandConfig commandConfig{};
 		commandConfig.queueIndex = Manager::GetDevice().GetQueueIndex(QueueType::Graphics);
 		commandConfig.wait = false;
-		//commandConfig.fence = fences[i];
-		//commandConfig.waitSemaphores = {renderSemaphores[i]};
-		//commandConfig.waitDestinations = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-		//commandConfig.signalSemaphores = {presentSemaphores[i]};
+		commandConfig.waitSemaphores = {computeSemaphores[i]};
+		commandConfig.waitDestinations = {VK_PIPELINE_STAGE_TRANSFER_BIT};
+		commandConfig.signalSemaphores = {computeSemaphores[i]};
 		computeCopyCommands[i].Create(commandConfig, i, &Manager::GetDevice());
 	}
 
@@ -342,6 +361,8 @@ void Start()
 
 void Compute(int lod)
 {
+	Renderer::AddFrameSemaphore(computeSemaphores[Renderer::GetCurrentFrame()], VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
+
 	computeBuffers[lod].Update(&computeDatas[lod], sizeof(point4D));
 
 	//CommandConfig commandConfig{};
@@ -500,6 +521,7 @@ void End()
 {
 	planeMesh.Destroy();
 	planeLodMesh.Destroy();
+	planeLod2Mesh.Destroy();
 	//quadMesh.Destroy();
 
 	for (Buffer& buffer : frameBuffers) { buffer.Destroy(); }
@@ -515,6 +537,9 @@ void End()
 	computeImages.clear();
 
 	temporaryComputeImage.Destroy();
+
+	for (VkSemaphore& semaphore : computeSemaphores) {vkDestroySemaphore(Manager::GetDevice().GetLogicalDevice(), semaphore, nullptr);}
+	computeSemaphores.clear();
 
 	for (Command& command : computeCommands) {command.Destroy();}
 	computeCommands.clear();

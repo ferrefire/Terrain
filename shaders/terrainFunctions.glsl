@@ -26,6 +26,7 @@ vec4 TerrainValues(vec2 worldPosition)
 			heightData = texture(heightmaps[i], uv + 0.5).rgba;
 
 			float height = unpackRG8ToFloat(heightData.xy);
+			//float height = unpackRG16ToFloat(heightData.xy);
 
 			//vec3 terrainNormal = normalize(heightData.gba * 2.0 - 1.0);
 			//vec3 terrainNormal = DerivativeToNormal(heightData.zw * 2.0 - 1.0);
@@ -52,6 +53,7 @@ vec4 TerrainValuesLod(vec2 worldPosition, int targetLod)
 		uv = uv / size;
 		heightData = texture(heightmaps[i], uv + 0.5).rgba;
 		float height = unpackRG8ToFloat(heightData.xy);
+		//float height = unpackRG16ToFloat(heightData.xy);
 		vec3 terrainNormal = UnpackNormal(vec4(heightData.zw, 0.0, 0.0), 1.0).xzy;
 
 		return (vec4(height - 0.5, terrainNormal));

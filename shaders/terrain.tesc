@@ -35,12 +35,12 @@ layout(location = 0) patch out int patchLod;
 
 const float tesselationFactor = 10;
 
-float TessellationFactor (vec3 p0, vec3 p1)
+float TessellationFactor (vec3 p0, vec3 p1, float factor)
 {
     float edgeLength = distance(p0, p1);
     vec3 edgeCenter = (p0 + p1) * 0.5;
     float viewDistance = distance(edgeCenter, variables.viewPosition.xyz);
-    return (edgeLength * variables.resolution.y * (1.0 / (tesselationFactor * viewDistance)));
+    return (edgeLength * variables.resolution.y * (1.0 / (factor * viewDistance)));
 }
 
 float TessellationFactorScreen (vec3 p0, vec3 p1, float factor)
@@ -82,7 +82,7 @@ void main()
 			//float height = TerrainData(uv, int(variables.terrainOffset.w) - (lod[0] == 0 ? 0 : 5), true).x;
 			terrainValues = TerrainValues(center.xz);
 			float height = terrainValues.x;
-			center.y = (height * 0.5) * 10000.0;
+			center.y = height * 5000.0;
 			centerInView = InView(center, vec3(0)) == 1;
 		}
 
@@ -90,8 +90,8 @@ void main()
 
 		if (!cull && lod[0] == 0)
 		{
-			//if (terrainValues.x == -1) {terrainValues = TerrainValues(center.xz);}
-			terrainValues = TerrainValuesLod(center.xz, 5);
+			if (terrainValues.x == -1) {terrainValues = TerrainValues(center.xz);}
+			//terrainValues = TerrainValuesLod(center.xz, 5);
 			if (dot(terrainValues.yzw, normalize(center - variables.viewPosition.xyz)) > 0.75) {cull = true;}
 		}
 	}
@@ -105,12 +105,13 @@ void main()
 	}
 	else
 	{
-		//float factor = 15;
-		//if (lod[0] == 0) factor = 20;
+		float factor = 20;
+		if (lod[0] == 1) factor = 15;
+		if (lod[0] == 0) factor = 10;
 
-		float tessLevel1 = TessellationFactor(p1, p2);
-    	float tessLevel2 = TessellationFactor(p2, p0);
-    	float tessLevel3 = TessellationFactor(p0, p1);
+		float tessLevel1 = TessellationFactor(p1, p2, factor);
+    	float tessLevel2 = TessellationFactor(p2, p0, factor);
+    	float tessLevel3 = TessellationFactor(p0, p1, factor);
 
 		//vec3 p0CS = WorldToClip(p0);
 		//vec3 p1CS = WorldToClip(p1);

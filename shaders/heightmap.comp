@@ -47,6 +47,7 @@ void main()
 	//vec2 derivatives = vec2(tnoise.y, tnoise.z) * 0.5 + 0.5;
 	vec2 derivatives = normal.xz;
 	vec2 packedHeight = packFloatToRG8(tnoise.x);
+	//vec2 packedHeight = packFloatToRG16(tnoise.x);
 
 	//imageStore(target, invocationID.xy, vec4(tnoise.x, normal.x, normal.y, normal.z));
 	imageStore(target, invocationID.xy, vec4(packedHeight.xy, derivatives.xy));

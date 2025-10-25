@@ -17,6 +17,7 @@ layout(set = 1, binding = 0) uniform sampler2D rockTextures[3];
 layout(set = 1, binding = 1) uniform sampler2D grassTextures[3];
 
 layout(location = 0) in vec3 worldPosition;
+layout(location = 1) flat in int chunkLod;
 //layout(location = 1) in vec3 worldNormal;
 
 layout(location = 0) out vec4 pixelColor;
@@ -41,7 +42,7 @@ vec3 GetColor(sampler2D samplers[3], vec3 _worldNormal, vec3 triplanarUV, bool l
 
 	//vec2 cascadeDebug = TerrainCascadeLod(worldPosition.xz);
 	//if (cascadeDebug.y > 0.49) color = RandomColor(int(cascadeDebug.x));
-	//color = RandomColor(int(cascadeDebug.x));
+	//color = RandomColor(chunkLod);
 
 	PBRInput data;
 	data.N = normal;
@@ -64,7 +65,7 @@ vec3 GetColor(sampler2D samplers[3], vec3 _worldNormal, vec3 triplanarUV, bool l
 void main()
 {
 	//vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz;
-	vec2 uv = (worldPosition.xz / 5000.0) + 0.5;
+	//vec2 uv = (worldPosition.xz / 5000.0) + 0.5;
 	//vec3 noise = fbm2D_withDeriv(uv + 2, 6, 4, 0.2);
 	//vec3 noise = fbm(uv + 2, 6, 3.75, 0.2);
 
@@ -74,8 +75,8 @@ void main()
 	//float hz = power * pow(noise.x, power - 1) * noise.z;
 
 	float viewDistance = distance(variables.viewPosition.xyz, worldPosition);
-	float qualityInter = clamp(viewDistance, 0.0, 2500.0) / 2500.0;
-	int qualityDescrease = int(round(mix(0, 5, qualityInter)));
+	//float qualityInter = clamp(viewDistance, 0.0, 2500.0) / 2500.0;
+	//int qualityDescrease = int(round(mix(0, 5, qualityInter)));
 
 	//vec3 tnoise = TerrainData(uv, int(variables.terrainOffset.w) - qualityDescrease, false);
 	//vec3 _worldNormal = DerivativeToNormal(vec2(tnoise.y, tnoise.z));
