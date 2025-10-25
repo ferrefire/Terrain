@@ -84,7 +84,7 @@ int terrainLodRadius = 8;
 int terrainLodLength = 2 * terrainLodRadius + 1;
 int terrainLodCount = terrainLodLength * terrainLodLength;
 
-int heightmapResolution = 2048;
+int heightmapResolution = 4096;
 float heightmapBaseSize = 0.075;
 int computeIterations = 2;
 int totalComputeIterations = int(pow(4, computeIterations));

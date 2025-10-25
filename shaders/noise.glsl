@@ -416,7 +416,7 @@ vec3 TerrainData(vec2 uv, int octaves, float sampleDis, bool heightOnly)
 	//vec3 noise = fbm(uv, 5, 2, 0.5);
 	//noise.x += 0.5;
 
-	const float power = 2.0;
+	const float power = 1.5;
 	//const float power = 1.0;
 	//float height = pow(noise.x, power);
 	//float hx = power * pow(noise.x, power - 1) * noise.y;
