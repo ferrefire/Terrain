@@ -178,10 +178,12 @@ void Start()
 	imageConfig.createMipmaps = true;
 	imageConfig.samplerConfig.anisotropyEnabled = VK_TRUE;
 	imageConfig.samplerConfig.maxAnisotropy = 2;
+	imageConfig.samplerConfig.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 	ImageConfig imageNormalConfig = Image::DefaultNormalConfig();
 	imageNormalConfig.createMipmaps = true;
 	imageNormalConfig.samplerConfig.anisotropyEnabled = VK_TRUE;
 	imageNormalConfig.samplerConfig.maxAnisotropy = 8;
+	imageNormalConfig.samplerConfig.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 
 	std::vector<ImageLoader*> loaders = ImageLoader::LoadImages({
 		{"rock_diff", ImageType::Jpg},
@@ -208,7 +210,8 @@ void Start()
 	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 
 		Manager::GetCamera().GetConfig().near, Manager::GetCamera().GetConfig().far);
 	data.terrainOffset = point4D(0.0);
-	data.terrainOffset.w() = 15;
+	//data.terrainOffset.w() = 15;
+	data.terrainOffset.w() = 0;
 
 	for (size_t i = 0; i < computeCascade; i++)
 	{
@@ -270,7 +273,8 @@ void Start()
 	computeDatas.resize(computeCascade);
 	for (int i = 0; i < computeCascade; i++)
 	{
-		point4D cascadeSize = point4D(heightmapBaseSize * pow(2.0, i), 0.0, 0.0, 0.0);
+		//point4D cascadeSize = point4D(heightmapBaseSize * pow(2.0, i), 0.0, 0.0, 0.0);
+		point4D cascadeSize = point4D(i, 0.0, 0.0, 0.0);
 		computeDatas[i] = cascadeSize;
 		computeBuffers[i].Create(computeBufferConfig, &cascadeSize);
 	}
@@ -405,7 +409,7 @@ void Frame()
 
 	if (Input::GetKey(GLFW_KEY_UP).pressed) data.terrainOffset.w() += 1;
 	if (Input::GetKey(GLFW_KEY_DOWN).pressed) data.terrainOffset.w() -= 1;
-	data.terrainOffset.w() = std::clamp(data.terrainOffset.w(), 1.0f, 20.0f);
+	data.terrainOffset.w() = std::clamp(data.terrainOffset.w(), 0.0f, 2.0f);
 
 	//if (std::round(fabs(Manager::GetCamera().GetPosition().x())) > (heightmapBaseSize * 10000.0f * 0.125f))
 	if (fabs(Manager::GetCamera().GetPosition().x()) > terrainResetDis)

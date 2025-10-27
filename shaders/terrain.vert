@@ -23,6 +23,8 @@ layout(location = 0) in vec3 localPosition;
 //layout(location = 1) out vec3 worldNormal;
 
 layout(location = 0) flat out int lod;
+layout(location = 1) out float lodInter;
+layout(location = 2) out vec4 vertTerrainValues;
 
 #include "noise.glsl"
 #include "sampling.glsl"
@@ -41,12 +43,18 @@ const float terrainSize = 5000.0;
 void main()
 {
 	//vec3 worldPosition = (object.model * vec4(localPosition, 1.0)).xyz;
+	//float scaleMult = 1.0;
+	//if (gl_InstanceIndex == 0) {scaleMult = 1.01;}
+	//vec3 worldPosition = (localPosition * scaleMult) * terrainSize;
 	vec3 worldPosition = localPosition * terrainSize;
 	int instanceIndex = gl_InstanceIndex;
 	int xi = terrainRadius;
 	int yi = terrainRadius;
 	//lod = gl_InstanceIndex;
 	lod = 0;
+	lodInter = 0.0;
+
+	int chunkLod = 0;
 	if (gl_InstanceIndex > 0)
 	{
 		if (gl_InstanceIndex < terrainCount)
@@ -57,16 +65,15 @@ void main()
 			xi = instanceIndex % terrainLength;
 			yi = instanceIndex / terrainLength;
 			worldPosition += vec3(xi - terrainRadius, 0.0, yi - terrainRadius) * terrainSize;
+			worldPosition += vec3(sign(xi - terrainRadius), 0.0, sign(yi - terrainRadius)) * terrainSize * -0.01;
+			//worldPosition += vec3(xi - terrainRadius, 0.0, yi - terrainRadius) * terrainSize * -0.01;
+			chunkLod = max(abs(xi - terrainRadius), abs(yi - terrainRadius));
 		}
 		else if (gl_InstanceIndex < terrainLodCount)
 		{
 			lod = 2;
 			instanceIndex -= terrainCount;
-			//if (instanceIndex >= terrainRadius * terrainLength + terrainRadius) instanceIndex += 1;
-			//xi = instanceIndex % terrainLodLength;
-			//if (abs(xi - terrainLodRadius) < terrainRadius) instanceIndex += terrainRadius;
-			//int add = (-1 + terrainLodRadius) * terrainLodLength + (-1 + terrainLodRadius);
-
+			
 			for (int i = -terrainRadius; i <= terrainRadius; i++)
 			{
 				if (instanceIndex < (i + terrainLodRadius) * terrainLodLength + (-terrainRadius + terrainLodRadius)) {break;}
@@ -74,17 +81,16 @@ void main()
 				instanceIndex += terrainLength;
 			}
 
-			//if (instanceIndex >= (-1 + terrainLodRadius) * terrainLodLength + (-1 + terrainLodRadius)) {instanceIndex += terrainLength;}
-			//if (instanceIndex >= (0 + terrainLodRadius) * terrainLodLength + (-1 + terrainLodRadius)) {instanceIndex += terrainLength;}
-			//if (instanceIndex >= (1 + terrainLodRadius) * terrainLodLength + (-1 + terrainLodRadius)) {instanceIndex += terrainLength;}
 			xi = instanceIndex % terrainLodLength;
 			yi = instanceIndex / terrainLodLength;
-			//if (abs(xi - terrainLodRadius) <= 1 && abs(yi - terrainLodRadius) <= 1) {instanceIndex += terrainLength;}
-			//xi = instanceIndex % terrainLodLength;
-			//yi = instanceIndex / terrainLodLength;
 			worldPosition += vec3(xi - terrainLodRadius, 0.0, yi - terrainLodRadius) * terrainSize;
+			worldPosition += vec3(sign(xi - terrainLodRadius), 0.0, sign(yi - terrainLodRadius)) * terrainSize * -0.05;
+			//worldPosition += vec3(xi - terrainLodRadius, 0.0, yi - terrainLodRadius) * terrainSize * -0.05;
+			chunkLod = max(abs(xi - terrainLodRadius), abs(yi - terrainLodRadius));
 		}
 	}
+
+	lodInter = float(chunkLod) / float(terrainLodRadius);
 
 	//vec2 uv = localPosition.xz + 0.5;
 	//vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz;
@@ -99,13 +105,15 @@ void main()
 	//float height = TerrainData(uv, int(variables.terrainOffset.w) - lod, true).x;
 	//float height = TerrainData(uv, int(variables.terrainOffset.w) - (lod == 0 ? 0 : 5), true).x;
 	//float height = texture(heightmaps[1], uv).r;
-	float height = TerrainValues(worldPosition.xz).r;
+	//float height = TerrainValues(worldPosition.xz).r;
+	vec4 terrainValues = TerrainValues(worldPosition.xz);
+	vertTerrainValues = terrainValues;
 
 	//worldNormal = (object.model * vec4(DerivativeToNormal(vec2(hx, hz)), 0.0)).xyz;
 
 	//vec3 sampledPosition = localPosition;
 	//sampledPosition.y += height * 0.5;
-	worldPosition.y = height * 5000.0;
+	worldPosition.y = terrainValues.x * 5000.0;
 
 	//vec3 worldPosition = (object.model * vec4(sampledPosition, 1.0)).xyz;
 	gl_Position = vec4(worldPosition, 1.0);

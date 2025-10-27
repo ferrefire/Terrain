@@ -17,13 +17,13 @@ vec4 TerrainValues(vec2 worldPosition)
 
 	for (int i = 0; i < cascadeCount; i++)
 	{
-		uv = worldPosition / 10000.0 - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz);
+		uv = worldPosition * 0.0001 - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz);
 		float size = baseDistance * pow(2.0, i);
 		if (max(abs(uv.x), abs(uv.y)) < (size * 0.5))
 		{
 			uv = uv / size;
 
-			heightData = texture(heightmaps[i], uv + 0.5).rgba;
+			heightData = textureLod(heightmaps[i], uv + 0.5, 0).rgba;
 
 			float height = unpackRG8ToFloat(heightData.xy);
 			//float height = unpackRG16ToFloat(heightData.xy);
@@ -46,12 +46,12 @@ vec4 TerrainValuesLod(vec2 worldPosition, int targetLod)
 
 	targetLod = clamp(targetLod, 0, cascadeCount - 1);
 	int i = targetLod;
-	uv = worldPosition / 10000.0 - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz);
+	uv = worldPosition * 0.0001 - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz);
 	float size = baseDistance * pow(2.0, i);
 	if (max(abs(uv.x), abs(uv.y)) < (size * 0.5))
 	{
 		uv = uv / size;
-		heightData = texture(heightmaps[i], uv + 0.5).rgba;
+		heightData = textureLod(heightmaps[i], uv + 0.5, 0).rgba;
 		float height = unpackRG8ToFloat(heightData.xy);
 		//float height = unpackRG16ToFloat(heightData.xy);
 		vec3 terrainNormal = UnpackNormal(vec4(heightData.zw, 0.0, 0.0), 1.0).xzy;
@@ -62,22 +62,24 @@ vec4 TerrainValuesLod(vec2 worldPosition, int targetLod)
 	return (vec4(-0.5, 0, 1, 0));
 }
 
-vec2 TerrainCascadeLod(vec2 worldPosition)
+float TerrainCascadeLod(vec2 worldPosition)
 {
 	vec2 uv;
 
 	for (int i = 0; i < cascadeCount; i++)
 	{
-		uv = worldPosition / 10000.0 - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz);
+		uv = worldPosition * 0.0001 - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz);
 		float size = baseDistance * pow(2.0, i);
 		if (max(abs(uv.x), abs(uv.y)) < (size * 0.5))
 		{
 			uv = uv / size;
-			return vec2(i, max(abs(uv.x), abs(uv.y)));
+			//return vec2(i, max(abs(uv.x), abs(uv.y)));
+			return (float(i) + max(abs(uv.x), abs(uv.y)) * 2.0);
 		}
 	}
 
-	return (vec2(cascadeCount, 0));
+	//return (vec2(cascadeCount, 0));
+	return (cascadeCount);
 }
 
 #endif

@@ -22,7 +22,9 @@ layout(set = 0, binding = 0) uniform Variables
 //layout(location = 0) out vec3 worldPosition;
 //layout(location = 1) out vec3 worldNormal;
 
-layout(location = 0) flat in  int lod[];
+layout(location = 0) flat in int lod[];
+layout(location = 1) in float lodInter[];
+layout(location = 2) in vec4 vertTerrainValues[];
 
 layout(vertices = 3) out;
 layout(location = 0) patch out int patchLod;
@@ -40,7 +42,8 @@ float TessellationFactor (vec3 p0, vec3 p1, float factor)
     float edgeLength = distance(p0, p1);
     vec3 edgeCenter = (p0 + p1) * 0.5;
     float viewDistance = distance(edgeCenter, variables.viewPosition.xyz);
-    return (edgeLength * variables.resolution.y * (1.0 / (factor * viewDistance)));
+    //return (edgeLength * variables.resolution.y * (1.0 / (factor * viewDistance)));
+    return (edgeLength * 1000.0 * (1.0 / (tesselationFactor * viewDistance)));
 }
 
 float TessellationFactorScreen (vec3 p0, vec3 p1, float factor)
@@ -55,6 +58,26 @@ float TessellationFactorDepth (vec3 p, float factor)
     float result = (1.0 - p.z) * (variables.resolution.y / factor);
 
 	return (max(1, result));
+}
+
+bool CullWinding(vec3 pos, vec4 terrainValues)
+{
+	//vec4 terrainValues = vec4(0);
+	float cullAngle = 0.4;
+	//if (lod[0] > 0) cullAngle = 0.75;
+
+	//if (lod[0] == 0) {terrainValues = TerrainValuesLod(pos.xz, cascadeCount - 2);}
+	//else {terrainValues = TerrainValues(pos.xz);}
+
+	//else if (terrainValues.x == -1) {terrainValues = TerrainValues(center.xz);}
+
+	//terrainValues = TerrainValues(pos.xz);
+	//terrainValues = TerrainValuesLod(pos.xz, cascadeCount);
+
+	//if (lod[0] == 1) {cullAngle = 0.75;}
+	//if (lod[0] == 2) {cullAngle = 0.75;}
+
+	return (dot(terrainValues.yzw, normalize(pos - variables.viewPosition.xyz)) > cullAngle);
 }
 
 void main()
@@ -88,11 +111,23 @@ void main()
 
 		cull = (!centerInView && !cornersInView);
 
-		if (!cull && lod[0] == 0)
+		//if (!cull && lod[0] <= 1)
+		if (!cull)
 		{
+			/*//if (terrainValues.x == -1) {terrainValues = TerrainValues(center.xz);}
+			float cullAngle = 0.5;
+			//if (lod[0] > 0) cullAngle = 0.75;
+			if (lod[0] == 0) {terrainValues = TerrainValuesLod(center.xz, cascadeCount - 2);}
+			else if (terrainValues.x == -1) {terrainValues = TerrainValues(center.xz);}
+
+			if (lod[0] == 1) {cullAngle = 0.75;}
+			if (lod[0] == 2) {cullAngle = 0.75;}
+
+			if (dot(terrainValues.yzw, normalize(center - variables.viewPosition.xyz)) > cullAngle) {cull = true;}*/
+
+			//if (CullWinding(center) && CullWinding(p0) && CullWinding(p1) && CullWinding(p2)) {cull = true;}
 			if (terrainValues.x == -1) {terrainValues = TerrainValues(center.xz);}
-			//terrainValues = TerrainValuesLod(center.xz, 5);
-			if (dot(terrainValues.yzw, normalize(center - variables.viewPosition.xyz)) > 0.75) {cull = true;}
+			if (CullWinding(center, terrainValues) && CullWinding(p0, vertTerrainValues[0]) && CullWinding(p1, vertTerrainValues[1]) && CullWinding(p2, vertTerrainValues[2])) {cull = true;}
 		}
 	}
 	
@@ -106,8 +141,13 @@ void main()
 	else
 	{
 		float factor = 20;
-		if (lod[0] == 1) factor = 15;
-		if (lod[0] == 0) factor = 10;
+		//if (lod[0] == 1) factor = 15;
+		//if (lod[0] == 0) factor = 10;
+
+		//factor -= 5;
+
+		//if (lod[0] == 2 && lodInter[0])
+		//factor = mix(10, 20, lodInter[0]);
 
 		float tessLevel1 = TessellationFactor(p1, p2, factor);
     	float tessLevel2 = TessellationFactor(p2, p0, factor);
