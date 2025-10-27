@@ -112,9 +112,9 @@ vec3 SampleNormal(sampler2D textureSampler, vec2 uv, vec3 normal)
 {	
 	vec3 weights = GetWeights(normal, 1.0);
 
-	vec3 tangentX = UnpackNormal(texture(textureSampler, uv), 2);
-	vec3 tangentY = UnpackNormal(texture(textureSampler, uv), 2);
-	vec3 tangentZ = UnpackNormal(texture(textureSampler, uv), 2);
+	vec3 tangentX = UnpackNormal(texture(textureSampler, uv), 1);
+	vec3 tangentY = UnpackNormal(texture(textureSampler, uv), 1);
+	vec3 tangentZ = UnpackNormal(texture(textureSampler, uv), 1);
 
 	tangentX = vec3(tangentX.xy + normal.zy, abs(tangentX.z) * normal.x);
 	tangentY = vec3(tangentY.xy + normal.xz, abs(tangentY.z) * normal.y);

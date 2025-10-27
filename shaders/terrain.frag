@@ -100,7 +100,7 @@ void main()
 
 	PBRInput data;
 	data.V = normalize(variables.viewPosition.xyz - worldPosition);
-	data.L = variables.lightDirection.xyz;
+	data.L = normalize(variables.lightDirection.xyz);
 	data.lightColor = vec3(1.0, 0.9, 0.7) * 4;
 
 	vec3 weights = GetWeights(_worldNormal, 2.0);
