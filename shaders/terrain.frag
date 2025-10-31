@@ -32,7 +32,7 @@ layout(location = 0) out vec4 pixelColor;
 const float rockSteepness = 0.15;
 const float drySteepness = 0.1;
 const float rockTransition = 0.075;
-const float dryTransition = 0.05;
+const float dryTransition = 0.025;
 //const float steepnessHalfTransition = steepnessTransition * 0.5;
 
 vec3 GetColor(sampler2D samplers[3], PBRInput data, vec3 weights, vec3 _worldNormal, vec3 triplanarUV, bool lod)
@@ -119,7 +119,7 @@ void main()
 	vec3 arm = vec3(1, 1, 0);
 
 	//if (steepness <= rockSteepness + steepnessHalfTransition)
-
+	float viewInter = clamp(viewDistance / 10000.0, 0.0, 1.0);
 	
 	if (steepness <= drySteepness)
 	{
@@ -135,13 +135,16 @@ void main()
 		//diffuse *= 1.0 - strength;
 		//diffuse += GetColor(dryTextures, data, weights, _worldNormal, triplanarUV * 0.1, false) * (strength);
 
+		float scale = 0.1;
+		if (viewInter < 0.0025) scale = 0.25;
+
 		color *= 1.0 - strength;
 		normal *= 1.0 - strength;
 		arm *= 1.0 - strength;
 
-		color += SampleTriplanarColor(dryTextures[0], triplanarUV * 0.1, weights) * strength;
-		normal += SampleTriplanarNormal(dryTextures[1], triplanarUV * 0.1, weights, _worldNormal, 1.0) * strength;
-		arm += SampleTriplanarColor(dryTextures[2], triplanarUV * 0.1, weights) * strength;
+		color += SampleTriplanarColor(dryTextures[0], triplanarUV * scale, weights) * strength;
+		normal += SampleTriplanarNormal(dryTextures[1], triplanarUV * scale, weights, _worldNormal, 1.0) * strength;
+		arm += SampleTriplanarColor(dryTextures[2], triplanarUV * scale, weights) * strength;
 	}
 	if (steepness > rockSteepness - rockTransition)
 	{
@@ -149,13 +152,18 @@ void main()
 		//diffuse *= 1.0 - strength;
 		//diffuse += GetColor(rockTextures, data, weights, _worldNormal, triplanarUV * 0.005, false) * (strength);
 
+		float scale = 0.001;
+		if (viewInter < 0.25) scale = 0.005;
+		if (viewInter < 0.0075) scale = 0.1;
+		if (viewInter < 0.0025) scale = 0.2;
+
 		color *= 1.0 - strength;
 		normal *= 1.0 - strength;
 		arm *= 1.0 - strength;
 
-		color += SampleTriplanarColor(rockTextures[0], triplanarUV * 0.005, weights) * strength;
-		normal += SampleTriplanarNormal(rockTextures[1], triplanarUV * 0.005, weights, _worldNormal, 1.0) * strength;
-		arm += SampleTriplanarColor(rockTextures[2], triplanarUV * 0.005, weights) * strength;
+		color += SampleTriplanarColor(rockTextures[0], triplanarUV * scale, weights) * strength;
+		normal += SampleTriplanarNormal(rockTextures[1], triplanarUV * scale, weights, _worldNormal, 1.0) * strength;
+		arm += SampleTriplanarColor(rockTextures[2], triplanarUV * scale, weights) * strength;
 	}
 
 	float roughness = arm.g;
