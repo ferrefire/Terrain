@@ -15,6 +15,7 @@ layout(set = 0, binding = 0) uniform Variables
 
 layout(set = 1, binding = 0) uniform sampler2D rockTextures[3];
 layout(set = 1, binding = 1) uniform sampler2D grassTextures[3];
+layout(set = 1, binding = 2) uniform sampler2D dryTextures[3];
 
 layout(location = 0) in vec3 worldPosition;
 layout(location = 1) flat in int chunkLod;
@@ -27,6 +28,12 @@ layout(location = 0) out vec4 pixelColor;
 #include "functions.glsl"
 #include "noise.glsl"
 #include "terrainFunctions.glsl"
+
+const float rockSteepness = 0.15;
+const float drySteepness = 0.1;
+const float rockTransition = 0.075;
+const float dryTransition = 0.05;
+//const float steepnessHalfTransition = steepnessTransition * 0.5;
 
 vec3 GetColor(sampler2D samplers[3], PBRInput data, vec3 weights, vec3 _worldNormal, vec3 triplanarUV, bool lod)
 {
@@ -103,21 +110,84 @@ void main()
 	data.L = normalize(variables.lightDirection.xyz);
 	data.lightColor = vec3(1.0, 0.9, 0.7) * 4;
 
-	vec3 weights = GetWeights(_worldNormal, 2.0);
+	vec3 weights = GetWeights(_worldNormal, 4.0);
 
 	vec3 diffuse = vec3(0);
-	if (steepness <= 0.18)
+
+	vec3 color = vec3(0.0);
+	vec3 normal = vec3(0.0, 1.0, 0.0);
+	vec3 arm = vec3(1, 1, 0);
+
+	//if (steepness <= rockSteepness + steepnessHalfTransition)
+
+	
+	if (steepness <= drySteepness)
 	{
-		float strength = 1.0 - clamp(steepness - 0.12, 0.0, 0.06) / 0.06;
-		//diffuse += GetColor(grassTextures, _worldNormal, triplanarUV, viewDistance > 1000.0) * strength;
-		diffuse += GetColor(grassTextures, data, weights, _worldNormal, triplanarUV, viewDistance > 1000.0) * strength;
+		//diffuse = GetColor(grassTextures, data, weights, _worldNormal, triplanarUV, false);
+
+		color = SampleTriplanarColor(grassTextures[0], triplanarUV, weights);
+		normal = SampleTriplanarNormal(grassTextures[1], triplanarUV, weights, _worldNormal, 1.0);
+		arm = SampleTriplanarColor(grassTextures[2], triplanarUV, weights);
 	}
-	if (steepness >= 0.12)
+	if (steepness > drySteepness - dryTransition && steepness <= rockSteepness)
 	{
-		float strength = 1.0 - clamp(0.18 - steepness, 0.0, 0.06) / 0.06;
+		float strength = clamp(steepness - (drySteepness - dryTransition), 0.0, dryTransition) / dryTransition;
+		//diffuse *= 1.0 - strength;
+		//diffuse += GetColor(dryTextures, data, weights, _worldNormal, triplanarUV * 0.1, false) * (strength);
+
+		color *= 1.0 - strength;
+		normal *= 1.0 - strength;
+		arm *= 1.0 - strength;
+
+		color += SampleTriplanarColor(dryTextures[0], triplanarUV * 0.1, weights) * strength;
+		normal += SampleTriplanarNormal(dryTextures[1], triplanarUV * 0.1, weights, _worldNormal, 1.0) * strength;
+		arm += SampleTriplanarColor(dryTextures[2], triplanarUV * 0.1, weights) * strength;
+	}
+	if (steepness > rockSteepness - rockTransition)
+	{
+		float strength = clamp(steepness - (rockSteepness - rockTransition), 0.0, rockTransition) / rockTransition;
+		//diffuse *= 1.0 - strength;
+		//diffuse += GetColor(rockTextures, data, weights, _worldNormal, triplanarUV * 0.005, false) * (strength);
+
+		color *= 1.0 - strength;
+		normal *= 1.0 - strength;
+		arm *= 1.0 - strength;
+
+		color += SampleTriplanarColor(rockTextures[0], triplanarUV * 0.005, weights) * strength;
+		normal += SampleTriplanarNormal(rockTextures[1], triplanarUV * 0.005, weights, _worldNormal, 1.0) * strength;
+		arm += SampleTriplanarColor(rockTextures[2], triplanarUV * 0.005, weights) * strength;
+	}
+
+	float roughness = arm.g;
+	float metallic = arm.b;
+	float ao = arm.r;
+
+	data.N = normalize(normal);
+	//data.V = normalize(variables.viewPosition.xyz - worldPosition);
+	//data.L = variables.lightDirection.xyz;
+	data.albedo = color;
+	data.metallic = metallic;
+	data.roughness = roughness;
+
+	diffuse = PBRLighting(data);
+
+	vec3 ambientDiffuse = 0.15 * color * vec3(1.0, 0.9, 0.7);
+	vec3 ambient = ambientDiffuse * ao;
+	diffuse += ambient;
+
+	/*if (steepness <= rockSteepness + steepnessHalfTransition)
+	{
+		float strength = 1.0 - clamp(steepness - (rockSteepness - steepnessHalfTransition), 0.0, steepnessTransition) / steepnessTransition;
+		//diffuse += GetColor(grassTextures, _worldNormal, triplanarUV, viewDistance > 1000.0) * strength;
+		//diffuse += GetColor(grassTextures, data, weights, _worldNormal, triplanarUV, viewDistance > 1000.0) * strength;
+		diffuse += GetColor(grassTextures, data, weights, _worldNormal, triplanarUV, false) * strength;
+	}
+	if (steepness >= rockSteepness - steepnessHalfTransition)
+	{
+		float strength = 1.0 - clamp((rockSteepness + steepnessHalfTransition) - steepness, 0.0, steepnessTransition) / steepnessTransition;
 		//diffuse += GetColor(rockTextures, _worldNormal, triplanarUV * 0.005, false) * strength;
 		diffuse += GetColor(rockTextures, data, weights, _worldNormal, triplanarUV * 0.005, false) * strength;
-	}
+	}*/
 
 	//if (steepness <= 0.15)
 	//{

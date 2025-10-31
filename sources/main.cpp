@@ -49,7 +49,7 @@ Pipeline computePipeline;
 Descriptor computeDescriptor;
 
 std::vector<Image> computeImages(computeCascade);
-Image temporaryComputeImage;
+std::vector<Image> temporaryComputeImages(2);
 
 //Image computeImage;
 //Image computeImageLod;
@@ -69,12 +69,20 @@ Descriptor frameDescriptor;
 Descriptor materialDescriptor;
 Descriptor objectDescriptor;
 
-Image mud_diff;
-Image mud_norm;
-Image mud_arm;
+Image rock_diff;
+Image rock_norm;
+Image rock_arm;
 Image grass_diff;
 Image grass_norm;
 Image grass_arm;
+Image dry_diff;
+Image dry_norm;
+Image dry_arm;
+
+//VkQueryPool timestampPool;
+//int queryCount = 2;
+//double nsPerTick;
+//bool timeStamped = false;
 
 int terrainRadius = 2;
 int terrainLength = 2 * terrainRadius + 1;
@@ -84,7 +92,7 @@ int terrainLodRadius = 8;
 int terrainLodLength = 2 * terrainLodRadius + 1;
 int terrainLodCount = terrainLodLength * terrainLodLength;
 
-int heightmapResolution = 4096;
+int heightmapResolution = 2048;
 float heightmapBaseSize = 0.075;
 int computeIterations = 2;
 int totalComputeIterations = int(pow(4, computeIterations));
@@ -161,18 +169,25 @@ void Start()
 	imageStorageConfig.width = heightmapResolution;
 	imageStorageConfig.height = heightmapResolution;
 	imageStorageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	//imageStorageConfig.format = VK_FORMAT_R16G16B16A16_UNORM;
-	//imageStorageConfig.viewConfig.format = VK_FORMAT_R16G16B16A16_UNORM;
-	imageStorageConfig.format = VK_FORMAT_R8G8B8A8_UNORM;
-	imageStorageConfig.viewConfig.format = VK_FORMAT_R8G8B8A8_UNORM;
+	imageStorageConfig.format = VK_FORMAT_R16G16B16A16_UNORM;
+	imageStorageConfig.viewConfig.format = VK_FORMAT_R16G16B16A16_UNORM;
+	//imageStorageConfig.format = VK_FORMAT_R8G8B8A8_UNORM;
+	//imageStorageConfig.viewConfig.format = VK_FORMAT_R8G8B8A8_UNORM;
 
 	ImageConfig imageStorageTempConfig = imageStorageConfig;
 
 	if (computeIterations > 0) imageStorageConfig.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	imageStorageTempConfig.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	
-	for (Image& image : computeImages) {image.Create(imageStorageConfig);}
-	if (computeIterations > 0) temporaryComputeImage.Create(imageStorageTempConfig);
+	computeImages[0].Create(imageStorageConfig);
+	imageStorageConfig.format = VK_FORMAT_R8G8B8A8_UNORM;
+	imageStorageConfig.viewConfig.format = VK_FORMAT_R8G8B8A8_UNORM;
+	for (size_t i = 1; i < computeImages.size(); i++) {computeImages[i].Create(imageStorageConfig);}
+
+	temporaryComputeImages[0].Create(imageStorageTempConfig);
+	imageStorageTempConfig.format = VK_FORMAT_R8G8B8A8_UNORM;
+	imageStorageTempConfig.viewConfig.format = VK_FORMAT_R8G8B8A8_UNORM;
+	temporaryComputeImages[1].Create(imageStorageTempConfig);
 
 	ImageConfig imageConfig = Image::DefaultConfig();
 	imageConfig.createMipmaps = true;
@@ -192,15 +207,21 @@ void Start()
 		{"rocky_terrain_diff", ImageType::Jpg},
 		{"rocky_terrain_norm", ImageType::Jpg},
 		{"rocky_terrain_arm", ImageType::Jpg},
+		{"grassy_rocks_diff", ImageType::Jpg},
+		{"grassy_rocks_norm", ImageType::Jpg},
+		{"grassy_rocks_arm", ImageType::Jpg},
 	});
 
-	mud_diff.Create(*loaders[0], imageConfig);
-	mud_norm.Create(*loaders[1], imageNormalConfig);
-	mud_arm.Create(*loaders[2], imageNormalConfig);
+	rock_diff.Create(*loaders[0], imageConfig);
+	rock_norm.Create(*loaders[1], imageNormalConfig);
+	rock_arm.Create(*loaders[2], imageNormalConfig);
 	imageNormalConfig.samplerConfig.maxAnisotropy = 2;
 	grass_diff.Create(*loaders[3], imageConfig);
 	grass_norm.Create(*loaders[4], imageNormalConfig);
 	grass_arm.Create(*loaders[5], imageNormalConfig);
+	dry_diff.Create(*loaders[6], imageConfig);
+	dry_norm.Create(*loaders[7], imageNormalConfig);
+	dry_arm.Create(*loaders[8], imageNormalConfig);
 
 	for (size_t i = 0; i < loaders.size(); i++) {delete (loaders[i]);}
 	loaders.clear();
@@ -241,13 +262,16 @@ void Start()
 	frameDescriptorConfigs[1].count = computeCascade;
 	frameDescriptor.Create(0, frameDescriptorConfigs);
 
-	std::vector<DescriptorConfig> materialDescriptorConfigs(2);
+	std::vector<DescriptorConfig> materialDescriptorConfigs(3);
 	materialDescriptorConfigs[0].type = DescriptorType::CombinedSampler;
 	materialDescriptorConfigs[0].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 	materialDescriptorConfigs[0].count = 3;
 	materialDescriptorConfigs[1].type = DescriptorType::CombinedSampler;
 	materialDescriptorConfigs[1].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 	materialDescriptorConfigs[1].count = 3;
+	materialDescriptorConfigs[2].type = DescriptorType::CombinedSampler;
+	materialDescriptorConfigs[2].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+	materialDescriptorConfigs[2].count = 3;
 	materialDescriptor.Create(1, materialDescriptorConfigs);
 
 	std::vector<DescriptorConfig> objectDescriptorConfigs(1);
@@ -260,8 +284,9 @@ void Start()
 	for (int i = 0; i < Renderer::GetFrameCount(); i++) frameDescriptor.Update(i, 1, Utilities::Pointerize(computeImages));
 
 	materialDescriptor.GetNewSet();
-	materialDescriptor.Update(0, 0, {&mud_diff, &mud_norm, &mud_arm});
+	materialDescriptor.Update(0, 0, {&rock_diff, &rock_norm, &rock_arm});
 	materialDescriptor.Update(0, 1, {&grass_diff, &grass_norm, &grass_arm});
+	materialDescriptor.Update(0, 2, {&dry_diff, &dry_norm, &dry_arm});
 
 	objectDescriptor.GetNewSetDynamic();
 	objectDescriptor.UpdateDynamic(0, 0, Utilities::Pointerize(objectBuffers), sizeof(mat4));
@@ -279,21 +304,30 @@ void Start()
 		computeBuffers[i].Create(computeBufferConfig, &cascadeSize);
 	}
 
-	std::vector<DescriptorConfig> computeDescriptorConfigs(2);
+	std::vector<DescriptorConfig> computeDescriptorConfigs(3);
 	computeDescriptorConfigs[0].type = DescriptorType::StorageImage;
 	computeDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
-	computeDescriptorConfigs[1].type = DescriptorType::UniformBuffer;
+	computeDescriptorConfigs[1].type = DescriptorType::StorageImage;
 	computeDescriptorConfigs[1].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	computeDescriptorConfigs[2].type = DescriptorType::UniformBuffer;
+	computeDescriptorConfigs[2].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	computeDescriptor.Create(1, computeDescriptorConfigs);
 
 	for (int i = 0; i < computeCascade; i++)
 	{
 		computeDescriptor.GetNewSet();
 
-		if (computeIterations == 0) {computeDescriptor.Update(i, 0, computeImages[i]);}
-		else {computeDescriptor.Update(i, 0, temporaryComputeImage);}
+		if (computeIterations == 0)
+		{
+			computeDescriptor.Update(i, 0, computeImages[i]);
+		}
+		else
+		{
+			computeDescriptor.Update(i, 0, temporaryComputeImages[0]);
+			computeDescriptor.Update(i, 1, temporaryComputeImages[1]);
+		}
 
-		computeDescriptor.Update(i, 1, computeBuffers[i]);
+		computeDescriptor.Update(i, 2, computeBuffers[i]);
 	}
 
 	PipelineConfig pipelineConfig = Pipeline::DefaultConfig();
@@ -360,6 +394,19 @@ void Start()
 		computeCopyCommands[i].Create(commandConfig, i, &Manager::GetDevice());
 	}
 
+	/*VkPhysicalDeviceProperties props;
+	vkGetPhysicalDeviceProperties(Manager::GetDevice().GetPhysicalDevice(), &props);
+	nsPerTick = props.limits.timestampPeriod;
+
+	VkQueryPoolCreateInfo timestampPoolInfo{};
+	timestampPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+	timestampPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	timestampPoolInfo.queryCount = queryCount;
+
+	vkCreateQueryPool(Manager::GetDevice().GetLogicalDevice(), &timestampPoolInfo, nullptr, &timestampPool);
+
+	//vkResetQueryPool(Manager::GetDevice().GetLogicalDevice(), timestampPool, 0, queryCount);*/
+
 	Renderer::RegisterCall(0, Render);
 }
 
@@ -374,6 +421,10 @@ void Compute(int lod)
 	//Command computeCommand(commandConfig);
 	computeCommands[Renderer::GetCurrentFrame()].Begin();
 
+	//vkCmdResetQueryPool(computeCommands[Renderer::GetCurrentFrame()].GetBuffer(), timestampPool, 0, queryCount);
+	//vkCmdWriteTimestamp(computeCommands[Renderer::GetCurrentFrame()].GetBuffer(), 
+	//	VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, timestampPool, 0);
+
 	frameDescriptor.BindDynamic(0, computeCommands[Renderer::GetCurrentFrame()].GetBuffer(), computePipeline);
 
 	computeDescriptor.Bind(lod, computeCommands[Renderer::GetCurrentFrame()].GetBuffer(), computePipeline);
@@ -382,11 +433,25 @@ void Compute(int lod)
 	vkCmdDispatch(computeCommands[Renderer::GetCurrentFrame()].GetBuffer(), (heightmapResolution / int(pow(2, computeIterations))) / 8, 
 		(heightmapResolution / int(pow(2, computeIterations))) / 8, 1);
 
+	//vkCmdWriteTimestamp(computeCommands[Renderer::GetCurrentFrame()].GetBuffer(), 
+	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, timestampPool, 1);
+
 	computeCommands[Renderer::GetCurrentFrame()].End();
 	computeCommands[Renderer::GetCurrentFrame()].Submit();
 
 	if (computeIterations > 0 && computeDatas[lod].w() == (totalComputeIterations - 1)) 
-		temporaryComputeImage.CopyTo(computeImages[lod], computeCopyCommands[Renderer::GetCurrentFrame()]);
+	{
+		if (lod == 0)
+		{
+			temporaryComputeImages[0].CopyTo(computeImages[lod], computeCopyCommands[Renderer::GetCurrentFrame()]);
+		}
+		else
+		{
+			temporaryComputeImages[1].CopyTo(computeImages[lod], computeCopyCommands[Renderer::GetCurrentFrame()]);
+		}
+	}
+
+	//timeStamped = true;
 
 	//std::cout << "Compute shader executed at: " << Time::GetCurrentTime() << std::endl;
 }
@@ -400,6 +465,21 @@ void Frame()
 	{
 		Input::TriggerMouse();
 	}
+
+	/*if (timeStamped)
+	{
+		std::vector<uint64_t> timestamps(queryCount);
+		vkGetQueryPoolResults(Manager::GetDevice().GetLogicalDevice(), timestampPool, 0, queryCount, 
+			sizeof(uint64_t) * queryCount, timestamps.data(), sizeof(uint64_t), 
+			VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+
+		double timestampDuration  = (timestamps[1] - timestamps[0]) * nsPerTick / 1e6;
+		std::cout << "Compute duration: " << timestampDuration << std::endl;
+
+		//vkResetQueryPool(Manager::GetDevice().GetLogicalDevice(), timestampPool, 0, queryCount);
+	}
+
+	timeStamped = false;*/
 
 	if (Input::GetKey(GLFW_KEY_C).pressed)
 	{
@@ -524,6 +604,8 @@ void Frame()
 
 void End()
 {
+	//vkDestroyQueryPool(Manager::GetDevice().GetLogicalDevice(), timestampPool, nullptr);
+
 	planeMesh.Destroy();
 	planeLodMesh.Destroy();
 	planeLod2Mesh.Destroy();
@@ -541,7 +623,10 @@ void End()
 	for (Image& image : computeImages) { image.Destroy(); }
 	computeImages.clear();
 
-	temporaryComputeImage.Destroy();
+	for (Image& image : temporaryComputeImages) { image.Destroy(); }
+	temporaryComputeImages.clear();
+
+	//temporaryComputeImage.Destroy();
 
 	for (VkSemaphore& semaphore : computeSemaphores) {vkDestroySemaphore(Manager::GetDevice().GetLogicalDevice(), semaphore, nullptr);}
 	computeSemaphores.clear();
@@ -552,12 +637,15 @@ void End()
 	for (Command& command : computeCopyCommands) {command.Destroy();}
 	computeCopyCommands.clear();
 
-	mud_diff.Destroy();
-	mud_norm.Destroy();
-	mud_arm.Destroy();
+	rock_diff.Destroy();
+	rock_norm.Destroy();
+	rock_arm.Destroy();
 	grass_diff.Destroy();
 	grass_norm.Destroy();
 	grass_arm.Destroy();
+	dry_diff.Destroy();
+	dry_norm.Destroy();
+	dry_arm.Destroy();
 
 	pass.Destroy();
 	frameDescriptor.Destroy();

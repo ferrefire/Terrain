@@ -45,9 +45,12 @@ vec3 SampleTriplanarColor(sampler2D textureSampler, vec3 uv, vec3 weights, bool 
 	uvy.y *= -1;
 	uvz.y *= -1;
 
-	vec3 xz = (texture(textureSampler, uvy).rgb);
-	vec3 xy = (texture(textureSampler, uvz).rgb);
-	vec3 zy = (texture(textureSampler, uvx).rgb);
+	vec3 xz = vec3(0.0);
+	vec3 xy = vec3(0.0);
+	vec3 zy = vec3(0.0);
+	if (weights.y > 0.001) xz = (texture(textureSampler, uvy).rgb);
+	if (weights.z > 0.001) xy = (texture(textureSampler, uvz).rgb);
+	if (weights.x > 0.001) zy = (texture(textureSampler, uvx).rgb);
 	vec3 result = xz * weights.y + xy * weights.z + zy * weights.x;
 
 	return (result);
@@ -75,9 +78,12 @@ vec3 SampleTriplanarNormal(sampler2D textureSampler, vec3 uv, vec3 weights, vec3
 	uvy.y *= -1;
 	uvz.y *= -1;
 
-	vec3 tangentX = UnpackNormal(texture(textureSampler, uvx), power);
-	vec3 tangentY = UnpackNormal(texture(textureSampler, uvy), power);
-	vec3 tangentZ = UnpackNormal(texture(textureSampler, uvz), power);
+	vec3 tangentX = vec3(0.0, 1.0, 0.0);
+	vec3 tangentY = vec3(0.0, 1.0, 0.0);
+	vec3 tangentZ = vec3(0.0, 1.0, 0.0);
+	if (weights.x > 0.001) tangentX = UnpackNormal(texture(textureSampler, uvx), power);
+	if (weights.y > 0.001) tangentY = UnpackNormal(texture(textureSampler, uvy), power);
+	if (weights.z > 0.001) tangentZ = UnpackNormal(texture(textureSampler, uvz), power);
 
 	tangentX = vec3(tangentX.xy + normal.zy, abs(tangentX.z) * normal.x);
 	tangentY = vec3(tangentY.xy + normal.xz, abs(tangentY.z) * normal.y);
