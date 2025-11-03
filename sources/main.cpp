@@ -484,7 +484,7 @@ void Frame()
 	if (Input::GetKey(GLFW_KEY_C).pressed)
 	{
 		//std::cout << Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0 << std::endl;
-		std::cout << data.terrainOffset.w() << std::endl;
+		std::cout << Manager::GetCamera().GetPosition().y() << std::endl;
 	}
 
 	if (Input::GetKey(GLFW_KEY_UP).pressed) data.terrainOffset.w() += 1;

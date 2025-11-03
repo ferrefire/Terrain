@@ -73,6 +73,29 @@ vec3 GetColor(sampler2D samplers[3], PBRInput data, vec3 weights, vec3 _worldNor
 	return (diffuse);
 }
 
+struct TextureData
+{
+	vec3 color;
+	vec3 normal;
+	vec3 arm;
+	vec3 weights;
+	vec3 uv;
+	vec3 baseNormal;
+};
+
+void SampleSteepnessTexture(sampler2D samplers[3], inout TextureData textureData, float strength, float scale)
+{
+	float inverseStrength = (1.0 - strength);
+
+	textureData.color *= inverseStrength;
+	textureData.normal *= inverseStrength;
+	textureData.arm *= inverseStrength;
+
+	textureData.color += SampleTriplanarColor(samplers[0], textureData.uv * scale, textureData.weights) * strength;
+	textureData.normal += SampleTriplanarNormal(samplers[1], textureData.uv * scale, textureData.weights, textureData.baseNormal, 1.0) * strength;
+	textureData.arm += SampleTriplanarColor(samplers[2], textureData.uv * scale, textureData.weights) * strength;
+}
+
 void main()
 {
 	//vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz;
@@ -110,26 +133,37 @@ void main()
 	data.L = normalize(variables.lightDirection.xyz);
 	data.lightColor = vec3(1.0, 0.9, 0.7) * 4;
 
-	vec3 weights = GetWeights(_worldNormal, 4.0);
+	//vec3 weights = GetWeights(_worldNormal, 4.0);
 
 	vec3 diffuse = vec3(0);
 
-	vec3 color = vec3(0.0);
-	vec3 normal = vec3(0.0, 1.0, 0.0);
-	vec3 arm = vec3(1, 1, 0);
+	//vec3 color = vec3(0.0);
+	//vec3 normal = vec3(0.0, 1.0, 0.0);
+	//vec3 arm = vec3(1, 1, 0);
+
+	TextureData textureData;
+	textureData.color = vec3(0.0);
+	textureData.normal = vec3(0.0, 1.0, 0.0);
+	textureData.arm = vec3(1, 1, 0);
+	textureData.uv = triplanarUV;
+	textureData.baseNormal = _worldNormal;
+	textureData.weights = GetWeights(_worldNormal, 4.0);
 
 	//if (steepness <= rockSteepness + steepnessHalfTransition)
 	float viewInter = clamp(viewDistance / 10000.0, 0.0, 1.0);
 	
-	if (steepness <= drySteepness)
+	//if (steepness <= drySteepness)
+	if (steepness <= rockSteepness)
 	{
 		//diffuse = GetColor(grassTextures, data, weights, _worldNormal, triplanarUV, false);
 
-		color = SampleTriplanarColor(grassTextures[0], triplanarUV, weights);
-		normal = SampleTriplanarNormal(grassTextures[1], triplanarUV, weights, _worldNormal, 1.0);
-		arm = SampleTriplanarColor(grassTextures[2], triplanarUV, weights);
+		//color = SampleTriplanarColor(grassTextures[0], triplanarUV, weights);
+		//normal = SampleTriplanarNormal(grassTextures[1], triplanarUV, weights, _worldNormal, 1.0);
+		//arm = SampleTriplanarColor(grassTextures[2], triplanarUV, weights);
+
+		SampleSteepnessTexture(grassTextures, textureData, 1.0, 0.5);
 	}
-	if (steepness > drySteepness - dryTransition && steepness <= rockSteepness)
+	/*if (steepness > drySteepness - dryTransition && steepness <= rockSteepness)
 	{
 		float strength = clamp(steepness - (drySteepness - dryTransition), 0.0, dryTransition) / dryTransition;
 		//diffuse *= 1.0 - strength;
@@ -138,14 +172,15 @@ void main()
 		float scale = 0.1;
 		if (viewInter < 0.0025) scale = 0.25;
 
-		color *= 1.0 - strength;
-		normal *= 1.0 - strength;
-		arm *= 1.0 - strength;
+		//color *= 1.0 - strength;
+		//normal *= 1.0 - strength;
+		//arm *= 1.0 - strength;
+		//color += SampleTriplanarColor(dryTextures[0], triplanarUV * scale, weights) * strength;
+		//normal += SampleTriplanarNormal(dryTextures[1], triplanarUV * scale, weights, _worldNormal, 1.0) * strength;
+		//arm += SampleTriplanarColor(dryTextures[2], triplanarUV * scale, weights) * strength;
 
-		color += SampleTriplanarColor(dryTextures[0], triplanarUV * scale, weights) * strength;
-		normal += SampleTriplanarNormal(dryTextures[1], triplanarUV * scale, weights, _worldNormal, 1.0) * strength;
-		arm += SampleTriplanarColor(dryTextures[2], triplanarUV * scale, weights) * strength;
-	}
+		SampleSteepnessTexture(dryTextures, textureData, strength, scale);
+	}*/
 	if (steepness > rockSteepness - rockTransition)
 	{
 		float strength = clamp(steepness - (rockSteepness - rockTransition), 0.0, rockTransition) / rockTransition;
@@ -157,29 +192,38 @@ void main()
 		if (viewInter < 0.0075) scale = 0.1;
 		if (viewInter < 0.0025) scale = 0.2;
 
-		color *= 1.0 - strength;
-		normal *= 1.0 - strength;
-		arm *= 1.0 - strength;
+		//color *= 1.0 - strength;
+		//normal *= 1.0 - strength;
+		//arm *= 1.0 - strength;
+		//color += SampleTriplanarColor(rockTextures[0], triplanarUV * scale, weights) * strength;
+		//normal += SampleTriplanarNormal(rockTextures[1], triplanarUV * scale, weights, _worldNormal, 1.0) * strength;
+		//arm += SampleTriplanarColor(rockTextures[2], triplanarUV * scale, weights) * strength;
 
-		color += SampleTriplanarColor(rockTextures[0], triplanarUV * scale, weights) * strength;
-		normal += SampleTriplanarNormal(rockTextures[1], triplanarUV * scale, weights, _worldNormal, 1.0) * strength;
-		arm += SampleTriplanarColor(rockTextures[2], triplanarUV * scale, weights) * strength;
+		SampleSteepnessTexture(rockTextures, textureData, strength, scale);
 	}
 
-	float roughness = arm.g;
-	float metallic = arm.b;
-	float ao = arm.r;
+	if (variables.terrainOffset.w > 0)
+	{
+		float cascadeDebug = TerrainCascadeLod(worldPosition.xz);
+		if (variables.terrainOffset.w == 1 && mod(cascadeDebug, 1.0) > 0.99) {textureData.color = RandomColor(int(floor(cascadeDebug)));}
+		else if (variables.terrainOffset.w == 2) {textureData.color = RandomColor(int(floor(cascadeDebug)));}
+		//color = RandomColor(chunkLod);
+	}
 
-	data.N = normalize(normal);
+	float roughness = textureData.arm.g;
+	float metallic = textureData.arm.b;
+	float ao = textureData.arm.r;
+
+	data.N = normalize(textureData.normal);
 	//data.V = normalize(variables.viewPosition.xyz - worldPosition);
 	//data.L = variables.lightDirection.xyz;
-	data.albedo = color;
+	data.albedo = textureData.color;
 	data.metallic = metallic;
 	data.roughness = roughness;
 
 	diffuse = PBRLighting(data);
 
-	vec3 ambientDiffuse = 0.15 * color * vec3(1.0, 0.9, 0.7);
+	vec3 ambientDiffuse = 0.15 * textureData.color * vec3(1.0, 0.9, 0.7);
 	vec3 ambient = ambientDiffuse * ao;
 	diffuse += ambient;
 
@@ -250,9 +294,8 @@ void main()
 	//float fog = viewDistance / variables.resolution.w;
 	//vec3 finalColor = mix(diffuse, vec3(0.75), clamp(pow(fog, 1), 0.0, 1.0));
 
-	//int total = int(floor(abs(worldPosition.x) * 0.01) * 100 + floor(abs(worldPosition.z) * 0.01) * 100);
-
-	//finalColor *= (total % 1000 == 0 ? 0.0 : 1.0);
+	//int total = int(floor(abs(worldPosition.x) * 0.2) * 5 + floor(abs(worldPosition.z) * 0.2) * 5);
+	//finalColor *= (total % 2 == 0 ? 1.0 : 0.75);
 
 	pixelColor = vec4(finalColor, 1.0);
 	//pixelColor = vec4(normal * 0.5 + 0.5, 1.0);
