@@ -28,18 +28,18 @@ vec3 UnpackNormal(vec4 packedNormal, float scale)
 	return (normalize(normal));
 }
 
-vec3 SampleTriplanarColor(sampler2D textureSampler, vec3 uv, vec3 weights, bool rotate)
+vec3 SampleTriplanarColor(sampler2D textureSampler, vec3 uv, vec3 weights)
 {
 	vec2 uvy = uv.xz;
 	vec2 uvz = uv.xy;
 	vec2 uvx = uv.zy;
 
-	if (rotate)
-	{
-		uvy = uvy.yx;
-		uvz = uvz.yx;
-		uvx = uvx.yx;
-	}
+	//if (rotate)
+	//{
+	//	uvy = uvy.yx;
+	//	uvz = uvz.yx;
+	//	uvx = uvx.yx;
+	//}
 
 	uvx.y *= -1;
 	uvy.y *= -1;
@@ -48,42 +48,85 @@ vec3 SampleTriplanarColor(sampler2D textureSampler, vec3 uv, vec3 weights, bool 
 	vec3 xz = vec3(0.0);
 	vec3 xy = vec3(0.0);
 	vec3 zy = vec3(0.0);
-	if (weights.y > 0.001) xz = (texture(textureSampler, uvy).rgb);
-	if (weights.z > 0.001) xy = (texture(textureSampler, uvz).rgb);
-	if (weights.x > 0.001) zy = (texture(textureSampler, uvx).rgb);
+
+	if (weights.y <= 0.01) {weights.y = 0;}
+	if (weights.z <= 0.01) {weights.z = 0;}
+	if (weights.x <= 0.01) {weights.x = 0;}
+
+	weights = NormalizeSum(weights);
+
+	if (weights.y > 0.01) xz = (texture(textureSampler, uvy).rgb);
+	if (weights.z > 0.01) xy = (texture(textureSampler, uvz).rgb);
+	if (weights.x > 0.01) zy = (texture(textureSampler, uvx).rgb);
+
 	vec3 result = xz * weights.y + xy * weights.z + zy * weights.x;
 
 	return (result);
 }
 
-vec3 SampleTriplanarColor(sampler2D textureSampler, vec3 uv, vec3 weights)
+vec3 SampleTriplanarColor(sampler2D textureSampler, vec3 uv, vec3 weights, vec3 lodColor, float lodInter)
 {
-	return (SampleTriplanarColor(textureSampler, uv, weights, false));
+	if (lodInter >= 1.0) {return (lodColor);}
+
+	vec3 result = SampleTriplanarColor(textureSampler, uv, weights);
+
+	if (lodInter <= 0.0) {return (result);}
+
+	return (mix(result, lodColor, clamp(lodInter, 0.0, 1.0)));
 }
 
-vec3 SampleTriplanarNormal(sampler2D textureSampler, vec3 uv, vec3 weights, vec3 normal, float power, bool rotate)
+vec3 SampleTriplanarColorLod(sampler2D textureSampler, vec3 uv, vec3 weights)
+{
+	if (weights.y > weights.x && weights.y > weights.z) {weights = vec3(0.0, 1.0, 0.0);}
+	else if (weights.x > weights.y && weights.x > weights.z) {weights = vec3(1.0, 0.0, 0.0);}
+	else if (weights.z > weights.y && weights.z > weights.x) {weights = vec3(0.0, 0.0, 1.0);}
+
+	return (SampleTriplanarColor(textureSampler, uv, weights));
+}
+
+vec3 SampleTriplanarNormal(sampler2D textureSampler, vec3 uv, vec3 weights, vec3 normal, float power, float lodInter)
 {
 	vec2 uvx = uv.zy;
 	vec2 uvy = uv.xz;
 	vec2 uvz = uv.xy;
 
-	if (rotate)
-	{
-		uvy = uvy.yx;
-		uvz = uvz.yx;
-		uvx = uvx.yx;
-	}
+	//if (rotate)
+	//{
+	//	uvy = uvy.yx;
+	//	uvz = uvz.yx;
+	//	uvx = uvx.yx;
+	//}
 
 	uvx.y *= -1;
 	uvy.y *= -1;
 	uvz.y *= -1;
 
-	vec3 tangentX = vec3(0.0, 1.0, 0.0);
-	vec3 tangentY = vec3(0.0, 1.0, 0.0);
-	vec3 tangentZ = vec3(0.0, 1.0, 0.0);
-	if (weights.x > 0.001) tangentX = UnpackNormal(texture(textureSampler, uvx), power);
-	if (weights.y > 0.001) tangentY = UnpackNormal(texture(textureSampler, uvy), power);
-	if (weights.z > 0.001) tangentZ = UnpackNormal(texture(textureSampler, uvz), power);
+	vec3 tangentX = vec3(0.0, 0.0, 1.0);
+	vec3 tangentY = vec3(0.0, 0.0, 1.0);
+	vec3 tangentZ = vec3(0.0, 0.0, 1.0);
+
+	if (weights.x <= 0.01) {weights.x = 0;}
+	if (weights.y <= 0.01) {weights.y = 0;}
+	if (weights.z <= 0.01) {weights.z = 0;}
+
+	weights = NormalizeSum(weights);
+
+	if (lodInter < 1.0)
+	{
+		if (weights.x > 0.01) {tangentX = UnpackNormal(vec4(texture(textureSampler, uvx).rg, 0.0, 0.0), power);}
+		if (weights.y > 0.01) {tangentY = UnpackNormal(vec4(texture(textureSampler, uvy).rg, 0.0, 0.0), power);}
+		if (weights.z > 0.01) {tangentZ = UnpackNormal(vec4(texture(textureSampler, uvz).rg, 0.0, 0.0), power);}
+		//if (weights.x > 0.01) {tangentX = UnpackNormal(vec4(texture(textureSampler, uvx).rgb, 0.0), power);}
+		//if (weights.y > 0.01) {tangentY = UnpackNormal(vec4(texture(textureSampler, uvy).rgb, 0.0), power);}
+		//if (weights.z > 0.01) {tangentZ = UnpackNormal(vec4(texture(textureSampler, uvz).rgb, 0.0), power);}
+
+		if (lodInter > 0.0)
+		{
+			tangentX = mix(tangentX, vec3(0.0, 0.0, 1.0), lodInter);
+			tangentY = mix(tangentY, vec3(0.0, 0.0, 1.0), lodInter);
+			tangentZ = mix(tangentZ, vec3(0.0, 0.0, 1.0), lodInter);
+		}
+	}
 
 	tangentX = vec3(tangentX.xy + normal.zy, abs(tangentX.z) * normal.x);
 	tangentY = vec3(tangentY.xy + normal.xz, abs(tangentY.z) * normal.y);
@@ -92,11 +135,6 @@ vec3 SampleTriplanarNormal(sampler2D textureSampler, vec3 uv, vec3 weights, vec3
 	vec3 result = normalize(tangentX.zyx * weights.x + tangentY.xzy * weights.y + tangentZ.xyz * weights.z);
 
 	return (result);
-}
-
-vec3 SampleTriplanarNormal(sampler2D textureSampler, vec3 uv, vec3 weights, vec3 normal, float power)
-{
-	return (SampleTriplanarNormal(textureSampler, uv, weights, normal, power, false));
 }
 
 vec3 SampleTriplanarNormalFlat(sampler2D textureSampler, vec2 uv, vec3 weights, vec3 normal, float power)

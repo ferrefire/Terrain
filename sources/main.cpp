@@ -191,14 +191,32 @@ void Start()
 
 	ImageConfig imageConfig = Image::DefaultConfig();
 	imageConfig.createMipmaps = true;
-	imageConfig.samplerConfig.anisotropyEnabled = VK_TRUE;
-	imageConfig.samplerConfig.maxAnisotropy = 2;
+	imageConfig.samplerConfig.anisotropyEnabled = VK_FALSE;
+	imageConfig.samplerConfig.maxAnisotropy = 0;
+	imageConfig.srgb = true;
+	imageConfig.compressed = true;
 	imageConfig.samplerConfig.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	imageConfig.format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
+	imageConfig.viewConfig.format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
 	ImageConfig imageNormalConfig = Image::DefaultNormalConfig();
 	imageNormalConfig.createMipmaps = true;
 	imageNormalConfig.samplerConfig.anisotropyEnabled = VK_TRUE;
 	imageNormalConfig.samplerConfig.maxAnisotropy = 8;
+	imageNormalConfig.compressed = true;
+	imageNormalConfig.normal = true;
 	imageNormalConfig.samplerConfig.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	//imageNormalConfig.format = VK_FORMAT_R8G8_UNORM;
+	//imageNormalConfig.viewConfig.format = VK_FORMAT_R8G8_UNORM;
+	imageNormalConfig.format = VK_FORMAT_BC5_UNORM_BLOCK;
+	imageNormalConfig.viewConfig.format = VK_FORMAT_BC5_UNORM_BLOCK;
+	ImageConfig imageArmConfig = Image::DefaultNormalConfig();
+	imageArmConfig.createMipmaps = true;
+	imageArmConfig.samplerConfig.anisotropyEnabled = VK_TRUE;
+	imageArmConfig.samplerConfig.maxAnisotropy = 4;
+	imageArmConfig.compressed = true;
+	imageArmConfig.samplerConfig.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	imageArmConfig.format = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
+	imageArmConfig.viewConfig.format = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
 
 	std::vector<ImageLoader*> loaders = ImageLoader::LoadImages({
 		{"rock_diff", ImageType::Jpg},
@@ -212,19 +230,24 @@ void Start()
 		{"grassy_rocks_arm", ImageType::Jpg},
 	});
 
+	double startTime = Time::GetCurrentTime();
+
 	rock_diff.Create(*loaders[0], imageConfig);
 	rock_norm.Create(*loaders[1], imageNormalConfig);
-	rock_arm.Create(*loaders[2], imageNormalConfig);
+	rock_arm.Create(*loaders[2], imageArmConfig);
 	imageNormalConfig.samplerConfig.maxAnisotropy = 2;
+	imageArmConfig.samplerConfig.maxAnisotropy = 2;
 	grass_diff.Create(*loaders[3], imageConfig);
 	grass_norm.Create(*loaders[4], imageNormalConfig);
-	grass_arm.Create(*loaders[5], imageNormalConfig);
+	grass_arm.Create(*loaders[5], imageArmConfig);
 	dry_diff.Create(*loaders[6], imageConfig);
 	dry_norm.Create(*loaders[7], imageNormalConfig);
-	dry_arm.Create(*loaders[8], imageNormalConfig);
+	dry_arm.Create(*loaders[8], imageArmConfig);
 
 	for (size_t i = 0; i < loaders.size(); i++) {delete (loaders[i]);}
 	loaders.clear();
+
+	std::cout << "Images created in: " << (Time::GetCurrentTime() - startTime) * 1000 << "ms." << std::endl;
 
 	data.projection = Manager::GetCamera().GetProjection();
 	data.lightDirection = point4D(point3D(0.2, 0.25, -0.4).Unitized());
@@ -460,6 +483,8 @@ void Frame()
 {
 	//static int lodMoved = 0;
 	//static bool created = false;
+	static double frameTime = 0;
+	static double frameTimeCount = 0;
 
 	if (Input::GetKey(GLFW_KEY_M).pressed)
 	{
@@ -525,7 +550,16 @@ void Frame()
 	//	lodMoved = 0;
 	//}
 
-	glfwSetWindowTitle(Manager::GetWindow().GetData(), std::to_string(1.0 / Time::deltaTime).c_str());
+	if (Time::newTick)
+	{
+		double fps = frameTime / frameTimeCount;
+		glfwSetWindowTitle(Manager::GetWindow().GetData(), std::to_string(int(1.0 / fps)).c_str());
+
+		frameTime = 0;
+		frameTimeCount = 0;
+	}
+	frameTime += Time::deltaTime;
+	frameTimeCount += 1;
 
 	Manager::GetCamera().UpdateView();
 

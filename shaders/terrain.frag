@@ -35,7 +35,7 @@ const float rockTransition = 0.075;
 const float dryTransition = 0.025;
 //const float steepnessHalfTransition = steepnessTransition * 0.5;
 
-vec3 GetColor(sampler2D samplers[3], PBRInput data, vec3 weights, vec3 _worldNormal, vec3 triplanarUV, bool lod)
+/*vec3 GetColor(sampler2D samplers[3], PBRInput data, vec3 weights, vec3 _worldNormal, vec3 triplanarUV, bool lod)
 {
 	//vec3 weights = GetWeights(_worldNormal, 2.0);
 	vec3 color = SampleTriplanarColor(samplers[0], triplanarUV, weights);
@@ -71,7 +71,7 @@ vec3 GetColor(sampler2D samplers[3], PBRInput data, vec3 weights, vec3 _worldNor
 	diffuse += ambient;
 
 	return (diffuse);
-}
+}*/
 
 struct TextureData
 {
@@ -83,7 +83,7 @@ struct TextureData
 	vec3 baseNormal;
 };
 
-void SampleSteepnessTexture(sampler2D samplers[3], inout TextureData textureData, float strength, float scale)
+void SampleSteepnessTexture(sampler2D samplers[3], inout TextureData textureData, float strength, float scale, float lodInter)
 {
 	float inverseStrength = (1.0 - strength);
 
@@ -91,9 +91,10 @@ void SampleSteepnessTexture(sampler2D samplers[3], inout TextureData textureData
 	textureData.normal *= inverseStrength;
 	textureData.arm *= inverseStrength;
 
-	textureData.color += SampleTriplanarColor(samplers[0], textureData.uv * scale, textureData.weights) * strength;
-	textureData.normal += SampleTriplanarNormal(samplers[1], textureData.uv * scale, textureData.weights, textureData.baseNormal, 1.0) * strength;
-	textureData.arm += SampleTriplanarColor(samplers[2], textureData.uv * scale, textureData.weights) * strength;
+	if (lodInter <= 0.0) {textureData.color += SampleTriplanarColor(samplers[0], textureData.uv * scale, textureData.weights) * strength;}
+	else {textureData.color += SampleTriplanarColorLod(samplers[0], textureData.uv * scale, textureData.weights) * strength;}
+	textureData.normal += SampleTriplanarNormal(samplers[1], textureData.uv * scale, textureData.weights, textureData.baseNormal, 1.0, lodInter) * strength;
+	textureData.arm += SampleTriplanarColor(samplers[2], textureData.uv * scale, textureData.weights, vec3(1.0, 1.0, 0.0), lodInter) * strength;
 }
 
 void main()
@@ -161,7 +162,7 @@ void main()
 		//normal = SampleTriplanarNormal(grassTextures[1], triplanarUV, weights, _worldNormal, 1.0);
 		//arm = SampleTriplanarColor(grassTextures[2], triplanarUV, weights);
 
-		SampleSteepnessTexture(grassTextures, textureData, 1.0, 0.5);
+		SampleSteepnessTexture(grassTextures, textureData, 1.0, 0.5, clamp((viewInter - 0.0075) / 0.0025, 0.0, 1.0));
 	}
 	/*if (steepness > drySteepness - dryTransition && steepness <= rockSteepness)
 	{
@@ -199,7 +200,7 @@ void main()
 		//normal += SampleTriplanarNormal(rockTextures[1], triplanarUV * scale, weights, _worldNormal, 1.0) * strength;
 		//arm += SampleTriplanarColor(rockTextures[2], triplanarUV * scale, weights) * strength;
 
-		SampleSteepnessTexture(rockTextures, textureData, strength, scale);
+		SampleSteepnessTexture(rockTextures, textureData, strength, scale, 0.0);
 	}
 
 	if (variables.terrainOffset.w > 0)
@@ -226,6 +227,7 @@ void main()
 	vec3 ambientDiffuse = 0.15 * textureData.color * vec3(1.0, 0.9, 0.7);
 	vec3 ambient = ambientDiffuse * ao;
 	diffuse += ambient;
+	diffuse *= ao;
 
 	/*if (steepness <= rockSteepness + steepnessHalfTransition)
 	{
