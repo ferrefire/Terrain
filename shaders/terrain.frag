@@ -85,11 +85,10 @@ struct TextureData
 
 void SampleSteepnessTexture(sampler2D samplers[3], inout TextureData textureData, float strength, float scale, float lodInter)
 {
-	float inverseStrength = (1.0 - strength);
-
-	textureData.color *= inverseStrength;
-	textureData.normal *= inverseStrength;
-	textureData.arm *= inverseStrength;
+	//float inverseStrength = (1.0 - strength);
+	//textureData.color *= inverseStrength;
+	//textureData.normal *= inverseStrength;
+	//textureData.arm *= inverseStrength;
 
 	if (lodInter <= 0.0) {textureData.color += SampleTriplanarColor(samplers[0], textureData.uv * scale, textureData.weights) * strength;}
 	else {textureData.color += SampleTriplanarColorLod(samplers[0], textureData.uv * scale, textureData.weights) * strength;}
@@ -162,6 +161,10 @@ void main()
 		//normal = SampleTriplanarNormal(grassTextures[1], triplanarUV, weights, _worldNormal, 1.0);
 		//arm = SampleTriplanarColor(grassTextures[2], triplanarUV, weights);
 
+		textureData.color *= 0.0;
+		textureData.normal *= 0.0;
+		textureData.arm *= 0.0;
+
 		SampleSteepnessTexture(grassTextures, textureData, 1.0, 0.5, clamp((viewInter - 0.0075) / 0.0025, 0.0, 1.0));
 	}
 	/*if (steepness > drySteepness - dryTransition && steepness <= rockSteepness)
@@ -185,13 +188,62 @@ void main()
 	if (steepness > rockSteepness - rockTransition)
 	{
 		float strength = clamp(steepness - (rockSteepness - rockTransition), 0.0, rockTransition) / rockTransition;
+
+		textureData.color *= (1.0 - strength);
+		textureData.normal *= (1.0 - strength);
+		textureData.arm *= (1.0 - strength);
+
 		//diffuse *= 1.0 - strength;
 		//diffuse += GetColor(rockTextures, data, weights, _worldNormal, triplanarUV * 0.005, false) * (strength);
 
-		float scale = 0.001;
-		if (viewInter < 0.25) scale = 0.005;
-		if (viewInter < 0.0075) scale = 0.1;
-		if (viewInter < 0.0025) scale = 0.2;
+		const int scaleCascades = 4;
+		const float scales[4] = {0.001, 0.005, 0.05, 0.2};
+		const float distances[4] = {0.25, 0.015, 0.0025, 0.0};
+
+		if (viewInter > distances[0])
+		{
+			SampleSteepnessTexture(rockTextures, textureData, strength, scales[0], 0.0);
+		}
+		else
+		{
+			for (int i = 1; i < scaleCascades; i++)
+			{
+				if (viewInter > distances[i])
+				{
+					float blendDistance = distances[i - 1] * 0.5;
+					float blendCutoff = distances[i - 1] - blendDistance;
+					float scaleStrength = 1.0;
+					if (viewInter > blendCutoff)
+					{
+						scaleStrength = 1.0 - ((viewInter - blendCutoff) / blendDistance);
+						SampleSteepnessTexture(rockTextures, textureData, strength * (1.0 - scaleStrength), scales[i - 1], 0.0);
+					}
+
+					SampleSteepnessTexture(rockTextures, textureData, strength * scaleStrength, scales[i], 0.0);
+					break;
+				}
+			}
+		}
+
+		/*float scale = 0;
+		float scaleInter = 0.0;
+		if (viewInter < 0.0025)
+		{
+			scale = 0.2;
+		}
+		else if (viewInter < 0.0075)
+		{
+			scale = 0.1;
+		}
+		else if (viewInter < 0.25)
+		{
+			scale = 0.005;
+		}
+		else
+		{
+			scale = 0.001;
+		}*/
+		
 
 		//color *= 1.0 - strength;
 		//normal *= 1.0 - strength;
@@ -200,7 +252,7 @@ void main()
 		//normal += SampleTriplanarNormal(rockTextures[1], triplanarUV * scale, weights, _worldNormal, 1.0) * strength;
 		//arm += SampleTriplanarColor(rockTextures[2], triplanarUV * scale, weights) * strength;
 
-		SampleSteepnessTexture(rockTextures, textureData, strength, scale, 0.0);
+		//SampleSteepnessTexture(rockTextures, textureData, strength, scale, 0.0);
 	}
 
 	if (variables.terrainOffset.w > 0)
