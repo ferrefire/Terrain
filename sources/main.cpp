@@ -515,8 +515,18 @@ void Frame()
 		Manager::GetCamera().SetConfig(cameraConfig);
 	}
 
-	if (Input::GetKey(GLFW_KEY_UP).pressed) data.terrainOffset.w() += 1;
-	if (Input::GetKey(GLFW_KEY_DOWN).pressed) data.terrainOffset.w() -= 1;
+	point2D angles = point3D(data.lightDirection).Angles() * -57.2957795;
+	if (Input::GetKey(GLFW_KEY_RIGHT).down) {angles.y() += Time::deltaTime * -45.0f;}
+	else if (Input::GetKey(GLFW_KEY_LEFT).down) {angles.y() += Time::deltaTime * 45.0f;}
+	else if (Input::GetKey(GLFW_KEY_UP).down) {angles.x() += Time::deltaTime * -45.0f;}
+	else if (Input::GetKey(GLFW_KEY_DOWN).down) {angles.x() += Time::deltaTime * 45.0f;}
+	else {data.lightDirection.w() = 1;}
+
+	if (data.lightDirection.w() == 0) {data.lightDirection = point3D::Rotation(angles);}
+	data.lightDirection.w() = 0;
+
+	if (Input::GetKey(GLFW_KEY_EQUAL).pressed) data.terrainOffset.w() += 1;
+	if (Input::GetKey(GLFW_KEY_MINUS).pressed) data.terrainOffset.w() -= 1;
 	data.terrainOffset.w() = std::clamp(data.terrainOffset.w(), 0.0f, 2.0f);
 
 	//if (std::round(fabs(Manager::GetCamera().GetPosition().x())) > (heightmapBaseSize * 10000.0f * 0.125f))
