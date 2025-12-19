@@ -79,7 +79,7 @@ vec3 PBRLighting(PBRInput data)
 	vec3 kd = (1.0 - F) * (1.0 - data.metallic);
 	vec3 diffuse = kd * data.albedo / 3.14159265;
 
-	vec3 lo = (diffuse + specular) * data.lightColor * NL;
+	vec3 lo = (diffuse + specular) * (data.lightColor) * NL;
 
 	return (lo);
 }

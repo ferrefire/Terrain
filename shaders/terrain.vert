@@ -2,18 +2,7 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-layout(set = 0, binding = 0) uniform Variables
-{
-	mat4 view;
-	mat4 projection;
-	vec4 viewPosition;
-	vec4 lightDirection;
-	vec4 resolution;
-	vec4 terrainOffset;
-	vec4 heightmapOffsets[8];
-} variables;
-
-
+#include "variables.glsl"
 
 layout(set = 2, binding = 0) uniform models { mat4 model; } object;
 
@@ -113,7 +102,7 @@ void main()
 
 	//vec3 sampledPosition = localPosition;
 	//sampledPosition.y += height * 0.5;
-	worldPosition.y = terrainValues.x * 5000.0;
+	worldPosition.y = terrainValues.x * 5000.0 - variables.terrainOffset.y * 10000.0;
 
 	//vec3 worldPosition = (object.model * vec4(sampledPosition, 1.0)).xyz;
 	gl_Position = vec4(worldPosition, 1.0);

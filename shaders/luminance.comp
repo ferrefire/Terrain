@@ -1,0 +1,45 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+layout(set = 0, binding = 0) uniform sampler2D luminanceTexture;
+layout(set = 0, binding = 1, std430) buffer LuminanceData{float value;} luminanceData;
+layout(set = 0, binding = 2) uniform Variables{float deltaTime;} variables;
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+const int lumRes = 4;
+const float lumOffset = 0.5 / float(lumRes);
+const float lumStep = 1.0 / float(lumRes);
+const float lumDiv = 1.0 / float(lumRes * lumRes);
+
+float GetLuminance(vec3 color)
+{
+    return (dot(color, vec3(0.2126, 0.7152, 0.0722)));
+}
+
+void main()
+{
+	vec3 luminance = vec3(0.0);
+
+	for (int y = 0; y < lumRes; y++)
+	{
+		for (int x = 0; x < lumRes; x++)
+		{
+			luminance += texture(luminanceTexture, vec2(lumOffset, lumOffset) + vec2(x * lumStep, y * lumStep)).rgb * lumDiv;
+		}
+	}
+	
+	float averageLuminance = GetLuminance(luminance);
+
+	float EV = log2(averageLuminance + 1e-6);
+	float newEV = EV;
+
+	if (variables.deltaTime > 0.0)
+	{
+		float averageEV = log2(luminanceData.value + 1e-6);
+		newEV = mix(averageEV, EV, 4.0 * variables.deltaTime);
+	}
+
+	luminanceData.value = exp2(newEV);
+}

@@ -1,0 +1,117 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "atmosphere.glsl"
+
+#include "variables.glsl"
+
+layout(set = 1, binding = 0, rgba16f) uniform readonly image2D transmittanceImage;
+layout(set = 1, binding = 1, rgba16f) uniform readonly image2D scatteringImage;
+layout(set = 1, binding = 2, rgba16f) uniform image2D skyImage;
+layout(set = 1, binding = 3, rgba16f) uniform readonly image3D aerialImage;
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+vec3 MultiScattering(vec3 worldPosition, float viewAngle)
+{
+	vec2 uv = clamp(vec2(viewAngle * 0.5 + 0.5, (length(worldPosition) - bottomRadius) / (topRadius - bottomRadius)), 0.0, 1.0);
+	uv = vec2(UnitToSubUV(uv.x, scatteringDimensions.x), UnitToSubUV(uv.y, scatteringDimensions.y));
+
+	ivec2 coords = ivec2(uv * scatteringDimensions);
+
+	return (imageLoad(scatteringImage, coords).rgb);
+}
+
+vec3 IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldDirection, vec3 sunDirection, int sampleCount)
+{
+	float surfaceDistance = IntersectSphere(worldPosition, worldDirection, vec3(0.0), bottomRadius);
+	float atmosphereDistance = IntersectSphere(worldPosition, worldDirection, vec3(0.0), topRadius);
+	
+	float integrationLength = 0.0;
+
+	if (surfaceDistance == -1.0 && atmosphereDistance == -1.0) {return (vec3(0.0));}
+	else if (surfaceDistance == -1.0 && atmosphereDistance > 0.0) {integrationLength = atmosphereDistance;}
+	else if (surfaceDistance > 0.0 && atmosphereDistance == -1.0) {integrationLength = surfaceDistance;}
+	else {integrationLength = min(surfaceDistance, atmosphereDistance);}
+
+	float theta = dot(sunDirection, worldDirection);
+	float miePhaseValue = MiePhase(miePhaseFunction, -theta);
+	float rayPhaseValue = RayleighPhase(theta);
+
+	vec3 accumulatedTransmittance = vec3(1.0);
+	vec3 accumulatedLight = vec3(0.0);
+
+	for (int i = 0; i < sampleCount; i++)
+	{
+		float step0 = float(i) / sampleCount;
+		float step1 = float(i + 1) / sampleCount;
+
+		step0 *= step0;
+		step1 *= step1;
+
+		step0 = step0 * integrationLength;
+		step1 = step1 > 1.0 ? integrationLength : step1 * integrationLength;
+
+		float integrationStep = step0 + (step1 - step0) * 0.3;
+		float dStep = step1 - step0;
+
+		vec3 rayPosition = worldPosition + integrationStep * worldDirection;
+
+		ScatteringResult mediumScattering = SampleScatteringResult(rayPosition);
+		vec3 mediumExtinction = SampleExtinction(rayPosition);
+
+		vec3 up = normalize(rayPosition);
+		vec2 paramT = vec2(length(rayPosition), dot(sunDirection, up));
+		vec2 uvT = TransmittanceToUV(paramT);
+		ivec2 uvTCoords = ivec2(uvT * transmittanceDimensions);
+
+		vec3 sunTransmittance = imageLoad(transmittanceImage, uvTCoords).rgb;
+		vec3 phaseScattering = mediumScattering.mie * miePhaseValue + mediumScattering.ray * rayPhaseValue;
+
+		float raySurfaceDistance = IntersectSphere(rayPosition, sunDirection, offsetRadius * up, bottomRadius);
+		float inShadow = raySurfaceDistance == -1.0 ? 1.0 : 0.0;
+
+		vec3 multiScatteredLuminance = MultiScattering(rayPosition, dot(sunDirection, up));
+
+		vec3 sunLight = inShadow * sunTransmittance * phaseScattering + multiScatteredLuminance * (mediumScattering.ray + mediumScattering.mie);
+
+		vec3 transmittanceIncrease = exp(-(mediumExtinction * dStep));
+		vec3 sunLightIntegration = (sunLight - sunLight * transmittanceIncrease) / mediumExtinction;
+
+		accumulatedLight += accumulatedTransmittance * sunLightIntegration;
+		accumulatedTransmittance *= transmittanceIncrease;
+	}
+
+	return (accumulatedLight);
+}
+
+void main()
+{
+	//const float cameraHeight = 0.2 * cameraScale;
+	const float cameraHeight = (variables.viewPosition.y + 2500.0 + (variables.terrainOffset.y * 10000.0)) * cameraScale;
+
+	//vec3 sunDirection = normalize(vec3(0.39036, 0.48795, -0.78072));
+	//vec3 sunDirection = normalize(vec3(0.0, 0.0, 1.0));
+	vec3 sunDirection = variables.lightDirection.xyz;
+	vec3 worldPosition = vec3(0.0, cameraHeight + bottomRadius, 0.0);
+
+	vec2 uv = vec2(gl_GlobalInvocationID.xy) / skyDimensions;
+	vec2 uvS = UVToSky(uv, length(worldPosition));
+
+	float sunAngle = dot(normalize(worldPosition), sunDirection);
+	vec3 localSunDirection = normalize(vec3(sqrt(1.0 - sunAngle * sunAngle), sunAngle, 0.0));
+
+	float viewAngle = sqrt(1.0 - uvS.x * uvS.x);
+	vec3 worldDirection = vec3(cos(uvS.y) * sin(uvS.x), cos(uvS.x), sin(uvS.y) * sin(uvS.x));
+
+	if (!MoveToAtmosphere(worldPosition, worldDirection))
+	{
+		imageStore(skyImage, ivec2(gl_GlobalInvocationID.xy), vec4(0.0, 0.0, 0.0, 1.0));
+		return;
+	}
+
+	vec3 luminance = IntegrateScatteredLuminance(worldPosition, worldDirection, localSunDirection, 30);
+
+	imageStore(skyImage, ivec2(gl_GlobalInvocationID.xy), vec4(luminance, 1.0));
+}

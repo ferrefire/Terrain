@@ -2,16 +2,7 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-layout(set = 0, binding = 0) uniform Variables
-{
-	mat4 view;
-	mat4 projection;
-	vec4 viewPosition;
-	vec4 lightDirection;
-	vec4 resolution;
-	vec4 terrainOffset;
-	vec4 heightmapOffsets[8];
-} variables;
+#include "variables.glsl"
 
 layout(set = 1, binding = 0) uniform sampler2D rockTextures[3];
 layout(set = 1, binding = 1) uniform sampler2D grassTextures[3];
@@ -131,7 +122,7 @@ void main()
 	PBRInput data;
 	data.V = normalize(variables.viewPosition.xyz - worldPosition);
 	data.L = normalize(variables.lightDirection.xyz);
-	data.lightColor = vec3(1.0, 0.9, 0.7) * 4;
+	data.lightColor = vec3(1.0, 0.9, 0.7) * 6;
 
 	//vec3 weights = GetWeights(_worldNormal, 4.0);
 
@@ -276,8 +267,13 @@ void main()
 
 	diffuse = PBRLighting(data);
 
-	vec3 ambientDiffuse = 0.15 * textureData.color * vec3(1.0, 0.9, 0.7);
+	//vec3 ambientDiffuse = 0.15 * textureData.color * vec3(1.0, 0.9, 0.7);
+	vec3 ambientDiffuse = 0.05 * textureData.color * vec3(1.0, 0.9, 0.7) * 6;
 	vec3 ambient = ambientDiffuse * ao;
+	
+	float shadow = TerrainShadow(worldPosition.xz);
+	diffuse *= shadow;
+
 	diffuse += ambient;
 	diffuse *= ao;
 
@@ -338,18 +334,19 @@ void main()
 	//if (centerDistance % 1000 <= 10) diffuse *= 0.0;
 
 	
-	//float fog = exp(-(viewDistance / 10000.0));
-	//float fog = viewDistance / 10000.0;
-	float fog = viewDistance / 30000.0;
-	//vec3 finalColor = mix(diffuse, vec3(0.75), clamp(pow(1.0 - exp(-fog), 3.0), 0.0, 1.0));
-	vec3 finalColor = mix(diffuse, vec3(0.75), clamp(1.0 - exp(-fog), 0.0, 1.0));
-	//vec3 finalColor = diffuse;
+	////float fog = exp(-(viewDistance / 10000.0));
+	////float fog = viewDistance / 10000.0;
+	//float fog = viewDistance / 30000.0;
+	////vec3 finalColor = mix(diffuse, vec3(0.75), clamp(pow(1.0 - exp(-fog), 3.0), 0.0, 1.0));
+	//vec3 finalColor = mix(diffuse, vec3(0.75), clamp(1.0 - exp(-fog), 0.0, 1.0));
+	////vec3 finalColor = diffuse;
 
 	//float fog = viewDistance / variables.resolution.w;
 	//vec3 finalColor = mix(diffuse, vec3(0.75), clamp(pow(fog, 1), 0.0, 1.0));
 
 	//int total = int(floor(abs(worldPosition.x) * 0.2) * 5 + floor(abs(worldPosition.z) * 0.2) * 5);
 	//finalColor *= (total % 2 == 0 ? 1.0 : 0.75);
+	vec3 finalColor = diffuse;
 
 	pixelColor = vec4(finalColor, 1.0);
 	//pixelColor = vec4(normal * 0.5 + 0.5, 1.0);

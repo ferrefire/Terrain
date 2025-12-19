@@ -2,16 +2,7 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-layout(set = 0, binding = 0) uniform Variables
-{
-	mat4 view;
-	mat4 projection;
-	vec4 viewPosition;
-	vec4 lightDirection;
-	vec4 resolution;
-	vec4 terrainOffset;
-	vec4 heightmapOffsets[8];
-} variables;
+#include "variables.glsl"
 
 //layout(set = 2, binding = 0) uniform models { mat4 model; } object;
 
@@ -80,7 +71,7 @@ void main()
 	//float height = tnoise.x;
 
 	vec3 sampledPosition = tesselatedPosition.xyz;
-	sampledPosition.y = heightValues.x * 5000.0;
+	sampledPosition.y = heightValues.x * 5000.0 - variables.terrainOffset.y * 10000;
 
 	worldPosition = sampledPosition;
 

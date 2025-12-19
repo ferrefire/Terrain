@@ -2,24 +2,13 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-const int cascadeCount = 8;
-
-layout(set = 0, binding = 0) uniform Variables
-{
-	mat4 view;
-	mat4 projection;
-	vec4 viewPosition;
-	vec4 lightDirection;
-	vec4 resolution;
-	vec4 terrainOffset;
-	vec4 heightmapOffsets[cascadeCount];
-} variables;
+#include "variables.glsl"
 
 layout(set = 1, binding = 0, rgba16) uniform image2D target16;
 layout(set = 1, binding = 1, rgba8) uniform image2D target8;
 layout(set = 1, binding = 2) uniform Config { vec4 sizes; } config;
 
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(local_size_x = 8, local_size_y = 8) in;
 
 #include "noise.glsl"
 #include "packing.glsl"
@@ -36,8 +25,6 @@ void main()
 	ivec2 invocationID = ivec2(gl_GlobalInvocationID.xy);
 	invocationID.x += iterationRes * (int(config.sizes.w) % iterationDiv);
 	invocationID.y += iterationRes * (int(config.sizes.w) / iterationDiv);
-	//if (int(config.sizes.w) % 2 == 1) invocationID.x += res / 2;
-	//if (int(config.sizes.w) / 2 > 0) invocationID.y += res / 2;
 	vec2 dispatchUV = vec2(float(invocationID.x) / float(res), float(invocationID.y) / float(res));
 	//vec2 uv = (dispatchUV - vec2(0.5, 0.5)) * config.sizes.x;
 	vec2 uv = (dispatchUV - vec2(0.5, 0.5)) * (heightMapBase * pow(2.0, config.sizes.x));

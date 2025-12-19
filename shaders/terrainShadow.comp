@@ -1,0 +1,179 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "variables.glsl"
+
+#include "terrainFunctions.glsl"
+
+layout(set = 1, binding = 0, r8) uniform image2D target;
+layout(set = 1, binding = 1) uniform Config { vec4 sizes; } config;
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+const int resolution = 256;
+const float resolutionMult = 1.0 / float(resolution);
+//const float range = 1000.0;
+
+const int iterations = 100;
+const float iterationsMult = 1.0 / float(iterations);
+
+const int stretchIterations = 10;
+const float stretchIterationsMult = 1.0 / float(stretchIterations);
+
+//const int lodIterations = 100;
+//const float lodIterationsMult = 1.0 / float(lodIterations);
+
+bool IterateFinalStretch(vec3 startPosition, vec3 lightPosition)
+{
+	int i = 1;
+	float inter = stretchIterationsMult;
+	vec3 rayPosition = startPosition;
+
+	while (i < stretchIterations)
+	{
+		rayPosition = mix(startPosition, lightPosition, inter);
+		if (rayPosition.y > 1500.0) {break;}
+
+		float terrainHeight = TerrainValues(rayPosition.xz).x * 5000.0;
+
+		if (terrainHeight > rayPosition.y)
+		{
+			return (true);
+		}
+
+		inter = i * stretchIterationsMult;
+		i++;
+	}
+
+	return (false);
+}
+
+void main()
+{
+	//int computeIndex = 2;
+	//int computeIndex = 0;
+	//if (variables.shadowmapOffsets[1].y > 0.5) {computeIndex = 1;}
+	//else if (variables.shadowmapOffsets[2].y > 0.5) {computeIndex = 2;}
+
+	vec2 index = gl_GlobalInvocationID.xy;
+	vec2 uv = (index * resolutionMult) - 0.5;
+
+	//float spacing = resolutionMult * variables.shadowmapOffsets[computeIndex].w;
+	//uv = uv * variables.shadowmapOffsets[computeIndex].w - (variables.shadowmapOffsets[2].xz - variables.terrainOffset.xz) * 10000.0;
+	vec3 worldPosition = vec3(0.0);
+	worldPosition.xz = (uv * config.sizes.w) + (config.sizes.xz - variables.terrainOffset.xz) * 10000.0;
+	//worldPosition = floor(worldPosition / spacing) * spacing; 	
+	//vec3 worldPosition = variables.shadowmapOffsets[computeIndex].xyz + vec3(uv.x, 0.0, uv.y) * variables.shadowmapOffsets[computeIndex].w;
+	//vec3 worldPosition = vec3(uv.x, 0.0, uv.y) * variables.shadowmapOffsets[computeIndex].w;
+	//vec3 worldPosition = vec3(uv.x, 0.0, uv.y);
+	//vec4 terrainValues = TerrainValues(worldPosition.xz);
+	vec4 terrainValues = vec4(0.0);
+	if (config.sizes.y == 0) {terrainValues = TerrainValues(worldPosition.xz);}
+	else if (config.sizes.y == 1) {terrainValues = TerrainValuesLod(worldPosition.xz, 5);}
+	else {terrainValues = TerrainValuesLod(worldPosition.xz, 8);}
+	worldPosition.y = terrainValues.x * 5000.0;
+
+	//vec3 lightPosition = variables.lightDirection.xyz * (variables.shadowmapOffsets[computeIndex].w * 0.5);
+	vec3 lightPosition = variables.lightDirection.xyz;
+	if (config.sizes.y == 0) {lightPosition *= 500.0;}
+	else if (config.sizes.y == 1) {lightPosition *= 5000.0;}
+	else {lightPosition *= 25000.0;}
+	lightPosition += worldPosition;
+
+	vec3 rayPosition = worldPosition;
+	float terrainHeight = worldPosition.y;
+	float inter = iterationsMult * 0.01;
+	
+	//if (config.sizes.y == 0) {inter *= 0.01;}
+	//else if (config.sizes.y == 1) {inter *= 0.1;}
+
+	float result = 1.0;
+	int i = 1;
+
+	vec3 previousRayPosition = worldPosition;
+	//float previousTerrainHeight = terrainHeight;
+	//bool rising = false;
+
+	//float interPow = 1.0;
+	//if (config.sizes.y == 0) {interPow = 3.0;}
+	//else if (config.sizes.y == 1) {interPow = 2.0;}
+
+	//int reverseIter = 0;
+	//float heightDiff = 5000.0;
+
+	//const int rayIterations = config.sizes.y == 0 ? iterations : lodIterations;
+	//const float rayIterationsMult = config.sizes.y == 0 ? iterationsMult : lodIterationsMult;
+
+	ivec2 coords = ivec2(index);
+
+	/*if (config.sizes.y == 0)
+	{
+		float lodResult = TerrainShadowLod(worldPosition.xz, 1);
+
+		if (lodResult == 0.0)
+		{
+			imageStore(target, coords, vec4(lodResult, 0.0, 0.0, 0.0));
+			return;
+		}
+	}*/
+
+	while (i < iterations)
+	{
+		//rayPosition = mix(worldPosition, lightPosition, pow(inter, interPow));
+		//rayPosition = mix(worldPosition, lightPosition, pow(inter, expPow));
+		//rayPosition = mix(worldPosition, lightPosition, pow(exp(1.0 + (inter - 1.0) * 5.0) * 0.37 - 0.006777, 1.25));
+		//rayPosition = mix(worldPosition, lightPosition, exp(1.0 + (inter - 1.0) * 5.0) * 0.37 - 0.006777);
+		rayPosition = mix(worldPosition, lightPosition, inter);
+		if (rayPosition.y > 1500.0) {break;}
+
+		if (config.sizes.y == 0) {terrainHeight = TerrainValues(rayPosition.xz).x * 5000.0;}
+		else if (config.sizes.y == 1) {terrainHeight = TerrainValuesLod(rayPosition.xz, 5).x * 5000.0;}
+		else {terrainHeight = TerrainValuesLod(rayPosition.xz, 8).x * 5000.0;}
+
+		//terrainHeight = TerrainValues(rayPosition.xz).x * 5000.0;
+
+		if (terrainHeight > rayPosition.y)
+		{
+			result = 0.0;
+			break;
+		}
+
+		//if (config.sizes.y == 0 && i >= 5 && i % 5 == 0)
+		//if (i > 3 && rising && previousTerrainHeight > terrainHeight)
+		/*if (config.sizes.y == 0 && i >= 5 && i % 5 == 0)
+		{
+			vec3 tempRayPosition = mix(previousRayPosition, rayPosition, 0.5);
+			float tempTerrainHeight = TerrainValues(tempRayPosition.xz).x * 5000.0;
+
+			if (tempTerrainHeight > tempRayPosition.y)
+			{
+				result = 0.0;
+				break;
+			}
+		}*/
+
+		//if (previousTerrainHeight < terrainHeight) {rising = true;}
+
+		previousRayPosition = rayPosition;
+		//previousTerrainHeight = terrainHeight;
+		inter = i * iterationsMult;
+		i++;
+	}
+
+	/*if (rayPosition.y < 1000.0 && config.sizes.y == 0 && result == 1)
+	{
+		//float lodResult = TerrainShadowLod(worldPosition.xz, 1);
+		//if (lodResult < 1.0)
+		{
+			vec3 stretchLightPosition = variables.lightDirection.xyz * 10000.0;
+			stretchLightPosition += worldPosition;
+			if (IterateFinalStretch(rayPosition, stretchLightPosition)) {result = 0.0;}
+		}
+	}*/
+
+	//if (minDiff < 25) {result = 0.0;}
+
+	imageStore(target, coords, vec4(result, 0.0, 0.0, 0.0));
+	//if (coords.x > 0) imageStore(targets[computeIndex], coords - ivec2(1, 0), vec4(result, 0.0, 0.0, 0.0));
+}

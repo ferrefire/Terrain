@@ -1,0 +1,177 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "atmosphere.glsl"
+
+#include "variables.glsl"
+
+layout(set = 1, binding = 0, rgba16f) uniform readonly image2D transmittanceImage;
+layout(set = 1, binding = 1, rgba16f) uniform image2D scatteringImage;
+layout(set = 1, binding = 2, rgba16f) uniform readonly image2D skyImage;
+layout(set = 1, binding = 3, rgba16f) uniform readonly image3D aerialImage;
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 64) in;
+
+const float sphereSamples = 64.0;
+const float goldenRatio = 1.6180339;
+const float uniformPhase = 1.0 / (4.0 * PI);
+
+shared vec3 sharedScattering[64];
+shared vec3 sharedLight[64];
+
+struct ScatteredLuminance
+{
+	vec3 luminance;
+	vec3 scattering;
+};
+
+ScatteredLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldDirection, vec3 sunDirection, float sampleCount)
+{
+	ScatteredLuminance result = ScatteredLuminance(vec3(0.0), vec3(0.0));
+
+	float surfaceDistance = IntersectSphere(worldPosition, worldDirection, vec3(0.0), bottomRadius);
+	float atmosphereDistance = IntersectSphere(worldPosition, worldDirection, vec3(0.0), topRadius);
+	
+	float integrationLength = 0.0;
+
+	if (surfaceDistance == -1.0 && atmosphereDistance == -1.0) {return (result);}
+	else if (surfaceDistance == -1.0 && atmosphereDistance > 0.0) {integrationLength = atmosphereDistance;}
+	else if (surfaceDistance > 0.0 && atmosphereDistance == -1.0) {integrationLength = surfaceDistance;}
+	else {integrationLength = min(surfaceDistance, atmosphereDistance);}
+
+	float integrationStep = integrationLength / sampleCount;
+
+	vec3 accumulatedTransmittance = vec3(1.0);
+	vec3 accumulatedLight = vec3(0.0);
+	float oldRayShift = 0.0;
+
+	for (int i = 0; i < sampleCount; i++)
+	{
+		float newRayShift = integrationLength * (float(i) + 0.3) / sampleCount;
+		integrationStep = newRayShift - oldRayShift;
+
+		vec3 rayPosition = worldPosition + newRayShift * worldDirection;
+		oldRayShift = newRayShift;
+
+		vec3 up = normalize(rayPosition);
+		vec2 paramT = vec2(length(rayPosition), dot(sunDirection, up));
+		vec2 uvT = TransmittanceToUV(paramT);
+		ivec2 uvTCoords = ivec2(uvT * transmittanceDimensions);
+
+		vec3 sunTransmittance = imageLoad(transmittanceImage, uvTCoords).rgb;
+		vec3 mediumScattering = SampleScattering(rayPosition);
+		vec3 mediumExtinction = SampleExtinction(rayPosition);
+
+		vec3 transmittanceIncrease = exp(-(mediumExtinction * integrationStep));
+		float raySurfaceDistance = IntersectSphere(rayPosition, sunDirection, vec3(0.0) + offsetRadius * up, bottomRadius);
+		float inShadow = (raySurfaceDistance == -1.0 ? 1.0 : 0.0);
+
+		vec3 sunLight = inShadow * sunTransmittance * mediumScattering * uniformPhase;
+		vec3 multiScatterIntegration = (mediumScattering - mediumScattering * transmittanceIncrease) / mediumExtinction;
+		vec3 inScatterIntegration = (sunLight - sunLight * transmittanceIncrease) / mediumExtinction;
+
+		if (transmittanceIncrease.x == 1.0 && transmittanceIncrease.y == 1.0 && transmittanceIncrease.z == 1.0)
+		{
+			multiScatterIntegration = vec3(0.0);
+			inScatterIntegration = vec3(0.0);
+		}
+
+		result.scattering += accumulatedTransmittance * multiScatterIntegration;
+		accumulatedLight += accumulatedTransmittance * inScatterIntegration;
+		accumulatedTransmittance *= transmittanceIncrease;
+	}
+
+	result.luminance = accumulatedLight;
+
+	return (result);
+}
+
+void main()
+{
+	vec2 uv = (vec2(gl_GlobalInvocationID.xy) + vec2(0.5, 0.5)) / scatteringDimensions;
+	uv = vec2(SubUVToUnit(uv.x, scatteringDimensions.x), SubUVToUnit(uv.y, scatteringDimensions.y));
+
+	float sunAngle = uv.x * 2.0 - 1.0;
+	vec3 sunDirection = vec3(0.0, sunAngle, sqrt(clamp(1.0 - (sunAngle * sunAngle), 0.0, 1.0)));
+
+	float viewHeight = bottomRadius + clamp(uv.y + offsetRadius, 0.0, 1.0) * (topRadius - bottomRadius - offsetRadius);
+
+	vec3 worldPosition = vec3(0.0, viewHeight, 0.0);
+
+	float sampleID = gl_LocalInvocationID.z;
+
+	// Check if brackets are necessary!
+	{
+		float theta = acos(1.0 - 2.0 * (sampleID + 0.5) / sphereSamples);
+		float phi = (2 * PI * sampleID) / goldenRatio;
+
+		vec3 worldDirection = vec3(cos(theta) * sin(phi), sin(theta) * sin(phi), cos(phi));
+
+		ScatteredLuminance scatteredLuminance = IntegrateScatteredLuminance(worldPosition, worldDirection, sunDirection, 20);
+
+		sharedScattering[gl_LocalInvocationID.z] = scatteredLuminance.scattering / sphereSamples;
+		sharedLight[gl_LocalInvocationID.z] = scatteredLuminance.luminance / sphereSamples;
+	}
+
+	groupMemoryBarrier();
+	barrier();
+	if (gl_LocalInvocationID.z < 32)
+	{
+		sharedScattering[gl_LocalInvocationID.z] += sharedScattering[gl_LocalInvocationID.z + 32];
+		sharedLight[gl_LocalInvocationID.z] += sharedLight[gl_LocalInvocationID.z + 32];
+	}
+
+	groupMemoryBarrier();
+	barrier();
+	if (gl_LocalInvocationID.z < 16)
+	{
+		sharedScattering[gl_LocalInvocationID.z] += sharedScattering[gl_LocalInvocationID.z + 16];
+		sharedLight[gl_LocalInvocationID.z] += sharedLight[gl_LocalInvocationID.z + 16];
+	}
+
+	groupMemoryBarrier();
+	barrier();
+	if (gl_LocalInvocationID.z < 8)
+	{
+		sharedScattering[gl_LocalInvocationID.z] += sharedScattering[gl_LocalInvocationID.z + 8];
+		sharedLight[gl_LocalInvocationID.z] += sharedLight[gl_LocalInvocationID.z + 8];
+	}
+
+	groupMemoryBarrier();
+	barrier();
+	if (gl_LocalInvocationID.z < 4)
+	{
+		sharedScattering[gl_LocalInvocationID.z] += sharedScattering[gl_LocalInvocationID.z + 4];
+		sharedLight[gl_LocalInvocationID.z] += sharedLight[gl_LocalInvocationID.z + 4];
+	}
+
+	groupMemoryBarrier();
+	barrier();
+	if (gl_LocalInvocationID.z < 2)
+	{
+		sharedScattering[gl_LocalInvocationID.z] += sharedScattering[gl_LocalInvocationID.z + 2];
+		sharedLight[gl_LocalInvocationID.z] += sharedLight[gl_LocalInvocationID.z + 2];
+	}
+
+	groupMemoryBarrier();
+	barrier();
+	if (gl_LocalInvocationID.z < 1)
+	{
+		sharedScattering[gl_LocalInvocationID.z] += sharedScattering[gl_LocalInvocationID.z + 1];
+		sharedLight[gl_LocalInvocationID.z] += sharedLight[gl_LocalInvocationID.z + 1];
+	}
+
+	groupMemoryBarrier();
+	barrier();
+	if (gl_LocalInvocationID.z != 0) {return;}
+
+	vec3 scatteredSum = sharedScattering[0];
+	vec3 lightSum = sharedLight[0];
+
+	const vec3 r = scatteredSum;
+	const vec3 totalSum = vec3(1.0 / (1.0 - r.x), 1.0 / (1.0 - r.y), 1.0 / (1.0 - r.z));
+	vec3 lum = lightSum * totalSum;
+
+	imageStore(scatteringImage, ivec2(gl_GlobalInvocationID.xy), vec4(lum, 1.0));
+}
