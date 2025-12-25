@@ -112,14 +112,16 @@ vec4 GetAerial(float depth, mat4 invViewProjMat)
 	float slice = realDepth * cameraScale * (1.0 / 4.0); // Maybe use 0.1 as cameraScale
     float weight = 1.0;
 
-	if (slice < 0.5)
-	{
-		weight = clamp(slice * 2.0, 0.0, 1.0);
-        slice = 0.5;
-	}
+	//if (slice < 0.5)
+	//{
+	//	weight = clamp(slice * 2.0, 0.0, 1.0);
+    //    slice = 0.5;
+	//}
 
 	float w = sqrt(slice / aerialDimensions.z);
     vec4 aerialValue = weight * texture(aerialTexture, vec3(worldCoordinates, w));
+
+	//if (w > 0.4) return (vec4(100));
 
 	return (aerialValue);
 }
@@ -151,6 +153,9 @@ void main()
 
 	float viewHeight = length(worldPosistion);
 
+	vec4 aerialResult = GetAerial(depth, invViewProjMat);
+	vec3 mistColor = aerialResult.rgb * 32.0 * aerialResult.w;
+
 	if (depth >= 1.0)
 	{
 		vec2 uv = vec2(0.0);
@@ -162,7 +167,9 @@ void main()
 
 		uv = SkyToUV(groundIntersect, vec2(viewAngle, lightAngle), viewHeight);
 
-		color = texture(skyTexture, uv).rgb * 10;
+		color = texture(skyTexture, uv).rgb * 3;
+
+		color += mistColor;
 
 		if (!groundIntersect) {color += sunWithBloom(worldDirection, variables.lightDirection.xyz) * vec3(1.0, 0.9, 0.7) * 24;}
 	}
@@ -170,11 +177,13 @@ void main()
 	{
 		color = subpassLoad(gAlbedo).rgb;
 
-		vec4 aerialResult = GetAerial(depth, invViewProjMat);
+		//vec4 aerialResult = GetAerial(depth, invViewProjMat);
 
 		//color = mix(color, aerialResult.rgb * 24.0, clamp(1.0 - pow(aerialResult.w, 64.0) - 0.25, 0.0, 1.0));
-		color += aerialResult.rgb * 16.0 * aerialResult.w;
+		//color += aerialResult.rgb * 16.0 * aerialResult.w;
 		//color = vec3(aerialResult.w);
+
+		color += mistColor;
 	}
 
 	//int sliceX = int(floor(worldCoordinates.x * 8));

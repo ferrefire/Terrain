@@ -6,12 +6,12 @@
 
 #include "terrainFunctions.glsl"
 
-layout(set = 1, binding = 0, r8) uniform image2D target;
+layout(set = 1, binding = 0, rg16) uniform image2D target;
 layout(set = 1, binding = 1) uniform Config { vec4 sizes; } config;
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-const int resolution = 256;
+const int resolution = 512;
 const float resolutionMult = 1.0 / float(resolution);
 //const float range = 1000.0;
 
@@ -118,14 +118,17 @@ void main()
 		}
 	}*/
 
-	while (i < iterations)
+	float heighest = -2500.0;
+
+	while (i <= iterations)
 	{
 		//rayPosition = mix(worldPosition, lightPosition, pow(inter, interPow));
 		//rayPosition = mix(worldPosition, lightPosition, pow(inter, expPow));
 		//rayPosition = mix(worldPosition, lightPosition, pow(exp(1.0 + (inter - 1.0) * 5.0) * 0.37 - 0.006777, 1.25));
 		//rayPosition = mix(worldPosition, lightPosition, exp(1.0 + (inter - 1.0) * 5.0) * 0.37 - 0.006777);
-		rayPosition = mix(worldPosition, lightPosition, inter);
-		if (rayPosition.y > 1500.0) {break;}
+		//rayPosition = mix(worldPosition, lightPosition, inter);
+		rayPosition = mix(lightPosition, worldPosition, inter);
+		//if (config.sizes.y < 1 && rayPosition.y > 1500.0) {break;}
 
 		if (config.sizes.y == 0) {terrainHeight = TerrainValues(rayPosition.xz).x * 5000.0;}
 		else if (config.sizes.y == 1) {terrainHeight = TerrainValuesLod(rayPosition.xz, 5).x * 5000.0;}
@@ -133,10 +136,13 @@ void main()
 
 		//terrainHeight = TerrainValues(rayPosition.xz).x * 5000.0;
 
+		heighest = max(heighest, terrainHeight);
+
 		if (terrainHeight > rayPosition.y)
 		{
 			result = 0.0;
 			break;
+			//if (config.sizes.y < 1) {break;}
 		}
 
 		//if (config.sizes.y == 0 && i >= 5 && i % 5 == 0)
@@ -155,8 +161,9 @@ void main()
 
 		//if (previousTerrainHeight < terrainHeight) {rising = true;}
 
-		previousRayPosition = rayPosition;
+		//previousRayPosition = rayPosition;
 		//previousTerrainHeight = terrainHeight;
+		
 		inter = i * iterationsMult;
 		i++;
 	}
@@ -174,6 +181,8 @@ void main()
 
 	//if (minDiff < 25) {result = 0.0;}
 
-	imageStore(target, coords, vec4(result, 0.0, 0.0, 0.0));
+	//float heightStore = clamp((worldPosition.y + (terrainHeight - rayPosition.y)) / 5000.0 + 0.5, 0.0, 1.0);
+	float heightStore = clamp(heighest / 5000.0 + 0.5, 0.0, 1.0);
+	imageStore(target, coords, vec4(result, heightStore, 0.0, 0.0));
 	//if (coords.x > 0) imageStore(targets[computeIndex], coords - ivec2(1, 0), vec4(result, 0.0, 0.0, 0.0));
 }

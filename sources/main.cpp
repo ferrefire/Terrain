@@ -121,7 +121,7 @@ float terrainResetDis = 5000.0f / float(terrainLod2Res);
 
 int currentLod = -1;
 
-int shadowmapResolution = 256;
+int shadowmapResolution = 512;
 
 void BlitFrameBuffer(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
@@ -220,7 +220,7 @@ void ComputeLuminance(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 	vkCmdDispatch(commandBuffer, 12, 8, 1);
 
 	aerialPipeline.Bind(commandBuffer);
-	vkCmdDispatch(commandBuffer, 1, 32, 32);
+	vkCmdDispatch(commandBuffer, 1, 32, 64);
 
 	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
 
@@ -383,7 +383,7 @@ void Start()
 	ImageConfig aerialImageConfig = Image::DefaultStorageConfig();
 	aerialImageConfig.width = 32;
 	aerialImageConfig.height = 32;
-	aerialImageConfig.depth = 32;
+	aerialImageConfig.depth = 64;
 	aerialImageConfig.type = VK_IMAGE_TYPE_3D;
 	aerialImageConfig.viewConfig.type = VK_IMAGE_VIEW_TYPE_3D;
 	aerialImageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -398,8 +398,10 @@ void Start()
 	terrainShadowImageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	terrainShadowImageConfig.samplerConfig.minFilter = VK_FILTER_LINEAR;
 	terrainShadowImageConfig.samplerConfig.magFilter = VK_FILTER_LINEAR;
-	terrainShadowImageConfig.format = VK_FORMAT_R8_UNORM;
-	terrainShadowImageConfig.viewConfig.format = VK_FORMAT_R8_UNORM;
+	//terrainShadowImageConfig.format = VK_FORMAT_R8_UNORM;
+	//terrainShadowImageConfig.viewConfig.format = VK_FORMAT_R8_UNORM;
+	terrainShadowImageConfig.format = VK_FORMAT_R16G16_UNORM;
+	terrainShadowImageConfig.viewConfig.format = VK_FORMAT_R16G16_UNORM;
 
 	terrainShadowImages.resize(3);
 	for (Image& image : terrainShadowImages) {image.Create(terrainShadowImageConfig);}
@@ -968,17 +970,32 @@ void Frame()
 		data.heightmapOffsets[currentLod].x() = computeDatas[currentLod].y();
 		data.heightmapOffsets[currentLod].y() = computeDatas[currentLod].z();
 		
-		if (currentLod == 5) {SetTerrainShadowValues(2);}
-		if (currentLod == 1) {SetTerrainShadowValues(1);}
+		//if (currentLod == 5) {SetTerrainShadowValues(2);}
+		//if (currentLod == 1) {SetTerrainShadowValues(1);}
+		//if (currentLod == 0) {SetTerrainShadowValues(0);}
 		//else if (currentLod == 3) {SetTerrainShadowValues(1);}
 		//else if (currentLod == 6) {SetTerrainShadowValues(2);}
 		//else if (currentLod <= 5) {CTSI = 1;}
 		//else {CTSI = 2;}
 	}
 
+	for (int i = 2; i >= 0; i--)
+	{
+		if (fabs(data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f) - data.shadowmapOffsets[i].x()) > data.shadowmapOffsets[i].w() * 0.0001 * 0.125 || 
+			fabs(data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f) - data.shadowmapOffsets[i].z()) > data.shadowmapOffsets[i].w() * 0.0001 * 0.125)
+		{
+			//currentLod = i;
+			//computeDatas[currentLod].y() = data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f);
+			//computeDatas[currentLod].z() = data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f);
+			//break;
+
+			SetTerrainShadowValues(i);
+		}
+	}
+
 	if (Time::newTick)
 	{
-		SetTerrainShadowValues(0);
+		//SetTerrainShadowValues(0);
 		//SetTerrainShadowValues(1);
 		//SetTerrainShadowValues(2);
 	}

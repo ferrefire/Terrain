@@ -271,7 +271,7 @@ void main()
 	vec3 ambientDiffuse = 0.05 * textureData.color * vec3(1.0, 0.9, 0.7) * 6;
 	vec3 ambient = ambientDiffuse * ao;
 	
-	float shadow = TerrainShadow(worldPosition.xz);
+	float shadow = TerrainShadow(vec3(worldPosition.x, -2500.0, worldPosition.z));
 	diffuse *= shadow;
 
 	diffuse += ambient;

@@ -28,7 +28,7 @@ const float H = sqrt(topRadius2 - bottomRadius2);
 const vec2 transmittanceDimensions = vec2(256, 64);
 const vec2 scatteringDimensions = vec2(32, 32);
 const vec2 skyDimensions = vec2(192, 128);
-const vec3 aerialDimensions = vec3(32, 32, 32);
+const vec3 aerialDimensions = vec3(32, 32, 64);
 
 const float cameraScale = 0.001;
 

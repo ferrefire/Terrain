@@ -82,67 +82,92 @@ float TerrainCascadeLod(vec2 worldPosition)
 	return (cascadeCount);
 }
 
-float BlendSample(sampler2D tex, vec2 uv, float texelSize)
+float BlendSample(sampler2D tex, vec3 uv, float texelSize)
 {
 	float offset = texelSize * 0.5;
 
-	float s0 = texture(tex, uv + vec2(-offset)).r;
-	float s1 = texture(tex, uv + vec2(offset, -offset)).r;
-	float s2 = texture(tex, uv + vec2(-offset, offset)).r;
-	float s3 = texture(tex, uv + vec2(offset)).r;
+	vec2 s0 = texture(tex, uv.xz + vec2(-offset)).rg;
+	float v0 = (uv.y <= s0.g ? s0.r : 1.0);
 
-	return ((s0 + s1 + s2 + s3) * 0.25);
+	vec2 s1 = texture(tex, uv.xz + vec2(offset, -offset)).rg;
+	float v1 = (uv.y <= s1.g ? s1.r : 1.0);
+
+	vec2 s2 = texture(tex, uv.xz + vec2(-offset, offset)).rg;
+	float v2 = (uv.y <= s2.g ? s2.r : 1.0);
+
+	vec2 s3 = texture(tex, uv.xz + vec2(offset)).rg;
+	float v3 = (uv.y <= s3.g ? s3.r : 1.0);
+
+	return ((v0 + v1 + v2 + v3) * 0.25);
 }
 
-const float shadowTexelSize = 1.0 / 256.0;
+const float shadowTexelSize = 1.0 / 512.0;
+const float maxDisUV = sqrt(2.0);
 
-float TerrainShadow(vec2 worldPosition)
+float TerrainShadow(vec3 worldPosition)
 {
 	vec2 uv = vec2(0.0);
+	vec2 viewUV = vec2(0.0);
 	float result = 1.0;
 	float blend = 0.0;
+	float heightUV = worldPosition.y / 5000.0;
+
 	for (int i = 2; i >= 0; i--)
 	{
-		uv = worldPosition * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
+		uv = worldPosition.xz * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
 		uv = (uv * 10000.0) / variables.shadowmapOffsets[i].w;
+
+		//viewUV = variables.viewPosition.xz * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
+		//viewUV = (viewUV * 10000.0) / variables.shadowmapOffsets[i].w;
 
 		if (abs(uv.x) < 0.5 && abs(uv.y) < 0.5)
 		{
-			//if (i < 2) {result = mix(BlendSample(shadowmaps[i], uv + 0.5, shadowTexelSize), result, blend);}
-			//else {result = mix(texture(shadowmaps[i], uv + 0.5).r, result, blend);}
-			//result = mix(BlendSample(shadowmaps[i], uv + 0.5, shadowTexelSize), result, blend);
-			float value = 1.0 - BlendSample(shadowmaps[i], uv + 0.5, shadowTexelSize);
-			if (abs(uv.x) > 0.3 || abs(uv.y) > 0.3) {value *= 1.0 - (max(abs(uv.x), abs(uv.y)) - 0.3) / 0.2;}
+			vec3 sampleUV = vec3(uv.x, heightUV, uv.y);
+			float value = 1.0 - BlendSample(shadowmaps[i], sampleUV + 0.5, shadowTexelSize);
+			//if (abs(uv.x) > 0.3 || abs(uv.y) > 0.3) {value *= 1.0 - (max(abs(uv.x), abs(uv.y)) - 0.3) / 0.2;}
+
+			if (i < 2)
+			{
+				viewUV = variables.viewPosition.xz * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
+				viewUV = (viewUV * 10000.0) / variables.shadowmapOffsets[i].w;
+				float uvDis = max(abs(uv.x - viewUV.x), abs(uv.y - viewUV.y));
+				if (i > 0) {uvDis -= (variables.shadowmapOffsets[i - 1].w / variables.shadowmapOffsets[i].w) * 0.5;}
+				uvDis = clamp(uvDis * 2.0, 0.0, 1.0);
+				float valPower = clamp(uvDis - 0.3, 0.0, 0.3) / 0.3;
+				value *= 1.0 - valPower;
+			}
+
 			result -= value;
 
 			if (result <= 0.0) {break;}
-
-			//if (abs(uv.x) < 0.4 && abs(uv.y) < 0.4) {blend = 0.0;}
-			//else {blend = 1.0 - (max(abs(uv.x), abs(uv.y)) - 0.4) / 0.1;}
 		}
 	}
 
 	return (clamp(result, 0.0, 1.0));
 }
 
-float TerrainShadowLod(vec2 worldPosition, int lod)
+float TerrainShadowLod(vec3 worldPosition, int lod)
 {
 	vec2 uv = vec2(0.0);
+	float heightUV = worldPosition.y / 5000.0;
 	float result = 1.0;
 	float blend = 0.0;
 	lod = clamp(lod, 0, 2);
-	for (int i = lod; i <= 2; i++)
+	int i = lod;
+	//for (int i = lod; i <= 2; i++)
 	{
-		uv = worldPosition * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
+		uv = worldPosition.xz * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
 		uv = (uv * 10000.0) / variables.shadowmapOffsets[i].w;
 
 		if (abs(uv.x) < 0.5 && abs(uv.y) < 0.5)
 		{
 			//if (i < 2) {result = mix(BlendSample(shadowmaps[i], uv + 0.5, shadowTexelSize), result, blend);}
-			result = mix(texture(shadowmaps[i], uv + 0.5).r, result, blend);
+			//result = texture(shadowmaps[i], uv + 0.5).r;
+			vec3 sampleUV = vec3(uv.x, heightUV, uv.y);
+			result = BlendSample(shadowmaps[i], sampleUV + 0.5, shadowTexelSize);
 
-			if (abs(uv.x) < 0.4 && abs(uv.y) < 0.4) {break;}
-			else {blend = 1.0 - (max(abs(uv.x), abs(uv.y)) - 0.4) / 0.1;}
+			//if (abs(uv.x) < 0.4 && abs(uv.y) < 0.4) {break;}
+			//else {blend = 1.0 - (max(abs(uv.x), abs(uv.y)) - 0.4) / 0.1;}
 		}
 	}
 

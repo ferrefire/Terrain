@@ -6,12 +6,14 @@
 
 #include "variables.glsl"
 
+#include "terrainFunctions.glsl"
+
 layout(set = 1, binding = 0, rgba16f) uniform readonly image2D transmittanceImage;
 layout(set = 1, binding = 1, rgba16f) uniform readonly image2D scatteringImage;
 layout(set = 1, binding = 2, rgba16f) uniform readonly image2D skyImage;
 layout(set = 1, binding = 3, rgba16f) uniform image3D aerialImage;
 
-layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 vec3 MultiScattering(vec3 worldPosition, float viewAngle)
 {
@@ -78,6 +80,15 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 
 		float raySurfaceDistance = IntersectSphere(rayPosition, sunDirection, offsetRadius * up, bottomRadius);
 		float inShadow = raySurfaceDistance == -1.0 ? 1.0 : 0.0;
+
+		//if (inShadow == 1.0) {inShadow = TerrainShadow(rayPosition - vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0) + bottomRadius, 0.0));}
+		//if (inShadow == 1.0)
+		{
+			vec3 realPos = rayPosition - vec3(0.0, bottomRadius, 0.0);
+			realPos /= cameraScale;
+			realPos -= vec3(0.0, 2500.0, 0.0);
+			inShadow = TerrainShadow(realPos);
+		}
 
 		vec3 multiScatteredLuminance = MultiScattering(rayPosition, dot(sunDirection, up));
 
