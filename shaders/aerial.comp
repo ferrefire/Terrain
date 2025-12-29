@@ -82,12 +82,14 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 		float inShadow = raySurfaceDistance == -1.0 ? 1.0 : 0.0;
 
 		//if (inShadow == 1.0) {inShadow = TerrainShadow(rayPosition - vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0) + bottomRadius, 0.0));}
-		//if (inShadow == 1.0)
+		if (inShadow == 1.0)
 		{
 			vec3 realPos = rayPosition - vec3(0.0, bottomRadius, 0.0);
 			realPos /= cameraScale;
 			realPos -= vec3(0.0, 2500.0, 0.0);
-			inShadow = TerrainShadow(realPos);
+			//inShadow = TerrainShadow(realPos);
+			inShadow = TerrainShadow(realPos, 0, true);
+			//if (inShadow < 1.0) {inShadow *= inShadow;}
 		}
 
 		vec3 multiScatteredLuminance = MultiScattering(rayPosition, dot(sunDirection, up));

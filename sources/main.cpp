@@ -121,7 +121,7 @@ float terrainResetDis = 5000.0f / float(terrainLod2Res);
 
 int currentLod = -1;
 
-int shadowmapResolution = 512;
+int shadowmapResolution = 256;
 
 void BlitFrameBuffer(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
@@ -220,7 +220,7 @@ void ComputeLuminance(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 	vkCmdDispatch(commandBuffer, 12, 8, 1);
 
 	aerialPipeline.Bind(commandBuffer);
-	vkCmdDispatch(commandBuffer, 1, 32, 64);
+	vkCmdDispatch(commandBuffer, 1, 64, 32);
 
 	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
 
@@ -381,9 +381,9 @@ void Start()
 	skyImage.Create(skyImageConfig);
 
 	ImageConfig aerialImageConfig = Image::DefaultStorageConfig();
-	aerialImageConfig.width = 32;
-	aerialImageConfig.height = 32;
-	aerialImageConfig.depth = 64;
+	aerialImageConfig.width = 64;
+	aerialImageConfig.height = 64;
+	aerialImageConfig.depth = 32;
 	aerialImageConfig.type = VK_IMAGE_TYPE_3D;
 	aerialImageConfig.viewConfig.type = VK_IMAGE_VIEW_TYPE_3D;
 	aerialImageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -495,7 +495,8 @@ void Start()
 	data.projection = Manager::GetCamera().GetProjection();
 	//data.lightDirection = point4D(point3D(0.2, 0.25, -0.4).Unitized());
 	//data.lightDirection = point4D(point3D(0.377384, 0.0347139, -0.925406));
-	data.lightDirection = point4D(point3D(0.529019, 0.282315, -0.800273));
+	//data.lightDirection = point4D(point3D(0.529019, 0.282315, -0.800273));
+	data.lightDirection = point4D(point3D(0.613087, 0.116438, 0.781388));
 	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 
 		Manager::GetCamera().GetConfig().near, Manager::GetCamera().GetConfig().far);
 	data.terrainOffset = point4D(0.0);
@@ -782,11 +783,19 @@ void Start()
 	//Manager::GetCamera().Move(point3D(-5000, 2500, 5000));
 	Input::TriggerMouse();
 	//Manager::GetCamera().Move(point3D(-1486.45, -1815.79, -3094.54));
-	Manager::GetCamera().Move(point3D(-931.948, -2051.53, -2499.46));
+	//Manager::GetCamera().Move(point3D(-931.948, -2051.53, -2499.46));
+	//Manager::GetCamera().Move(point3D(-24.9147, -904.676, 5320.23));
+	Manager::GetCamera().Move(point3D(3884.26, -1783.41, 11323.2));
 	//Manager::GetCamera().Rotate(point3D(12.8998, -149.9, 0.0));
-	Manager::GetCamera().Rotate(point3D(26.0998, -151.9, 0.0));
+	//Manager::GetCamera().Rotate(point3D(26.0998, -151.9, 0.0));
+	//Manager::GetCamera().Rotate(point3D(4.89981, 306.799, 0.0));
+	Manager::GetCamera().Rotate(point3D(-3.40032, 292.801, 0.0));
 	//Manager::GetCamera().Move(point3D(7523.26, 643.268, 518.602));
 	//Manager::GetCamera().Move(point3D(0, 10, 0));
+
+	//data.shadowmapOffsets[0] = point4D(100000);
+	//data.shadowmapOffsets[1] = point4D(100000);
+	//data.shadowmapOffsets[2] = point4D(100000);
 
 	VkSemaphoreCreateInfo semaphoreCreateInfo{};
 	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -991,13 +1000,6 @@ void Frame()
 
 			SetTerrainShadowValues(i);
 		}
-	}
-
-	if (Time::newTick)
-	{
-		//SetTerrainShadowValues(0);
-		//SetTerrainShadowValues(1);
-		//SetTerrainShadowValues(2);
 	}
 
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));

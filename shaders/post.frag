@@ -110,7 +110,7 @@ vec4 GetAerial(float depth, mat4 invViewProjMat)
 	float realDepth = length(hPos.xyz / hPos.w - variables.viewPosition.xyz);
 
 	float slice = realDepth * cameraScale * (1.0 / 4.0); // Maybe use 0.1 as cameraScale
-    float weight = 1.0;
+    //float weight = 1.0;
 
 	//if (slice < 0.5)
 	//{
@@ -118,8 +118,25 @@ vec4 GetAerial(float depth, mat4 invViewProjMat)
     //    slice = 0.5;
 	//}
 
+	const float aerialTexelSize = 1.0 / float(aerialDimensions.x);
+	const float offset = aerialTexelSize * 0.5;
+
 	float w = sqrt(slice / aerialDimensions.z);
-    vec4 aerialValue = weight * texture(aerialTexture, vec3(worldCoordinates, w));
+    //vec4 aerialValue = texture(aerialTexture, vec3(worldCoordinates, w));
+    vec4 aerialValue = texture(aerialTexture, vec3(worldCoordinates + vec2(-offset), w));
+    aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset, -offset), w));
+    aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(-offset, offset), w));
+    aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset), w));
+	aerialValue *= 0.25;
+    //vec4 aerialValue = weight * texture(aerialTexture, vec3(worldCoordinates, w));
+
+	//if (slice - floor(slice) > 0.9)
+	//{
+	//	w = sqrt(floor(slice + 1.0) / aerialDimensions.z);
+	//	aerialValue.rgb += texture(aerialTexture, vec3(worldCoordinates, w)).rgb;
+	//	aerialValue.rgb *= 0.5;
+	//	aerialValue.rgb = vec3(0, 0, 1);
+	//}
 
 	//if (w > 0.4) return (vec4(100));
 
@@ -154,7 +171,7 @@ void main()
 	float viewHeight = length(worldPosistion);
 
 	vec4 aerialResult = GetAerial(depth, invViewProjMat);
-	vec3 mistColor = aerialResult.rgb * 32.0 * aerialResult.w;
+	vec3 mistColor = aerialResult.rgb * aerialResult.w * 64;
 
 	if (depth >= 1.0)
 	{
@@ -195,7 +212,8 @@ void main()
 	//color = texture(skyTexture, worldCoordinates).rgb * 6.0;
 
 	//vec3 exposedColor = color * currentExposure;
-	vec3 exposedColor = color * pow(1.0 / luminanceData.value, 0.25);
+	//vec3 exposedColor = color * pow(1.0 / luminanceData.value, 0.25);
+	vec3 exposedColor = color * 1.0;
 	//vec3 exposedColor = color * 1.25;
 
 	//vec3 mappedColor = acesTonemap(texture(skyTexture, worldCoordinates).rgb * 6.0);

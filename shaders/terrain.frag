@@ -119,10 +119,13 @@ void main()
 
 	float steepness = 1.0 - (dot(_worldNormal, vec3(0, 1, 0)) * 0.5 + 0.5);
 
+	//float lightStrength = 6 * clamp(dot(variables.lightDirection.xyz, vec3(0, 1, 0)) * 3.0, 1.0, 2.0);
+	float lightStrength = 6;
+
 	PBRInput data;
 	data.V = normalize(variables.viewPosition.xyz - worldPosition);
 	data.L = normalize(variables.lightDirection.xyz);
-	data.lightColor = vec3(1.0, 0.9, 0.7) * 6;
+	data.lightColor = vec3(1.0, 0.9, 0.7) * lightStrength;
 
 	//vec3 weights = GetWeights(_worldNormal, 4.0);
 
@@ -268,7 +271,7 @@ void main()
 	diffuse = PBRLighting(data);
 
 	//vec3 ambientDiffuse = 0.15 * textureData.color * vec3(1.0, 0.9, 0.7);
-	vec3 ambientDiffuse = 0.05 * textureData.color * vec3(1.0, 0.9, 0.7) * 6;
+	vec3 ambientDiffuse = 0.05 * textureData.color * vec3(1.0, 0.9, 0.7) * lightStrength;
 	vec3 ambient = ambientDiffuse * ao;
 	
 	float shadow = TerrainShadow(vec3(worldPosition.x, -2500.0, worldPosition.z));
