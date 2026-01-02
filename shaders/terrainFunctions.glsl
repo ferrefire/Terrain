@@ -7,10 +7,13 @@ const float shadowTexelSize = 1.0 / shadowResolution;
 
 layout(set = 0, binding = 1) uniform sampler2D heightmaps[cascadeCount];
 layout(set = 0, binding = 2) uniform sampler2D shadowmaps[3];
+layout(set = 0, binding = 3) uniform sampler2D glillMap;
+layout(set = 0, binding = 4) uniform sampler2D skyMap;
 
 #include "packing.glsl"
 #include "noise.glsl"
 #include "sampling.glsl"
+#include "atmosphere.glsl"
 
 vec4 TerrainValues(vec2 worldPosition)
 {
@@ -86,7 +89,7 @@ float TerrainCascadeLod(vec2 worldPosition)
 
 float BlendSample(sampler2D tex, vec3 uv, float texelSize)
 {
-	float offset = texelSize * 0.5;
+	const float offset = texelSize * 0.5;
 
 	vec2 s0 = texture(tex, uv.xz + vec2(-offset)).rg;
 	//float d0 = clamp((uv.y - s0.g) * 5000.0, 0.0, 50.0) * 0.02;
@@ -112,6 +115,7 @@ float BlendSample(sampler2D tex, vec3 uv, float texelSize)
 }
 
 const float maxDisUV = sqrt(2.0);
+const float maxHeightMult = 1.0 / 5000.0;
 
 float TerrainShadow(vec3 worldPosition)
 {
@@ -119,7 +123,8 @@ float TerrainShadow(vec3 worldPosition)
 	vec2 viewUV = vec2(0.0);
 	float result = 1.0;
 	float blend = 0.0;
-	float heightUV = worldPosition.y / 5000.0;
+	float heightUV = worldPosition.y * maxHeightMult;
+	if (heightUV <= -0.5) {heightUV = -0.6;}
 
 	for (int i = 2; i >= 0; i--)
 	{
@@ -157,7 +162,8 @@ float TerrainShadow(vec3 worldPosition, int lod, bool blended)
 	vec2 viewUV = vec2(0.0);
 	float result = 1.0;
 	float blend = 0.0;
-	float heightUV = worldPosition.y / 5000.0;
+	float heightUV = worldPosition.y * maxHeightMult;
+	if (heightUV <= -0.5) {heightUV = -0.6;}
 	lod = clamp(lod, 0, 2);
 
 	for (int i = 2; i >= lod; i--)
@@ -206,7 +212,7 @@ vec2 TerrainShadowValue(vec3 worldPosition, int lod)
 	vec2 viewUV = vec2(0.0);
 	float result = 1.0;
 	float blend = 0.0;
-	float heightUV = worldPosition.y / 5000.0;
+	float heightUV = worldPosition.y * maxHeightMult;
 	int i = clamp(lod, 0, 2);
 
 	uv = worldPosition.xz * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
@@ -227,32 +233,67 @@ vec2 TerrainShadowValue(vec3 worldPosition, int lod)
 	return (vec2(0.0));
 }
 
-/*float TerrainShadowLod(vec3 worldPosition, int lod)
+/*float TerrainIllumination(vec2 worldPosition)
 {
-	vec2 uv = vec2(0.0);
-	float heightUV = worldPosition.y / 5000.0;
 	float result = 1.0;
-	float blend = 0.0;
-	lod = clamp(lod, 0, 2);
-	int i = lod;
-	//for (int i = lod; i <= 2; i++)
+
+	vec2 uv = worldPosition * 0.0001 - (variables.glillOffsets.xz - variables.terrainOffset.xz);
+	uv = (uv * 10000.0) / 10000.0;
+
+	if (max(abs(uv.x), abs(uv.y)) <= 0.5)
 	{
-		uv = worldPosition.xz * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
-		uv = (uv * 10000.0) / variables.shadowmapOffsets[i].w;
-
-		if (abs(uv.x) < 0.5 && abs(uv.y) < 0.5)
-		{
-			//if (i < 2) {result = mix(BlendSample(shadowmaps[i], uv + 0.5, shadowTexelSize), result, blend);}
-			//result = texture(shadowmaps[i], uv + 0.5).r;
-			vec3 sampleUV = vec3(uv.x, heightUV, uv.y);
-			result = BlendSample(shadowmaps[i], sampleUV + 0.5, shadowTexelSize);
-
-			//if (abs(uv.x) < 0.4 && abs(uv.y) < 0.4) {break;}
-			//else {blend = 1.0 - (max(abs(uv.x), abs(uv.y)) - 0.4) / 0.1;}
-		}
+		result = texture(glillMap, uv + 0.5).r;
 	}
 
 	return (result);
 }*/
+
+vec4 TerrainOcclusion(vec3 worldPosition, vec3 worldDirection)
+{
+	float result = 1.0;
+
+	vec2 uv = worldPosition.xz * 0.0001 - (variables.glillOffsets.xz - variables.terrainOffset.xz);
+	uv = (uv * 10000.0) / 10000.0;
+
+	if (max(abs(uv.x), abs(uv.y)) <= 0.5)
+	{
+		vec4 value = texture(glillMap, uv + 0.5);
+		result = value.a;
+		worldDirection = normalize(value.xyz);
+	}
+
+	vec3 skyWorldPosition = ((worldPosition + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	//vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	vec3 up = normalize(skyWorldPosition);
+	float viewAngle = acos(dot(worldDirection, up));
+	float viewHeight = length(skyWorldPosition);
+
+	float lightAngle = acos(dot(normalize(vec3(variables.lightDirection.x, 0.0, variables.lightDirection.z)), normalize(vec3(worldDirection.x, 0.0, worldDirection.z))));
+	bool groundIntersect = IntersectSphere(skyWorldPosition, worldDirection, vec3(0.0), bottomRadius) >= 0.0;
+
+	vec2 skyUV = SkyToUV(groundIntersect, vec2(viewAngle, lightAngle), viewHeight);
+
+	vec3 skyColor = texture(skyMap, skyUV).rgb * 300;
+
+	return (vec4(skyColor, result));
+}
+
+vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
+{
+	vec3 skyWorldPosition = ((worldPosition + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	//vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	vec3 up = normalize(skyWorldPosition);
+	float viewAngle = acos(dot(worldDirection, up));
+	float viewHeight = length(skyWorldPosition);
+
+	float lightAngle = acos(dot(normalize(vec3(variables.lightDirection.x, 0.0, variables.lightDirection.z)), normalize(vec3(worldDirection.x, 0.0, worldDirection.z))));
+	bool groundIntersect = IntersectSphere(skyWorldPosition, worldDirection, vec3(0.0), bottomRadius) >= 0.0;
+
+	vec2 skyUV = SkyToUV(groundIntersect, vec2(viewAngle, lightAngle), viewHeight);
+
+	vec3 skyColor = texture(skyMap, skyUV).rgb * 300;
+
+	return (skyColor);
+}
 
 #endif

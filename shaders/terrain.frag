@@ -271,14 +271,23 @@ void main()
 	diffuse = PBRLighting(data);
 
 	//vec3 ambientDiffuse = 0.15 * textureData.color * vec3(1.0, 0.9, 0.7);
-	vec3 ambientDiffuse = 0.05 * textureData.color * vec3(1.0, 0.9, 0.7) * lightStrength;
-	vec3 ambient = ambientDiffuse * ao;
+	//vec3 ambientDiffuse = 0.1 * textureData.color * vec3(1.0, 0.9, 0.7) * lightStrength;
+	//vec3 ambient = ambientDiffuse * ao;
 	
 	float shadow = TerrainShadow(vec3(worldPosition.x, -2500.0, worldPosition.z));
 	diffuse *= shadow;
 
-	diffuse += ambient;
-	diffuse *= ao;
+	vec3 illumination = TerrainIllumination(worldPosition, _worldNormal);
+	//vec4 illumination = TerrainIllumination(worldPosition, _worldNormal);
+	//float occlusion = illumination.w;
+	float occlusion = 1;
+
+	vec3 ambientDiffuse = 0.1 * textureData.color * illumination.rgb;
+	vec3 ambient = ambientDiffuse * ao;
+
+	//diffuse += ambient;
+	diffuse += ambient * occlusion;
+	diffuse *= ao * occlusion;
 
 	/*if (steepness <= rockSteepness + steepnessHalfTransition)
 	{
@@ -350,6 +359,10 @@ void main()
 	//int total = int(floor(abs(worldPosition.x) * 0.2) * 5 + floor(abs(worldPosition.z) * 0.2) * 5);
 	//finalColor *= (total % 2 == 0 ? 1.0 : 0.75);
 	vec3 finalColor = diffuse;
+
+	//float occlusion = TerrainIllumination(worldPosition.xz);
+	//if (occlusion < 0.9) {occlusion = 0;}
+	//finalColor = vec3(occlusion);
 
 	pixelColor = vec4(finalColor, 1.0);
 	//pixelColor = vec4(normal * 0.5 + 0.5, 1.0);

@@ -5,7 +5,8 @@
 
 const float bottomRadius = 6360.0;
 const float topRadius = 6460.0;
-const float offsetRadius = 0.0001; // Maybe change back to 0.01
+//const float offsetRadius = 0.0001; // Maybe change back to 0.01
+const float offsetRadius = 0.01; // Maybe change back to 0.01
 const float rayleighScaleHeight = 8.0;
 const float mieScaleHeight = 1.2;
 

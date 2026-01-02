@@ -217,6 +217,9 @@ void main()
 	//vec3 exposedColor = color * 1.25;
 
 	//vec3 mappedColor = acesTonemap(texture(skyTexture, worldCoordinates).rgb * 6.0);
+
+	//exposedColor = vec3(texture(glillTexture, worldCoordinates).r);
+
 	vec3 mappedColor = acesTonemap(exposedColor);
 	
 	pixelColor = vec4(mappedColor, 1.0);

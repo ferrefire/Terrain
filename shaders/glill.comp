@@ -1,0 +1,73 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "variables.glsl"
+
+#include "terrainFunctions.glsl"
+
+layout(set = 1, binding = 0, rgba16f) uniform image2D glillImage;
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+const int res = 1024;
+const float resMult = 1.0 / float(res);
+
+const float dis = 10000.0;
+
+vec4 GetOcclusion(vec2 origin, int directionCount, int sampleCount, float sampleDistance)
+{
+	float angleStep = 360.0 / float(directionCount);
+	float distanceStep = sampleDistance / float(sampleCount);
+	//float sampleCountMult = 1.0 / float(sampleCount);
+	float totalOcclusion = 0.0;
+	vec3 bentNormal = vec3(0.0);
+
+	float height = TerrainValues(origin).x + 0.5;
+
+	for (int i = 0; i < directionCount; i++)
+	{
+		float maxAngle = 0.0;
+		vec2 direction = vec2(sin(angleStep * i), cos(angleStep * i));
+
+		for (int j = 0; j < sampleCount; j++)
+		{
+			float currentDistance = distanceStep * (j + 1);
+			vec2 samplePosition = origin + (direction * currentDistance);
+
+			float sampleHeight = TerrainValues(samplePosition).x + 0.5;
+			float steepness = ((sampleHeight - height) / (currentDistance / 10000.0) * 0.5);
+
+			maxAngle = max(maxAngle, steepness);
+		}
+
+		
+
+		float currentAngle = atan(maxAngle);
+		float ny = (currentAngle + (PI * 0.5)) * 0.5;
+		vec3 currentBentNormal = normalize(vec3(direction.x * cos(ny), sin(ny), direction.y * cos(ny)));
+		float currentValue = pow(cos(currentAngle), 4.0);
+		currentBentNormal *= currentValue;
+		totalOcclusion += currentValue;
+		bentNormal += currentBentNormal;
+	}
+
+	totalOcclusion /= float(directionCount);
+	bentNormal = normalize(bentNormal);
+
+	return (vec4(bentNormal, totalOcclusion));
+}
+
+void main()
+{
+	vec2 uv = gl_GlobalInvocationID.xy * resMult - 0.5;
+	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+
+	vec2 worldPosition = variables.viewPosition.xz + (uv * dis);
+	//float height = TerrainValues(worldPosition).x + 0.5;
+
+	//float occlusion = GetOcclusion(worldPosition, 16, 25, 200);
+	vec4 occlusion = GetOcclusion(worldPosition, 16, 25, 200);
+
+	imageStore(glillImage, coords, vec4(occlusion));
+}
