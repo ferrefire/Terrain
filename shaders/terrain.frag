@@ -280,14 +280,14 @@ void main()
 	vec3 illumination = TerrainIllumination(worldPosition, _worldNormal);
 	//vec4 illumination = TerrainIllumination(worldPosition, _worldNormal);
 	//float occlusion = illumination.w;
-	float occlusion = 1;
+	float occlusion = TerrainOcclusion(worldPosition.xz);
 
-	vec3 ambientDiffuse = 0.1 * textureData.color * illumination.rgb;
+	vec3 ambientDiffuse = 0.2 * textureData.color * illumination.rgb;
 	vec3 ambient = ambientDiffuse * ao;
 
 	//diffuse += ambient;
 	diffuse += ambient * occlusion;
-	diffuse *= ao * occlusion;
+	diffuse *= ao;
 
 	/*if (steepness <= rockSteepness + steepnessHalfTransition)
 	{

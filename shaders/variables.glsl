@@ -13,7 +13,7 @@ layout(set = 0, binding = 0) uniform Variables
 	vec4 terrainOffset;
 	vec4 heightmapOffsets[cascadeCount];
 	vec4 shadowmapOffsets[3];
-	vec4 glillOffsets;
+	vec4 glillOffsets[2];
 } variables;
 
 #endif

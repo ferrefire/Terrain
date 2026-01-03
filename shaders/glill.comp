@@ -7,13 +7,18 @@
 #include "terrainFunctions.glsl"
 
 layout(set = 1, binding = 0, rgba16f) uniform image2D glillImage;
+layout(set = 1, binding = 1) uniform Config
+{
+	vec4 sizes;
+	vec4 settings;
+} config;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 const int res = 1024;
 const float resMult = 1.0 / float(res);
 
-const float dis = 10000.0;
+//const float dis = 10000.0;
 
 vec4 GetOcclusion(vec2 origin, int directionCount, int sampleCount, float sampleDistance)
 {
@@ -36,24 +41,23 @@ vec4 GetOcclusion(vec2 origin, int directionCount, int sampleCount, float sample
 			vec2 samplePosition = origin + (direction * currentDistance);
 
 			float sampleHeight = TerrainValues(samplePosition).x + 0.5;
-			float steepness = ((sampleHeight - height) / (currentDistance / 10000.0) * 0.5);
+			float steepness = ((sampleHeight - height) / (currentDistance / 10000.0));
 
 			maxAngle = max(maxAngle, steepness);
 		}
 
-		
-
 		float currentAngle = atan(maxAngle);
-		float ny = (currentAngle + (PI * 0.5)) * 0.5;
-		vec3 currentBentNormal = normalize(vec3(direction.x * cos(ny), sin(ny), direction.y * cos(ny)));
-		float currentValue = pow(cos(currentAngle), 4.0);
-		currentBentNormal *= currentValue;
+		float currentValue = pow(cos(currentAngle), config.settings.z);
 		totalOcclusion += currentValue;
-		bentNormal += currentBentNormal;
+
+		//float ny = (currentAngle + (PI * 0.5)) * 0.5;
+		//vec3 currentBentNormal = normalize(vec3(direction.x * cos(ny), sin(ny), direction.y * cos(ny)));
+		//currentBentNormal *= currentValue;
+		//bentNormal += currentBentNormal;
 	}
 
 	totalOcclusion /= float(directionCount);
-	bentNormal = normalize(bentNormal);
+	//bentNormal = normalize(bentNormal);
 
 	return (vec4(bentNormal, totalOcclusion));
 }
@@ -63,11 +67,13 @@ void main()
 	vec2 uv = gl_GlobalInvocationID.xy * resMult - 0.5;
 	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
 
-	vec2 worldPosition = variables.viewPosition.xz + (uv * dis);
+	vec2 worldPosition = variables.viewPosition.xz + (uv * config.sizes.w);
 	//float height = TerrainValues(worldPosition).x + 0.5;
 
+	float sampleDistance = config.sizes.w * 0.005;
+
 	//float occlusion = GetOcclusion(worldPosition, 16, 25, 200);
-	vec4 occlusion = GetOcclusion(worldPosition, 16, 25, 200);
+	vec4 occlusion = GetOcclusion(worldPosition, 16, int(config.settings.x), config.settings.y);
 
 	imageStore(glillImage, coords, vec4(occlusion));
 }

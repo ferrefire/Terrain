@@ -7,7 +7,7 @@ const float shadowTexelSize = 1.0 / shadowResolution;
 
 layout(set = 0, binding = 1) uniform sampler2D heightmaps[cascadeCount];
 layout(set = 0, binding = 2) uniform sampler2D shadowmaps[3];
-layout(set = 0, binding = 3) uniform sampler2D glillMap;
+layout(set = 0, binding = 3) uniform sampler2D glillMaps[2];
 layout(set = 0, binding = 4) uniform sampler2D skyMap;
 
 #include "packing.glsl"
@@ -248,7 +248,7 @@ vec2 TerrainShadowValue(vec3 worldPosition, int lod)
 	return (result);
 }*/
 
-vec4 TerrainOcclusion(vec3 worldPosition, vec3 worldDirection)
+/*vec4 TerrainOcclusion(vec3 worldPosition, vec3 worldDirection)
 {
 	float result = 1.0;
 
@@ -276,22 +276,45 @@ vec4 TerrainOcclusion(vec3 worldPosition, vec3 worldDirection)
 	vec3 skyColor = texture(skyMap, skyUV).rgb * 300;
 
 	return (vec4(skyColor, result));
+}*/
+
+float TerrainOcclusion(vec2 worldPosition)
+{
+	float result = 1.0;
+
+	for (int i = 0; i < 2; i++)
+	{
+		if (variables.glillOffsets[i].y == 1) {return (result);}
+
+		vec2 uv = worldPosition * 0.0001 - (variables.glillOffsets[i].xz - variables.terrainOffset.xz);
+		uv = (uv * 10000.0) / variables.glillOffsets[i].w;
+
+		if (max(abs(uv.x), abs(uv.y)) <= 0.5)
+		{
+			//vec4 value = texture(glillMap, uv + 0.5);
+			result = texture(glillMaps[i], uv + 0.5).a;
+			return (result);
+		}
+	}
+
+	return (result);
 }
 
 vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 {
-	vec3 skyWorldPosition = ((worldPosition + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
-	//vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	//vec3 skyWorldPosition = ((worldPosition + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
 	vec3 up = normalize(skyWorldPosition);
 	float viewAngle = acos(dot(worldDirection, up));
 	float viewHeight = length(skyWorldPosition);
 
-	float lightAngle = acos(dot(normalize(vec3(variables.lightDirection.x, 0.0, variables.lightDirection.z)), normalize(vec3(worldDirection.x, 0.0, worldDirection.z))));
+	//float lightAngle = acos(dot(normalize(vec3(variables.lightDirection.x, 0.0, variables.lightDirection.z)), normalize(vec3(worldDirection.x, 0.0, worldDirection.z))));
+	float lightAngle = acos(dot(variables.lightDirection.xyz, worldDirection));
 	bool groundIntersect = IntersectSphere(skyWorldPosition, worldDirection, vec3(0.0), bottomRadius) >= 0.0;
 
 	vec2 skyUV = SkyToUV(groundIntersect, vec2(viewAngle, lightAngle), viewHeight);
 
-	vec3 skyColor = texture(skyMap, skyUV).rgb * 300;
+	vec3 skyColor = texture(skyMap, skyUV).rgb * 500;
 
 	return (skyColor);
 }
