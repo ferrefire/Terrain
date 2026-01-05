@@ -29,7 +29,7 @@ struct UniformData
 	point4D terrainOffset;
 	point4D heightmapOffsets[computeCascade]{};
 	point4D shadowmapOffsets[3]{};
-	point4D glillmapOffsets[2]{};
+	point4D glillmapOffsets[3]{};
 };
 
 struct LuminanceData
@@ -136,7 +136,7 @@ float terrainResetDis = 5000.0f / float(terrainLod2Res);
 int currentLod = -1;
 
 int shadowmapResolution = 256;
-int glillResolution = 1024;
+int glillResolutions[3] = {512, 1024, 1024};
 
 void BlitFrameBuffer(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
@@ -253,7 +253,7 @@ void ComputeTerrainGlill(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 			frameDescriptor.BindDynamic(0, commandBuffer, glillPipeline);
 			glillDescriptor.Bind(i, commandBuffer, glillPipeline);
 			glillPipeline.Bind(commandBuffer);
-			vkCmdDispatch(commandBuffer, glillResolution / 8, glillResolution / 8, 1);
+			vkCmdDispatch(commandBuffer, glillResolutions[i] / 8, glillResolutions[i] / 8, 1);
 
 			//vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
 		}
@@ -446,16 +446,23 @@ void Start()
 	terrainShadowQueue.resize(3);
 
 	ImageConfig glillImageConfig = Image::DefaultStorageConfig();
-	glillImageConfig.width = glillResolution;
-	glillImageConfig.height = glillResolution;
+	//glillImageConfig.width = glillResolution;
+	//glillImageConfig.height = glillResolution;
 	glillImageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	glillImageConfig.samplerConfig.minFilter = VK_FILTER_LINEAR;
 	glillImageConfig.samplerConfig.magFilter = VK_FILTER_LINEAR;
 	glillImageConfig.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 	glillImageConfig.viewConfig.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 
-	glillImages.resize(2);
-	for (Image& image : glillImages) {image.Create(glillImageConfig);}
+	int index = 0;
+	glillImages.resize(3);
+	for (Image& image : glillImages)
+	{
+		glillImageConfig.width = glillResolutions[index];
+		glillImageConfig.height = glillResolutions[index];
+		image.Create(glillImageConfig);
+		index++;
+	}
 	glillQueue.resize(glillImages.size());
 
 	ImageConfig imageStorageConfig = Image::DefaultStorageConfig();
@@ -552,8 +559,9 @@ void Start()
 	data.terrainOffset = point4D(0.0);
 	//data.terrainOffset.w() = 15;
 	data.terrainOffset.w() = 0;
-	data.glillmapOffsets[0] = point4D(0.0, 0.0, 0.0, 10000.0);
-	data.glillmapOffsets[1] = point4D(0.0, 0.0, 0.0, 75000.0);
+	data.glillmapOffsets[0] = point4D(100000.0, 0.0, 100000.0, 2500.0);
+	data.glillmapOffsets[1] = point4D(100000.0, 0.0, 100000.0, 15000.0);
+	data.glillmapOffsets[2] = point4D(100000.0, 0.0, 100000.0, 75000.0);
 
 	for (size_t i = 0; i < computeCascade; i++)
 	{
@@ -754,8 +762,9 @@ void Start()
 	glillDatas.resize(glillImages.size());
 	for (int i = 0; i < glillImages.size(); i++)
 	{
-		glillDatas[i].offset = point4D(0.0, 0.0, 0.0, i == 0 ? 10000.0 : 75000.0);
-		glillDatas[i].settings = point4D(10.0, 200.0 * (i == 0 ? 1.0 : 7.5), 8.0, 0.0);
+		glillDatas[i].offset = point4D(0.0, 0.0, 0.0, data.glillmapOffsets[i].w());
+		//glillDatas[i].settings = point4D(10.0, 200.0 * (i == 0 ? 1.0 : 7.5), 8.0, 0.0);
+		glillDatas[i].settings = point4D(10.0, 200.0, 8.0, glillResolutions[i]);
 		glillBuffers[i].Create(glillBufferConfig, &glillDatas[i]);
 	}
 
@@ -766,20 +775,21 @@ void Start()
 	glillDescriptorConfigs[1].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	glillDescriptor.Create(1, glillDescriptorConfigs);
 
-	glillDescriptor.GetNewSet();
-	glillDescriptor.Update(0, 0, glillImages[0]);
-	glillDescriptor.Update(0, 1, glillBuffers[0]);
-	glillDescriptor.GetNewSet();
-	glillDescriptor.Update(1, 0, glillImages[1]);
-	glillDescriptor.Update(1, 1, glillBuffers[1]);
+	for (int i = 0; i < glillImages.size(); i++)
+	{
+		glillDescriptor.GetNewSet();
+		glillDescriptor.Update(i, 0, glillImages[i]);
+		glillDescriptor.Update(i, 1, glillBuffers[i]);
+	}
 
 	BufferConfig terrainShadowBufferConfig{}; //remove computeCascade as size!!!!!!!!!!
 	terrainShadowBufferConfig.mapped = true;
 	terrainShadowBufferConfig.size = sizeof(point4D);
-	terrainShadowBuffers.resize(computeCascade);
-	for (int i = 0; i < computeCascade; i++)
+	terrainShadowBuffers.resize(terrainShadowImages.size());
+	for (int i = 0; i < terrainShadowImages.size(); i++)
 	{
-		point4D temp = point4D(0.0, 0.0, 0.0, 0.0);
+		point4D temp = point4D(100000.0, 0.0, 100000.0, 0.0);
+		data.shadowmapOffsets[i] = temp;
 		terrainShadowBuffers[i].Create(terrainShadowBufferConfig, &temp);
 	}
 
@@ -878,7 +888,8 @@ void Start()
 	//Manager::GetCamera().Move(point3D(-1486.45, -1815.79, -3094.54));
 	//Manager::GetCamera().Move(point3D(-931.948, -2051.53, -2499.46));
 	//Manager::GetCamera().Move(point3D(-24.9147, -904.676, 5320.23));
-	Manager::GetCamera().Move(point3D(3884.26, -1783.41, 11323.2));
+	//Manager::GetCamera().Move(point3D(3884.26, -1783.41, 11323.2));
+	Manager::GetCamera().Move(point3D(0, 0, 0));
 	//Manager::GetCamera().Rotate(point3D(12.8998, -149.9, 0.0));
 	//Manager::GetCamera().Rotate(point3D(26.0998, -151.9, 0.0));
 	//Manager::GetCamera().Rotate(point3D(4.89981, 306.799, 0.0));
@@ -919,6 +930,8 @@ void Start()
 	Renderer::RegisterCall(0, ComputeTerrainGlill, true);
 }
 
+static bool allMapsComputed = false;
+
 void Compute(int lod)
 {
 	Renderer::AddFrameSemaphore(computeSemaphores[Renderer::GetCurrentFrame()], VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
@@ -940,6 +953,7 @@ void Compute(int lod)
 		if (lod == 0)
 		{
 			temporaryComputeImages[0].CopyTo(computeImages[lod], computeCommands[Renderer::GetCurrentFrame()], false);
+			if (!allMapsComputed) {allMapsComputed = true;}
 		}
 		else
 		{
@@ -1084,41 +1098,41 @@ void Frame()
 
 	for (int i = 2; i >= 0; i--)
 	{
-		if (fabs(data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f) - data.shadowmapOffsets[i].x()) > data.shadowmapOffsets[i].w() * 0.0001 * 0.125 || 
-			fabs(data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f) - data.shadowmapOffsets[i].z()) > data.shadowmapOffsets[i].w() * 0.0001 * 0.125)
+		if (allMapsComputed && (fabs(data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f) - data.shadowmapOffsets[i].x()) > data.shadowmapOffsets[i].w() * 0.0001 * 0.125 || 
+			fabs(data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f) - data.shadowmapOffsets[i].z()) > data.shadowmapOffsets[i].w() * 0.0001 * 0.125))
 		{
 			SetTerrainShadowValues(i);
 		}
 	}
 
-	/*if (Input::GetKey(GLFW_KEY_APOSTROPHE).pressed)
+	if (Input::GetKey(GLFW_KEY_APOSTROPHE).pressed)
 	{
-		glillDatas[0].settings.y() = std::clamp(glillDatas[0].settings.y() * 2.0, 50.0, 200.0);
-		glillDatas[1].settings.y() = std::clamp(glillDatas[1].settings.y() * 2.0, 375.0, 1500.0);
+		float val = glillDatas[0].settings.z() == 8.0 ? 16.0 : 8.0; 
 
-		glillBuffers[0].Update(&glillDatas[0], sizeof(GlillData));
-		glillBuffers[1].Update(&glillDatas[1], sizeof(GlillData));
-
-		glillQueue[0] = true;
-		glillQueue[1] = true;
+		for (int i = 0; i < glillDatas.size(); i++)
+		{
+			glillDatas[i].settings.z() = val;
+			glillBuffers[i].Update(&glillDatas[i], sizeof(GlillData));
+			glillQueue[i] = true;
+		}
 	}
 
 	if (Input::GetKey(GLFW_KEY_SEMICOLON).pressed)
 	{
-		glillDatas[0].settings.y() = std::clamp(glillDatas[0].settings.y() / 2.0, 50.0, 200.0);
-		glillDatas[1].settings.y() = std::clamp(glillDatas[1].settings.y() / 2.0, 375.0, 1500.0);
+		float val = glillDatas[0].settings.x() == 10.0 ? 25.0 : 10.0; 
 
-		glillBuffers[0].Update(&glillDatas[0], sizeof(GlillData));
-		glillBuffers[1].Update(&glillDatas[1], sizeof(GlillData));
+		for (int i = 0; i < glillDatas.size(); i++)
+		{
+			glillDatas[i].settings.x() = val;
+			glillBuffers[i].Update(&glillDatas[i], sizeof(GlillData));
+			glillQueue[i] = true;
+		}
+	}
 
-		glillQueue[0] = true;
-		glillQueue[1] = true;
-	}*/
-
-	for (int i = 1; i >= 0; i--)
+	for (int i = glillDatas.size() - 1; i >= 0; i--)
 	{
-		if (glillQueue[i] || fabs(data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f) - data.glillmapOffsets[i].x()) > data.glillmapOffsets[i].w() * 0.0001 * 0.125 || 
-			fabs(data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f) - data.glillmapOffsets[i].z()) > data.glillmapOffsets[i].w() * 0.0001 * 0.125)
+		if (allMapsComputed && (glillQueue[i] || fabs(data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f) - data.glillmapOffsets[i].x()) > data.glillmapOffsets[i].w() * 0.0001 * 0.125 || 
+			fabs(data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f) - data.glillmapOffsets[i].z()) > data.glillmapOffsets[i].w() * 0.0001 * 0.125))
 		{
 			data.glillmapOffsets[i].x() = data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f);
 			data.glillmapOffsets[i].z() = data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f);
@@ -1132,8 +1146,20 @@ void Frame()
 
 	if (Input::GetKey(GLFW_KEY_I).pressed)
 	{
-		data.glillmapOffsets[0].y() = (1.0 - data.glillmapOffsets[0].y());
-		data.glillmapOffsets[1].y() = (1.0 - data.glillmapOffsets[1].y());
+		for (int i = 0; i < glillDatas.size(); i++)
+		{
+			data.glillmapOffsets[i].y() = (1.0 - data.glillmapOffsets[i].y());
+		}
+	}
+
+	if (Input::GetKey(GLFW_KEY_F).pressed)
+	{
+		CameraConfig cameraConfig = Manager::GetCamera().GetConfig();
+		cameraConfig.fov = cameraConfig.fov == 60.0 ? 75.0 : 60.0;
+		Manager::GetCamera().SetConfig(cameraConfig);
+		Manager::GetCamera().UpdateProjection();
+		data.projection = Manager::GetCamera().GetProjection();
+		//Manager::GetCamera().UpdateProjection();
 	}
 
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));
@@ -1249,7 +1275,7 @@ int main(int argc, char** argv)
 	CameraConfig cameraConfig = Manager::GetCamera().GetConfig();
 	cameraConfig.near = 0.1;
 	cameraConfig.far = 50000.0;
-	//cameraConfig.fov = 75;
+	cameraConfig.fov = 75;
 	Manager::GetCamera().SetConfig(cameraConfig);
 
 	Manager::RegisterStartCall(Start);

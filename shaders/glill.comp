@@ -15,8 +15,8 @@ layout(set = 1, binding = 1) uniform Config
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-const int res = 1024;
-const float resMult = 1.0 / float(res);
+//const int res = 512;
+//const float resMult = 1.0 / float(res);
 
 //const float dis = 10000.0;
 
@@ -27,6 +27,7 @@ vec4 GetOcclusion(vec2 origin, int directionCount, int sampleCount, float sample
 	//float sampleCountMult = 1.0 / float(sampleCount);
 	float totalOcclusion = 0.0;
 	vec3 bentNormal = vec3(0.0);
+	float countMult = 1.0 / float(sampleCount);
 
 	float height = TerrainValues(origin).x + 0.5;
 
@@ -37,7 +38,10 @@ vec4 GetOcclusion(vec2 origin, int directionCount, int sampleCount, float sample
 
 		for (int j = 0; j < sampleCount; j++)
 		{
-			float currentDistance = distanceStep * (j + 1);
+			//float strength = config.settings.z == 8.0 ? 1.0 : 1.5;
+			float inter = pow((j + 1) * countMult, 1.5);
+			//float currentDistance = distanceStep * (j + 1);
+			float currentDistance = sampleDistance * inter;
 			vec2 samplePosition = origin + (direction * currentDistance);
 
 			float sampleHeight = TerrainValues(samplePosition).x + 0.5;
@@ -64,13 +68,13 @@ vec4 GetOcclusion(vec2 origin, int directionCount, int sampleCount, float sample
 
 void main()
 {
-	vec2 uv = gl_GlobalInvocationID.xy * resMult - 0.5;
+	vec2 uv = gl_GlobalInvocationID.xy / config.settings.w - 0.5;
 	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
 
 	vec2 worldPosition = variables.viewPosition.xz + (uv * config.sizes.w);
 	//float height = TerrainValues(worldPosition).x + 0.5;
 
-	float sampleDistance = config.sizes.w * 0.005;
+	//float sampleDistance = config.sizes.w * 0.005;
 
 	//float occlusion = GetOcclusion(worldPosition, 16, 25, 200);
 	vec4 occlusion = GetOcclusion(worldPosition, 16, int(config.settings.x), config.settings.y);

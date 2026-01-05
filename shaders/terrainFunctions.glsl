@@ -7,7 +7,7 @@ const float shadowTexelSize = 1.0 / shadowResolution;
 
 layout(set = 0, binding = 1) uniform sampler2D heightmaps[cascadeCount];
 layout(set = 0, binding = 2) uniform sampler2D shadowmaps[3];
-layout(set = 0, binding = 3) uniform sampler2D glillMaps[2];
+layout(set = 0, binding = 3) uniform sampler2D glillMaps[3];
 layout(set = 0, binding = 4) uniform sampler2D skyMap;
 
 #include "packing.glsl"
@@ -282,7 +282,9 @@ float TerrainOcclusion(vec2 worldPosition)
 {
 	float result = 1.0;
 
-	for (int i = 0; i < 2; i++)
+	//int start = (variables.glillOffsets[0].y == 1 ? 1 : 0);
+
+	for (int i = 0; i < 3; i++)
 	{
 		if (variables.glillOffsets[i].y == 1) {return (result);}
 
@@ -293,7 +295,7 @@ float TerrainOcclusion(vec2 worldPosition)
 		{
 			//vec4 value = texture(glillMap, uv + 0.5);
 			result = texture(glillMaps[i], uv + 0.5).a;
-			return (result);
+			return (pow(result, 1.5));
 		}
 	}
 

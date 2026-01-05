@@ -132,6 +132,7 @@ float hash21(vec2 p)
     return fract((p3.x + p3.y) * p3.z);
 }
 
+//const float uSeed = 0.06;
 const float uSeed = 0.06;
 
 float rnd(vec2 p)
