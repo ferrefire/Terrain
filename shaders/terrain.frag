@@ -20,7 +20,7 @@ layout(location = 0) out vec4 pixelColor;
 #include "noise.glsl"
 #include "terrainFunctions.glsl"
 
-const float rockSteepness = 0.15;
+const float rockSteepness = 0.10;
 const float drySteepness = 0.1;
 const float rockTransition = 0.075;
 const float dryTransition = 0.025;
@@ -121,6 +121,9 @@ void main()
 
 	//float lightStrength = 6 * clamp(dot(variables.lightDirection.xyz, vec3(0, 1, 0)) * 3.0, 1.0, 2.0);
 	float lightStrength = 6;
+	//float lightStrength = 8;
+
+	//if (variables.glillOffsets[0].y == 1) {lightStrength = 8;}
 
 	PBRInput data;
 	data.V = normalize(variables.viewPosition.xyz - worldPosition);
@@ -282,12 +285,21 @@ void main()
 	//float occlusion = illumination.w;
 	float occlusion = TerrainOcclusion(worldPosition.xz);
 
-	vec3 ambientDiffuse = 0.2 * textureData.color * illumination.rgb;
+	vec3 ambientDiffuse = 0.25 * textureData.color * illumination.rgb;
 	vec3 ambient = ambientDiffuse * ao;
 
-	//diffuse += ambient;
+	float aoMult = pow(occlusion, 0.5);
+	//float aoMult = 1.0;
+
+	//if (variables.glillOffsets[0].y == 1) {aoMult =  pow(mix(0.9, 1.0, occlusion), 8.0);}
+	//if (variables.glillOffsets[0].y == 1) {aoMult = pow(occlusion, 0.75);}
+
+	diffuse *= ao * aoMult;
 	diffuse += ambient * occlusion;
-	diffuse *= ao;
+
+	//diffuse += ambient;
+	//diffuse += ambient * occlusion;
+	//diffuse *= ao;
 
 	/*if (steepness <= rockSteepness + steepnessHalfTransition)
 	{

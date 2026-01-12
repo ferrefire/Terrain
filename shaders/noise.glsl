@@ -133,7 +133,8 @@ float hash21(vec2 p)
 }
 
 //const float uSeed = 0.06;
-const float uSeed = 0.06;
+const float uSeed = 0.0425;
+//const float uSeed = 0.0211256;
 
 float rnd(vec2 p)
 {
@@ -284,7 +285,10 @@ float terrainBiome(vec2 p, int octaves, float biome)
 	//float biome = clamp(simpleNoise(p), 0.0, 1.0);
 	//return (biome);
 	//return (mix(0.0, terrain(p, octaves, 2.0, m_steep), biome));
-	return (mix(0.0, terrain(p, octaves, 1.75, m_steep), biome));
+	//return (mix(0.0, terrain(p, octaves, 1.75, m_steep), biome));
+	//return (mix(0.0, terrain(p, octaves, 1.5, m_steep), biome));
+	//return (mix(0.0, terrain(p, octaves, 1.25, m_steep), biome));
+	return (mix(0.0, terrain(p, octaves, 1.0, m_steep), biome));
 
 	/*float biome = clamp(simpleNoise(p), 0.0, 1.0);
 
@@ -473,8 +477,8 @@ vec3 TerrainData(vec2 uv, int octaves, float sampleDis, bool heightOnly)
 	//vec3 noise = fbm(uv, 5, 2, 0.5);
 	//noise.x += 0.5;
 
-	const float power = 1.5;
-	//const float power = 1.0;
+	//const float power = 1.5;
+	const float power = 2.0;
 	//float height = pow(noise.x, power);
 	//float hx = power * pow(noise.x, power - 1) * noise.y;
 	//float hz = power * pow(noise.x, power - 1) * noise.z;

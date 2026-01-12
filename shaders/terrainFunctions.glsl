@@ -294,8 +294,21 @@ float TerrainOcclusion(vec2 worldPosition)
 		if (max(abs(uv.x), abs(uv.y)) <= 0.5)
 		{
 			//vec4 value = texture(glillMap, uv + 0.5);
-			result = texture(glillMaps[i], uv + 0.5).a;
-			return (pow(result, 1.5));
+			result = texture(glillMaps[i], uv + 0.5).r;
+			//float strength = (variables.glillOffsets[i].y == 1 ? 2.0 : 1.5);
+			//return (pow(result, strength));
+
+			//if (variables.glillOffsets[i].y == 1)
+			//{
+			//	return ((exp(pow(result * 2.0 - 2.0, 3.0))) + (pow(result, 2.0))) * 0.5;
+			//}
+			//return (pow(result, 1.5));
+
+			result = ((exp(pow(result * 2.0 - 2.0, 3.0))) + (pow(result, 2.0))) * 0.5;
+			result = mix(0.1, 1.0, result);
+			//if (variables.glillOffsets[i].y == 1) {result = mix(0.1, 1.0, result);}
+
+			return (result);
 		}
 	}
 
@@ -304,8 +317,8 @@ float TerrainOcclusion(vec2 worldPosition)
 
 vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 {
-	//vec3 skyWorldPosition = ((worldPosition + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
-	vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	vec3 skyWorldPosition = ((worldPosition + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	//vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
 	vec3 up = normalize(skyWorldPosition);
 	float viewAngle = acos(dot(worldDirection, up));
 	float viewHeight = length(skyWorldPosition);

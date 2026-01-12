@@ -171,7 +171,12 @@ void main()
 	float viewHeight = length(worldPosistion);
 
 	vec4 aerialResult = GetAerial(depth, invViewProjMat);
-	vec3 mistColor = aerialResult.rgb * aerialResult.w * 64;
+	//aerialResult.w = pow(aerialResult.w, 2.0);
+	//vec3 mistColor = aerialResult.rgb * (1.0 - aerialResult.w);
+	//vec3 mistColor = aerialResult.rgb * pow(aerialResult.w, 0.125 * 0.5);
+	vec3 mistColor = aerialResult.rgb;
+	//vec3 mistColor = aerialResult.rgb * aerialResult.w * 64;
+	//vec3 mistColor = aerialResult.rgb * aerialResult.w * 48;
 
 	if (depth >= 1.0)
 	{
@@ -184,9 +189,9 @@ void main()
 
 		uv = SkyToUV(groundIntersect, vec2(viewAngle, lightAngle), viewHeight);
 
-		color = texture(skyTexture, uv).rgb * 3;
+		color = texture(skyTexture, uv).rgb * 12;
 
-		color += mistColor;
+		//color += mistColor * 16;
 
 		if (!groundIntersect) {color += sunWithBloom(worldDirection, variables.lightDirection.xyz) * vec3(1.0, 0.9, 0.7) * 24;}
 	}
@@ -200,8 +205,11 @@ void main()
 		//color += aerialResult.rgb * 16.0 * aerialResult.w;
 		//color = vec3(aerialResult.w);
 
-		color += mistColor;
+		//color += mistColor * 48;
 	}
+
+	//color = color * (aerialResult.w) + mistColor * 64;
+	color += mistColor * 48;
 
 	//int sliceX = int(floor(worldCoordinates.x * 8));
 	//int sliceY = int(floor(worldCoordinates.y * 4));

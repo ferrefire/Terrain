@@ -451,8 +451,8 @@ void Start()
 	glillImageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	glillImageConfig.samplerConfig.minFilter = VK_FILTER_LINEAR;
 	glillImageConfig.samplerConfig.magFilter = VK_FILTER_LINEAR;
-	glillImageConfig.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-	glillImageConfig.viewConfig.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+	glillImageConfig.format = VK_FORMAT_R8_UNORM;
+	glillImageConfig.viewConfig.format = VK_FORMAT_R8_UNORM;
 
 	int index = 0;
 	glillImages.resize(3);
@@ -491,11 +491,11 @@ void Start()
 
 	ImageConfig imageConfig = Image::DefaultConfig();
 	imageConfig.createMipmaps = true;
-	imageConfig.samplerConfig.anisotropyEnabled = VK_FALSE;
-	imageConfig.samplerConfig.maxAnisotropy = 0;
+	imageConfig.samplerConfig.anisotropyEnabled = VK_TRUE;
+	imageConfig.samplerConfig.maxAnisotropy = 2;
 	imageConfig.srgb = true;
 	imageConfig.compressed = true;
-	imageConfig.samplerConfig.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	imageConfig.samplerConfig.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	imageConfig.format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
 	imageConfig.viewConfig.format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
 	ImageConfig imageNormalConfig = Image::DefaultNormalConfig();
@@ -504,7 +504,7 @@ void Start()
 	imageNormalConfig.samplerConfig.maxAnisotropy = 8;
 	imageNormalConfig.compressed = true;
 	imageNormalConfig.normal = true;
-	imageNormalConfig.samplerConfig.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	imageNormalConfig.samplerConfig.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	//imageNormalConfig.format = VK_FORMAT_R8G8_UNORM;
 	//imageNormalConfig.viewConfig.format = VK_FORMAT_R8G8_UNORM;
 	imageNormalConfig.format = VK_FORMAT_BC5_UNORM_BLOCK;
@@ -514,7 +514,7 @@ void Start()
 	imageArmConfig.samplerConfig.anisotropyEnabled = VK_TRUE;
 	imageArmConfig.samplerConfig.maxAnisotropy = 4;
 	imageArmConfig.compressed = true;
-	imageArmConfig.samplerConfig.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	imageArmConfig.samplerConfig.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	imageArmConfig.format = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
 	imageArmConfig.viewConfig.format = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
 
@@ -989,11 +989,15 @@ void Frame()
 		std::cout << "Light direction: " << data.lightDirection << std::endl;
 	}
 
+	static float sunSpeed = 1.0f;
+
+	if (Input::GetKey(GLFW_KEY_L).pressed) {sunSpeed = sunSpeed == 1.0f ? 0.2f : 1.0f;}
+
 	point2D angles = point3D(data.lightDirection).Angles() * -57.2957795;
-	if (Input::GetKey(GLFW_KEY_RIGHT).down) {angles.y() += Time::deltaTime * -45.0f;}
-	else if (Input::GetKey(GLFW_KEY_LEFT).down) {angles.y() += Time::deltaTime * 45.0f;}
-	else if (Input::GetKey(GLFW_KEY_UP).down) {angles.x() += Time::deltaTime * -45.0f;}
-	else if (Input::GetKey(GLFW_KEY_DOWN).down) {angles.x() += Time::deltaTime * 45.0f;}
+	if (Input::GetKey(GLFW_KEY_RIGHT).down) {angles.y() += Time::deltaTime * -45.0f * sunSpeed;}
+	else if (Input::GetKey(GLFW_KEY_LEFT).down) {angles.y() += Time::deltaTime * 45.0f * sunSpeed;}
+	else if (Input::GetKey(GLFW_KEY_UP).down) {angles.x() += Time::deltaTime * -45.0f * sunSpeed;}
+	else if (Input::GetKey(GLFW_KEY_DOWN).down) {angles.x() += Time::deltaTime * 45.0f * sunSpeed;}
 	else {data.lightDirection.w() = 1;}
 
 	if (data.lightDirection.w() == 0)
@@ -1105,13 +1109,13 @@ void Frame()
 		}
 	}
 
-	if (Input::GetKey(GLFW_KEY_APOSTROPHE).pressed)
+	/*if (Input::GetKey(GLFW_KEY_APOSTROPHE).pressed)
 	{
-		float val = glillDatas[0].settings.z() == 8.0 ? 16.0 : 8.0; 
+		float val = 500.0; 
 
 		for (int i = 0; i < glillDatas.size(); i++)
 		{
-			glillDatas[i].settings.z() = val;
+			glillDatas[i].settings.z() = 8.0;
 			glillBuffers[i].Update(&glillDatas[i], sizeof(GlillData));
 			glillQueue[i] = true;
 		}
@@ -1119,15 +1123,15 @@ void Frame()
 
 	if (Input::GetKey(GLFW_KEY_SEMICOLON).pressed)
 	{
-		float val = glillDatas[0].settings.x() == 10.0 ? 25.0 : 10.0; 
+		float val = 200.0; 
 
 		for (int i = 0; i < glillDatas.size(); i++)
 		{
-			glillDatas[i].settings.x() = val;
+			glillDatas[i].settings.z() = 4.0;
 			glillBuffers[i].Update(&glillDatas[i], sizeof(GlillData));
 			glillQueue[i] = true;
 		}
-	}
+	}*/
 
 	for (int i = glillDatas.size() - 1; i >= 0; i--)
 	{
@@ -1275,7 +1279,7 @@ int main(int argc, char** argv)
 	CameraConfig cameraConfig = Manager::GetCamera().GetConfig();
 	cameraConfig.near = 0.1;
 	cameraConfig.far = 50000.0;
-	cameraConfig.fov = 75;
+	cameraConfig.fov = 60;
 	Manager::GetCamera().SetConfig(cameraConfig);
 
 	Manager::RegisterStartCall(Start);
