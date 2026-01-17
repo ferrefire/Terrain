@@ -138,7 +138,7 @@ int currentLod = -1;
 int shadowmapResolution = 256;
 int glillResolutions[3] = {512, 1024, 1024};
 
-void BlitFrameBuffer(VkCommandBuffer commandBuffer, uint32_t frameIndex)
+/*void BlitFrameBuffer(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
 	uint32_t renderIndex = Renderer::GetRenderIndex();
 
@@ -202,7 +202,7 @@ void BlitFrameBuffer(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 
 	//vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 2, barriers.data());
 	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 2, barriers.data());
-}
+}*/
 
 void ComputeLuminance(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
@@ -333,19 +333,52 @@ void Resize()
 {
 	for (int i = 0; i < Manager::GetSwapchain().GetViews().size(); i++)
 	{
-		postDescriptor.Update(i, 0, *pass.GetColorImage(i));
-		postDescriptor.Update(i, 1, *pass.GetDepthImage(i));
+		//postDescriptor.Update(i, 0, *pass.GetColorImage(i));
+		//postDescriptor.Update(i, 1, *pass.GetDepthImage(i));
+
+		postDescriptor.Update(i, 0, *pass.GetAttachmentImage(0, i));
+		postDescriptor.Update(i, 1, *pass.GetAttachmentImage(2, i));
 	}
 }
 
 void Start()
 {
-	PassConfig passConfig = Pass::DefaultConfig(true);
-	passConfig.useSwapchain = false;
-	passConfig.colorAttachments[0].description.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-	//passConfig.colorAttachments[0].description.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	passConfig.colorAttachments[0].description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	pass.Create(passConfig);
+	//PassConfig passConfig = Pass::DefaultConfig(true);
+	//passConfig.useSwapchain = false;
+	//passConfig.colorAttachments[0].description.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+	////passConfig.colorAttachments[0].description.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	//passConfig.colorAttachments[0].description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	//pass.Create(passConfig);
+
+	pass.AddAttachment(Pass::DefaultHDRAttachment());
+	pass.AddAttachment(Pass::DefaultSwapAttachment());
+	pass.AddAttachment(Pass::DefaultDepthAttachment(true));
+
+	SubpassConfig subpass0{};
+	subpass0.AddColorReference(0);
+	subpass0.AddDepthReference(2);
+
+	SubpassConfig subpass1{};
+	subpass1.AddColorReference(1);
+	subpass1.AddInputReference(0);
+	subpass1.AddInputReference(2, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
+
+	VkSubpassDependency dependency = 
+	{
+    	.srcSubpass = 0,
+    	.dstSubpass = 1,
+    	.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+    	.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    	.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+    	.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+		.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+	};
+	subpass1.AddDependency(dependency);
+
+	pass.AddSubpass(subpass0);
+	pass.AddSubpass(subpass1);
+
+	pass.Create();
 
 	//PassConfig postPassConfig = Pass::DefaultConfig(false);
 	//postPass.Create(postPassConfig);
@@ -729,8 +762,8 @@ void Start()
 
 		postDescriptor.GetNewSet();
 		//postDescriptor.Update(i, k++, *pass.GetImage(i));
-		postDescriptor.Update(i, k++, *pass.GetColorImage(i));
-		postDescriptor.Update(i, k++, *pass.GetDepthImage(i));
+		postDescriptor.Update(i, k++, *pass.GetAttachmentImage(0, i));
+		postDescriptor.Update(i, k++, *pass.GetAttachmentImage(2, i));
 		postDescriptor.Update(i, k++, transmittanceImage);
 		postDescriptor.Update(i, k++, scatteringImage);
 		postDescriptor.Update(i, k++, skyImage);
@@ -924,7 +957,7 @@ void Start()
 
 	Renderer::RegisterCall(0, Render);
 	//Renderer::RegisterCall(1, RenderPost);
-	Renderer::RegisterCall(0, BlitFrameBuffer, true);
+	//Renderer::RegisterCall(0, BlitFrameBuffer, true);
 	Renderer::RegisterCall(0, ComputeLuminance, true);
 	Renderer::RegisterCall(0, ComputeTerrainShadow, true);
 	Renderer::RegisterCall(0, ComputeTerrainGlill, true);
