@@ -189,7 +189,8 @@ void main()
 
 		uv = SkyToUV(groundIntersect, vec2(viewAngle, lightAngle), viewHeight);
 
-		color = texture(skyTexture, uv).rgb * 12;
+		//color = texture(skyTexture, uv).rgb * 12;
+		color = texture(skyTexture, uv).rgb * 8;
 
 		//color += mistColor * 16;
 

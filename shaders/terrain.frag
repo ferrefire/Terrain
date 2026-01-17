@@ -23,7 +23,8 @@ layout(location = 0) out vec4 pixelColor;
 const float rockSteepness = 0.10;
 const float rockTransition = 0.075;
 const float snowSteepness = 0.25;
-const float snowTransition = 0.075;
+//const float snowSteepness = 0.25;
+//const float snowTransition = 0.075;
 //const float steepnessHalfTransition = steepnessTransition * 0.5;
 
 /*vec3 GetColor(sampler2D samplers[3], PBRInput data, vec3 weights, vec3 _worldNormal, vec3 triplanarUV, bool lod)
@@ -149,10 +150,13 @@ void main()
 	//if (steepness <= rockSteepness + steepnessHalfTransition)
 	float viewInter = clamp(viewDistance / 10000.0, 0.0, 1.0);
 
-	float snow = clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + 1000.0 + (1.0 - steepness) * 500.0, 0.0, 1000.0) / 500.0;
-	float rockSnow = pow(clamp(snow - 1.0, 0.0, 1.0), 0.5);
-	snow = clamp(snow, 0.0, 1.0);
-	float blendSteepness = mix(rockSteepness, snowSteepness, rockSnow);
+	//float snow = clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + 1000.0 + (1.0 - steepness) * 500.0, 0.0, 1000.0) / 500.0;
+	//float rockSnow = pow(clamp(snow - 1.0, 0.0, 1.0), 0.5);
+	//snow = clamp(snow, 0.0, 1.0);
+	//float blendSteepness = mix(rockSteepness, snowSteepness, rockSnow);
+
+	float snow = pow(clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + 1500.0, 0.0, 1500.0) / 1500.0, 0.5);
+	float blendSteepness = rockSteepness;
 	
 	//if (steepness <= drySteepness)
 	if (steepness <= blendSteepness)
@@ -169,14 +173,14 @@ void main()
 
 		SampleSteepnessTexture(grassTextures, textureData, 1.0, 0.5, clamp((viewInter - 0.0075) / 0.0025, 0.0, 1.0));
 
-		if (snow >= 1.0)
-		{
-			textureData.color = vec3(1.0);
-		}
-		else if (snow > 0.0)
-		{
-			textureData.color = mix(textureData.color, vec3(1.0), snow);
-		}
+		//if (snow >= 1.0)
+		//{
+		//	textureData.color = vec3(1.0);
+		//}
+		//else if (snow > 0.0)
+		//{
+		//	textureData.color = mix(textureData.color, vec3(1.0), snow);
+		//}
 
 		//if (worldPosition.y + (variables.terrainOffset.y * 10000.0) > -1500.0) {textureData.color = vec3(1.0);}
 	}
@@ -273,6 +277,22 @@ void main()
 		//arm += SampleTriplanarColor(rockTextures[2], triplanarUV * scale, weights) * strength;
 
 		//SampleSteepnessTexture(rockTextures, textureData, strength, scale, 0.0);
+	}
+
+	if (snow > 0.0)
+	{
+		float coverSteepness = mix(0.0, snowSteepness, snow);
+		float diff = coverSteepness - steepness;
+		if (diff > 0.05)
+		{
+			textureData.color = vec3(1.0);
+		}
+		else if (diff > 0.0)
+		{
+			float diffBlend = diff / 0.05;
+			textureData.color = mix(textureData.color, vec3(1.0), diffBlend);
+		}
+		//textureData.color = mix(textureData.color, vec3(1.0), snow);
 	}
 
 	if (variables.terrainOffset.w > 0)
@@ -398,6 +418,7 @@ void main()
 	//float occlusion = TerrainIllumination(worldPosition.xz);
 	//if (occlusion < 0.9) {occlusion = 0;}
 	//finalColor = vec3(occlusion);
+	//if (snow > 0.999) finalColor = vec3(1.0);
 
 	pixelColor = vec4(finalColor, 1.0);
 	//pixelColor = vec4(normal * 0.5 + 0.5, 1.0);

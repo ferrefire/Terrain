@@ -308,11 +308,13 @@ float TerrainOcclusion(vec2 worldPosition)
 			result = mix(0.1, 1.0, result);
 			//if (variables.glillOffsets[i].y == 1) {result = mix(0.1, 1.0, result);}
 
+			//return (i % 2);
+
 			return (result);
 		}
 	}
 
-	return (result);
+	return (0.5);
 }
 
 vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
