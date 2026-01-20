@@ -394,7 +394,7 @@ void UpdateAtmosphereData()
 void Start()
 {
 	//atmosphereData.rayleighScatteringStrength = 0.5;
-	atmosphereData.absorptionExtinctionStrength = 2.0;
+	//atmosphereData.absorptionExtinctionStrength = 2.0;
 	//atmosphereData.mistStrength = 32.0;
 	//atmosphereData.skyStrength = 24.0;
 
