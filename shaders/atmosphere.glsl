@@ -19,6 +19,7 @@ layout(set = 0, binding = 5) uniform AtmosphereData
 	float absorption2;
 	float absorption3;
 	float absorption4;
+	float calculateInShadow;
 } atmosphereData;
 
 #define PI 3.1415926535897932384626433832795

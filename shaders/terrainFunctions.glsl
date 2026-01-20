@@ -283,7 +283,8 @@ float TerrainOcclusion(vec2 worldPosition)
 	float result = 1.0;
 
 	//int start = (variables.glillOffsets[0].y == 1 ? 1 : 0);
-
+	//int i = 2;
+	//int first = -1;
 	for (int i = 0; i < 3; i++)
 	{
 		if (variables.glillOffsets[i].y == 1) {return (result);}
@@ -293,24 +294,16 @@ float TerrainOcclusion(vec2 worldPosition)
 
 		if (max(abs(uv.x), abs(uv.y)) <= 0.5)
 		{
-			//vec4 value = texture(glillMap, uv + 0.5);
-			result = texture(glillMaps[i], uv + 0.5).r;
-			//float strength = (variables.glillOffsets[i].y == 1 ? 2.0 : 1.5);
-			//return (pow(result, strength));
+			float occlusion = texture(glillMaps[i], uv + 0.5).r;
 
-			//if (variables.glillOffsets[i].y == 1)
-			//{
-			//	return ((exp(pow(result * 2.0 - 2.0, 3.0))) + (pow(result, 2.0))) * 0.5;
-			//}
-			//return (pow(result, 1.5));
+			occlusion = ((exp(pow(occlusion * 2.0 - 2.0, 3.0))) + (pow(occlusion, 2.0))) * 0.5;
+			occlusion = mix(0.1, 1.0, occlusion);
+			
+			return (occlusion);
 
-			result = ((exp(pow(result * 2.0 - 2.0, 3.0))) + (pow(result, 2.0))) * 0.5;
-			result = mix(0.1, 1.0, result);
-			//if (variables.glillOffsets[i].y == 1) {result = mix(0.1, 1.0, result);}
-
-			//return (i % 2);
-
-			return (result);
+			//result = min(result, occlusion);
+			//if (first == -1) {first = i;}
+			//else {return (result);}
 		}
 	}
 

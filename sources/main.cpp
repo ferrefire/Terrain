@@ -17,6 +17,7 @@
 #include <GLFW/glfw3.h>
 
 #include <iostream>
+#include <string>
 
 const int computeCascade = 8;
 
@@ -42,6 +43,7 @@ struct GlillData
 {
 	point4D offset{};
 	point4D settings{};
+	float interPower = 1.5;
 };
 
 struct AtmosphereData
@@ -62,6 +64,7 @@ struct AtmosphereData
 	float absorption2 = -2.0 / 3.0;
 	float absorption3 = -1.0 / 15.0;
 	float absorption4 = 8.0 / 3.0;
+	float calculateInShadow = 0.0;
 };
 
 UniformData data{};
@@ -389,6 +392,15 @@ void UpdateAtmosphereData()
 {
 	recompileAtmosphere = true;
 	atmosphereBuffer.Update(&atmosphereData, sizeof(atmosphereData));
+}
+
+void UpdateGlillData()
+{
+	for (int i = 0; i < glillDatas.size(); i++)
+	{
+		data.glillmapOffsets[i].x() = 10000000;
+		data.glillmapOffsets[i].z() = 10000000;
+	}
 }
 
 void Start()
@@ -879,7 +891,9 @@ void Start()
 	{
 		glillDatas[i].offset = point4D(0.0, 0.0, 0.0, data.glillmapOffsets[i].w());
 		//glillDatas[i].settings = point4D(10.0, 200.0 * (i == 0 ? 1.0 : 7.5), 8.0, 0.0);
-		glillDatas[i].settings = point4D(10.0, 200.0, 8.0, glillResolutions[i]);
+		//glillDatas[i].settings = point4D(10.0, 200.0, 8.0, glillResolutions[i]);
+		glillDatas[i].settings = point4D(10.0, 450.0, 16.0, glillResolutions[i]);
+		if (i == 0) {glillDatas[i].interPower = 2.0;}
 		glillBuffers[i].Create(glillBufferConfig, &glillDatas[i]);
 	}
 
@@ -1061,7 +1075,21 @@ void Start()
 	menu.AddSlider("absorption2", atmosphereData.absorption2, -3.0, 0.0);
 	menu.AddSlider("absorption3", atmosphereData.absorption3, -1.0, 0.0);
 	menu.AddSlider("absorption4", atmosphereData.absorption4, 0.0, 5.0);
+	menu.AddSlider("calculate in shadow", atmosphereData.calculateInShadow, 0.0, 1.0);
 	menu.TriggerNode("variables");
+	
+	Menu& glillMenu = UI::NewMenu("Global illumination");
+	for (int i = 0; i < glillDatas.size(); i++)
+	{
+		glillMenu.TriggerNode(std::string("glill settings ").append(std::to_string(i)), UpdateGlillData);
+
+		glillMenu.AddSlider("sample count", glillDatas[i].settings.x(), 1.0, 50.0);
+		glillMenu.AddSlider("sample distance", glillDatas[i].settings.y(), 1.0, 1000.0);
+		glillMenu.AddSlider("sample power", glillDatas[i].settings.z(), 1.0, 32.0);
+		glillMenu.AddSlider("inter power", glillDatas[i].interPower, 1.0, 4.0);
+
+		glillMenu.TriggerNode(std::string("glill settings ").append(std::to_string(i)));
+	}
 
 	UI::CreateContext(pass.GetRenderpass(), 1);
 

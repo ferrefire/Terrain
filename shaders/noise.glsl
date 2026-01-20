@@ -135,8 +135,9 @@ float hash21(vec2 p)
 //const float uSeed = 0.06;
 //const float uSeed = 0.0425;
 //const float uSeed = 0.0211256;
-//const float uSeed = 0.303586;
-const float uSeed = 0.12925765;
+const float uSeed = 0.303586;
+//const float uSeed = 0.12925765;
+//const float uSeed = 1244662.0;
 
 float rnd(vec2 p)
 {
