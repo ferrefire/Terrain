@@ -319,7 +319,7 @@ float TerrainOcclusion(vec2 worldPosition)
 
 vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 {
-	vec3 skyWorldPosition = ((worldPosition + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	vec3 skyWorldPosition = ((worldPosition + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale) + vec3(0.0, bottomRadius, 0.0);
 	//vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
 	vec3 up = normalize(skyWorldPosition);
 	float viewAngle = acos(dot(worldDirection, up));

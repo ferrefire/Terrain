@@ -22,7 +22,7 @@ layout(location = 0) out vec4 pixelColor;
 
 const float rockSteepness = 0.10;
 const float rockTransition = 0.075;
-const float snowSteepness = 0.25;
+const float snowSteepness = 0.3;
 //const float snowSteepness = 0.25;
 //const float snowTransition = 0.075;
 //const float steepnessHalfTransition = steepnessTransition * 0.5;
@@ -155,7 +155,7 @@ void main()
 	//snow = clamp(snow, 0.0, 1.0);
 	//float blendSteepness = mix(rockSteepness, snowSteepness, rockSnow);
 
-	float snow = pow(clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + 1500.0, 0.0, 1500.0) / 1500.0, 0.5);
+	float snow = pow(clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + 1500.0, 0.0, 1500.0) / 1500.0, 0.75);
 	float blendSteepness = rockSteepness;
 	
 	//if (steepness <= drySteepness)

@@ -48,7 +48,7 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 	integrationLength = min(integrationLength, maxDistance);
 
 	float theta = dot(sunDirection, worldDirection);
-	float miePhaseValue = MiePhase(miePhaseFunction, -theta);
+	float miePhaseValue = MiePhase(atmosphereData.miePhaseFunction, -theta);
 	float rayPhaseValue = RayleighPhase(theta);
 
 	float oldRayShift = 0.0;
@@ -78,14 +78,14 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 		vec3 sunTransmittance = imageLoad(transmittanceImage, uvTCoords).rgb;
 		vec3 phaseScattering = mediumScattering.mie * miePhaseValue + mediumScattering.ray * rayPhaseValue;
 
-		float raySurfaceDistance = IntersectSphere(rayPosition, sunDirection, offsetRadius * up, bottomRadius);
+		float raySurfaceDistance = IntersectSphere(rayPosition, sunDirection, atmosphereData.offsetRadius * up, bottomRadius);
 		float inShadow = raySurfaceDistance == -1.0 ? 1.0 : 0.0;
 
 		//if (inShadow == 1.0) {inShadow = TerrainShadow(rayPosition - vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0) + bottomRadius, 0.0));}
 		if (inShadow == 1.0)
 		{
 			vec3 realPos = rayPosition - vec3(0.0, bottomRadius, 0.0);
-			realPos /= cameraScale;
+			realPos /= atmosphereData.cameraScale;
 			realPos -= vec3(0.0, 2500.0, 0.0);
 			//inShadow = TerrainShadow(realPos);
 			inShadow = TerrainShadow(realPos, 0, true);
@@ -119,7 +119,7 @@ void main()
 
 	vec3 sunDirection = variables.lightDirection.xyz;
 
-	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale;
+	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale;
     vec3 worldDirection = normalize(Hpos.xyz / Hpos.w - variables.viewPosition.xyz);
 	vec3 worldPosition = viewPosition + vec3(0.0, bottomRadius, 0.0);
 
@@ -131,9 +131,9 @@ void main()
     vec3 newWorldPosition = worldPosition + tMax * worldDirection;
 	float viewHeight = length(newWorldPosition);
 
-	if (viewHeight <= (bottomRadius + offsetRadius))
+	if (viewHeight <= (bottomRadius + atmosphereData.offsetRadius))
     {
-        newWorldPosition = normalize(newWorldPosition) * (bottomRadius + offsetRadius + 0.001);
+        newWorldPosition = normalize(newWorldPosition) * (bottomRadius + atmosphereData.offsetRadius + 0.001);
         worldDirection = normalize(newWorldPosition - worldPosition);
         tMax = length(newWorldPosition - worldPosition);
     }

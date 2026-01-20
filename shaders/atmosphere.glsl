@@ -1,18 +1,37 @@
 #ifndef ATMOSPHERE_INCLUDED
 #define ATMOSPHERE_INCLUDED
 
+layout(set = 0, binding = 5) uniform AtmosphereData
+{
+	float miePhaseFunction;
+	float offsetRadius;
+	float rayleighScatteringStrength;
+	float mieScatteringStrength;
+	float mieExtinctionStrength;
+	float absorptionExtinctionStrength;
+	float mistStrength;
+	float skyStrength;
+	float rayleighScaleHeight;
+	float mieScaleHeight;
+	float cameraScale;
+	float absorptionDensityHeight;
+	float absorption1;
+	float absorption2;
+	float absorption3;
+	float absorption4;
+} atmosphereData;
+
 #define PI 3.1415926535897932384626433832795
 
 const float bottomRadius = 6360.0;
 const float topRadius = 6460.0;
-//const float offsetRadius = 0.0001; // Maybe change back to 0.01
-const float offsetRadius = 0.01; // Maybe change back to 0.01
-const float rayleighScaleHeight = 8.0;
-const float mieScaleHeight = 1.2;
+//const float offsetRadius = 0.01; // Maybe change back to 0.0001
+//const float rayleighScaleHeight = 8.0;
+//const float mieScaleHeight = 1.2;
 
-const float[10] rayleighDensity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0 / rayleighScaleHeight, 0.0, 0.0};
-const float[10] mieDensity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0 / mieScaleHeight, 0.0, 0.0};
-const float[10] absorptionDensity = {25.0, 0.0, 0.0, 1.0 / 15.0, -2.0 / 3.0, 0.0, 0.0, 0.0, -1.0 / 15.0, 8.0 / 3.0};
+//const float[10] rayleighDensity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0 / rayleighScaleHeight, 0.0, 0.0};
+//const float[10] mieDensity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0 / mieScaleHeight, 0.0, 0.0};
+//const float[10] absorptionDensity = {25.0, 0.0, 0.0, 1.0 / 15.0, -2.0 / 3.0, 0.0, 0.0, 0.0, -1.0 / 15.0, 8.0 / 3.0};
 
 const vec3 rayleighScattering = vec3(0.005802, 0.013558, 0.033100);
 const vec3 mieScattering = vec3(0.003996, 0.003996, 0.003996);
@@ -20,7 +39,7 @@ const vec3 mieScattering = vec3(0.003996, 0.003996, 0.003996);
 const vec3 mieExtinction = vec3(0.004440, 0.004440, 0.004440);
 const vec3 absorptionExtinction = vec3(0.000650, 0.001881, 0.000085);
 
-const float miePhaseFunction = 0.8;
+//const float miePhaseFunction = 0.8;
 
 const float bottomRadius2 = bottomRadius * bottomRadius;
 const float topRadius2 = topRadius * topRadius;
@@ -31,7 +50,7 @@ const vec2 scatteringDimensions = vec2(32, 32);
 const vec2 skyDimensions = vec2(192, 128);
 const vec3 aerialDimensions = vec3(64, 64, 32);
 
-const float cameraScale = 0.001;
+//const float cameraScale = 0.001;
 
 struct ScatteringResult
 {
@@ -167,17 +186,19 @@ float IntersectSphere(vec3 position, vec3 direction, vec3 center, float radius)
 vec3 SampleExtinction(vec3 worldPosition)
 {
 	const float viewHeight = length(worldPosition) - bottomRadius;
+	const float rayleighDensity = -1.0 / atmosphereData.rayleighScaleHeight;
+	const float mieDensity = -1.0 / atmosphereData.mieScaleHeight;
 
-	const float densityRay = exp(rayleighDensity[7] * viewHeight);
-	const float densityMie = exp(mieDensity[7] * viewHeight);
-	const float densityOzo = clamp(viewHeight < absorptionDensity[0] ? 
-		absorptionDensity[3] * viewHeight + absorptionDensity[4] : 
-		absorptionDensity[8] * viewHeight + absorptionDensity[9], 
+	const float densityRay = exp(rayleighDensity * viewHeight);
+	const float densityMie = exp(mieDensity * viewHeight);
+	const float densityOzo = clamp(viewHeight < atmosphereData.absorptionDensityHeight ? 
+		atmosphereData.absorption1 * viewHeight + atmosphereData.absorption2 : 
+		atmosphereData.absorption3 * viewHeight + atmosphereData.absorption4, 
 		0.0, 1.0);
 
-	vec3 extinctionRay = rayleighScattering * densityRay;
-	vec3 extinctionMie = mieExtinction * densityMie;
-	vec3 extinctionOzo = absorptionExtinction * densityOzo;
+	vec3 extinctionRay = (rayleighScattering * atmosphereData.rayleighScatteringStrength) * densityRay;
+	vec3 extinctionMie = (mieExtinction * atmosphereData.mieExtinctionStrength) * densityMie;
+	vec3 extinctionOzo = (absorptionExtinction * atmosphereData.absorptionExtinctionStrength) * densityOzo;
 
 	return (extinctionRay + extinctionMie + extinctionOzo);
 }
@@ -185,12 +206,14 @@ vec3 SampleExtinction(vec3 worldPosition)
 ScatteringResult SampleScatteringResult(vec3 worldPosition)
 {
 	const float viewHeight = length(worldPosition) - bottomRadius;
+	const float rayleighDensity = -1.0 / atmosphereData.rayleighScaleHeight;
+	const float mieDensity = -1.0 / atmosphereData.mieScaleHeight;
 
-	const float densityRay = exp(rayleighDensity[7] * viewHeight);
-	const float densityMie = exp(mieDensity[7] * viewHeight);
-	const float densityOzo = clamp(viewHeight < absorptionDensity[0] ? 
-		absorptionDensity[3] * viewHeight + absorptionDensity[4] : 
-		absorptionDensity[8] * viewHeight + absorptionDensity[9], 
+	const float densityRay = exp(rayleighDensity * viewHeight);
+	const float densityMie = exp(mieDensity * viewHeight);
+	const float densityOzo = clamp(viewHeight < atmosphereData.absorptionDensityHeight ? 
+		atmosphereData.absorption1 * viewHeight + atmosphereData.absorption2 : 
+		atmosphereData.absorption3 * viewHeight + atmosphereData.absorption4, 
 		0.0, 1.0);
 
 	ScatteringResult result = ScatteringResult(vec3(0.0), vec3(0.0));
@@ -200,8 +223,8 @@ ScatteringResult SampleScatteringResult(vec3 worldPosition)
 	//vec3 scatteringOzo = vec3(0.0);
 	//return (scatteringRay + scatteringMie + scatteringOzo);
 
-	result.ray = rayleighScattering * densityRay;
-	result.mie = mieScattering * densityMie;
+	result.ray = (rayleighScattering * atmosphereData.rayleighScatteringStrength) * densityRay;
+	result.mie = (mieScattering * atmosphereData.mieScatteringStrength) * densityMie;
 
 	return (result);
 }
@@ -225,7 +248,7 @@ bool MoveToAtmosphere(inout vec3 worldPosition, vec3 worldDirection)
 		}
 		else
 		{
-			vec3 offset = normalize(worldPosition) * -offsetRadius;
+			vec3 offset = normalize(worldPosition) * -atmosphereData.offsetRadius;
 			worldPosition += worldDirection * atmosphereDistance + offset;
 		}
 	}

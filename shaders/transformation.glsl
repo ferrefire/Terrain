@@ -14,4 +14,14 @@ vec3 WorldToClip(vec3 worldSpace)
     return (clipSpace);
 }
 
+float LinearizeDepth(float depth)
+{
+	return ((variables.resolution.z * variables.resolution.w) / (variables.resolution.w - depth * (variables.resolution.w - variables.resolution.z)));
+}
+
+float LinearizeDepth01(float depth)
+{
+	return (((variables.resolution.z * variables.resolution.w) / (variables.resolution.w - depth * (variables.resolution.w - variables.resolution.z))) / variables.resolution.w);
+}
+
 #endif

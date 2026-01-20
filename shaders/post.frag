@@ -5,6 +5,7 @@
 #include "atmosphere.glsl"
 
 #include "variables.glsl"
+#include "transformation.glsl"
 
 layout(input_attachment_index = 0, set = 1, binding = 0) uniform subpassInput gAlbedo;
 
@@ -109,7 +110,7 @@ vec4 GetAerial(float depth, mat4 invViewProjMat)
 	vec3 cameraRayWorld = normalize(hPos.xyz / hPos.w - variables.viewPosition.xyz);
 	float realDepth = length(hPos.xyz / hPos.w - variables.viewPosition.xyz);
 
-	float slice = realDepth * cameraScale * (1.0 / 4.0); // Maybe use 0.1 as cameraScale
+	float slice = realDepth * atmosphereData.cameraScale * (1.0 / 4.0); // Maybe use 0.1 as cameraScale
     //float weight = 1.0;
 
 	//if (slice < 0.5)
@@ -150,6 +151,9 @@ void main()
 	vec3 color = vec3(0.0);
 	float depth = subpassLoad(gDepth).x;
 
+	//pixelColor = vec4(vec3(LinearizeDepth01(depth)), 1.0);
+	//return;
+
 	//if (depth >= 1.0) {color = vec3(0.0);}
 
 	//float currentExposure = 1.0 / (averageLuminance + 0.5);
@@ -163,7 +167,7 @@ void main()
     
     vec4 Hpos = invViewProjMat * vec4(clipSpace, 1.0);
 
-	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale;
+	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale;
 
     vec3 worldDirection = normalize(Hpos.xyz / Hpos.w - variables.viewPosition.xyz);
 	vec3 worldPosistion = viewPosition + vec3(0.0, bottomRadius, 0.0);
@@ -190,7 +194,7 @@ void main()
 		uv = SkyToUV(groundIntersect, vec2(viewAngle, lightAngle), viewHeight);
 
 		//color = texture(skyTexture, uv).rgb * 12;
-		color = texture(skyTexture, uv).rgb * 8;
+		color = texture(skyTexture, uv).rgb * atmosphereData.skyStrength;
 
 		//color += mistColor * 16;
 
@@ -210,7 +214,7 @@ void main()
 	}
 
 	//color = color * (aerialResult.w) + mistColor * 64;
-	color += mistColor * 48;
+	color += mistColor * atmosphereData.mistStrength;
 
 	//int sliceX = int(floor(worldCoordinates.x * 8));
 	//int sliceY = int(floor(worldCoordinates.y * 4));

@@ -11,6 +11,7 @@
 #include "time.hpp"
 #include "loader.hpp"
 #include "command.hpp"
+#include "ui.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -43,6 +44,26 @@ struct GlillData
 	point4D settings{};
 };
 
+struct AtmosphereData
+{
+	float miePhaseFunction = 0.8;
+	float offsetRadius = 0.01;
+	float rayleighScatteringStrength = 1.0;
+	float mieScatteringStrength = 1.0;
+	float mieExtinctionStrength = 1.0;
+	float absorptionExtinctionStrength = 1.0;
+	float mistStrength = 48.0;
+	float skyStrength = 8.0;
+	float rayleighScaleHeight = 8.0;
+	float mieScaleHeight = 1.2;
+	float cameraScale = 0.001;
+	float absorptionDensityHeight = 25.0;
+	float absorption1 = 1.0 / 15.0;
+	float absorption2 = -2.0 / 3.0;
+	float absorption3 = -1.0 / 15.0;
+	float absorption4 = 8.0 / 3.0;
+};
+
 UniformData data{};
 std::vector<mat4> models(1);
 std::vector<Buffer> frameBuffers;
@@ -52,6 +73,7 @@ Pass pass;
 Pass postPass;
 
 Pipeline pipeline;
+Pipeline prePipeline;
 meshP16 planeMesh;
 meshP16 planeLodMesh;
 meshP16 planeLod2Mesh;
@@ -70,6 +92,8 @@ Pipeline transmittancePipeline;
 Pipeline scatteringPipeline;
 Pipeline skyPipeline;
 Pipeline aerialPipeline;
+AtmosphereData atmosphereData{};
+Buffer atmosphereBuffer;
 Descriptor atmosphereDescriptor;
 Image transmittanceImage;
 Image scatteringImage;
@@ -204,6 +228,8 @@ int glillResolutions[3] = {512, 1024, 1024};
 	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 2, barriers.data());
 }*/
 
+static bool recompileAtmosphere = true;
+
 void ComputeLuminance(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
 	static bool firstTimeLuminance = true;
@@ -218,8 +244,10 @@ void ComputeLuminance(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 	frameDescriptor.BindDynamic(0, commandBuffer, transmittancePipeline);
 	atmosphereDescriptor.Bind(0, commandBuffer, transmittancePipeline);
 
-	if (firstTimeLuminance)
+	if (recompileAtmosphere)
 	{
+		recompileAtmosphere = false;
+
 		transmittancePipeline.Bind(commandBuffer);
 		vkCmdDispatch(commandBuffer, 32, 16, 1);
 
@@ -237,7 +265,7 @@ void ComputeLuminance(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 	aerialPipeline.Bind(commandBuffer);
 	vkCmdDispatch(commandBuffer, 1, 64, 32);
 
-	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
+	//vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
 
 	if (firstTimeLuminance) {firstTimeLuminance = false;}
 }
@@ -271,6 +299,8 @@ void ComputeTerrainShadow(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 		terrainShadowDescriptor.Bind(i, commandBuffer, terrainShadowPipeline);
 		terrainShadowPipeline.Bind(commandBuffer);
 		vkCmdDispatch(commandBuffer, shadowmapResolution / 8, shadowmapResolution / 8, 1);
+
+		//vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
 	}
 }
 
@@ -300,7 +330,7 @@ void RenderPost(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
 	vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 
-	frameDescriptor.BindDynamic(0, commandBuffer, postPipeline);
+	//frameDescriptor.BindDynamic(0, commandBuffer, postPipeline);
 	postDescriptor.Bind(Renderer::GetRenderIndex(), commandBuffer, postPipeline);
 
 	postPipeline.Bind(commandBuffer);
@@ -326,7 +356,21 @@ void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 	planeLod2Mesh.Bind(commandBuffer);
 	vkCmdDrawIndexed(commandBuffer, planeLod2Mesh.GetIndices().size(), terrainLodCount - terrainCount, 0, 0, terrainCount);
 
-	RenderPost(commandBuffer, frameIndex);
+	RenderPost(commandBuffer, frameIndex); // Remoce and add it as a renderer call!
+}
+
+void RenderPre(VkCommandBuffer commandBuffer, uint32_t frameIndex)
+{
+	frameDescriptor.BindDynamic(0, commandBuffer, prePipeline);
+	materialDescriptor.Bind(0, commandBuffer, prePipeline);
+
+	prePipeline.Bind(commandBuffer);
+
+	planeMesh.Bind(commandBuffer);
+	objectDescriptor.BindDynamic(0, commandBuffer, prePipeline, 0 * sizeof(mat4));
+	vkCmdDrawIndexed(commandBuffer, planeMesh.GetIndices().size(), 1, 0, 0, 0);
+
+	vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 void Resize()
@@ -341,8 +385,19 @@ void Resize()
 	}
 }
 
+void UpdateAtmosphereData()
+{
+	recompileAtmosphere = true;
+	atmosphereBuffer.Update(&atmosphereData, sizeof(atmosphereData));
+}
+
 void Start()
 {
+	//atmosphereData.rayleighScatteringStrength = 0.5;
+	atmosphereData.absorptionExtinctionStrength = 2.0;
+	//atmosphereData.mistStrength = 32.0;
+	//atmosphereData.skyStrength = 24.0;
+
 	//PassConfig passConfig = Pass::DefaultConfig(true);
 	//passConfig.useSwapchain = false;
 	//passConfig.colorAttachments[0].description.format = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -354,9 +409,26 @@ void Start()
 	pass.AddAttachment(Pass::DefaultSwapAttachment());
 	pass.AddAttachment(Pass::DefaultDepthAttachment(true));
 
+	//SubpassConfig subpassPre{};
+	//subpassPre.AddColorReference(0);
+	//subpassPre.AddDepthReference(2);
+
 	SubpassConfig subpass0{};
 	subpass0.AddColorReference(0);
 	subpass0.AddDepthReference(2);
+
+	//VkSubpassDependency dependency0 = 
+	//{
+    //	.srcSubpass = 0,
+    //	.dstSubpass = 1,
+    //	.srcStageMask = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+    //	.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+    //	//.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    //	.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+    //	.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+	//	.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+	//};
+	//subpass0.AddDependency(dependency0);
 
 	SubpassConfig subpass1{};
 	subpass1.AddColorReference(1);
@@ -375,6 +447,7 @@ void Start()
 	};
 	subpass1.AddDependency(dependency);
 
+	//pass.AddSubpass(subpassPre);
 	pass.AddSubpass(subpass0);
 	pass.AddSubpass(subpass1);
 
@@ -608,13 +681,18 @@ void Start()
 	frameBuffers.resize(Renderer::GetFrameCount());
 	for (Buffer& buffer : frameBuffers) { buffer.Create(frameBufferConfig); }
 
+	BufferConfig atmosphereBufferConfig{};
+	atmosphereBufferConfig.mapped = true;
+	atmosphereBufferConfig.size = sizeof(AtmosphereData);
+	atmosphereBuffer.Create(atmosphereBufferConfig, &atmosphereData);
+
 	BufferConfig objectBufferConfig{};
 	objectBufferConfig.mapped = true;
 	objectBufferConfig.size = sizeof(mat4) * models.size();
 	objectBuffers.resize(Renderer::GetFrameCount());
 	for (Buffer& buffer : objectBuffers) { buffer.Create(objectBufferConfig); }
 
-	std::vector<DescriptorConfig> frameDescriptorConfigs(5);
+	std::vector<DescriptorConfig> frameDescriptorConfigs(6);
 	frameDescriptorConfigs[0].type = DescriptorType::UniformBuffer;
 	frameDescriptorConfigs[0].stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | 
 		VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
@@ -632,6 +710,9 @@ void Start()
 	frameDescriptorConfigs[3].count = glillImages.size();
 	frameDescriptorConfigs[4].type = DescriptorType::CombinedSampler;
 	frameDescriptorConfigs[4].stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | 
+		VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
+	frameDescriptorConfigs[5].type = DescriptorType::UniformBuffer;
+	frameDescriptorConfigs[5].stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | 
 		VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 	frameDescriptor.Create(0, frameDescriptorConfigs);
 
@@ -660,6 +741,7 @@ void Start()
 		frameDescriptor.Update(i, 2, Utilities::Pointerize(terrainShadowImages));
 		frameDescriptor.Update(i, 3, Utilities::Pointerize(glillImages));
 		frameDescriptor.Update(i, 4, skyImage);
+		frameDescriptor.Update(i, 5, atmosphereBuffer);
 	}
 
 	materialDescriptor.GetNewSet();
@@ -849,9 +931,15 @@ void Start()
 	pipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), materialDescriptor.GetLayout(), objectDescriptor.GetLayout() };
 	pipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
 	pipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+	pipelineConfig.subpass = 0;
 	//pipelineConfig.rasterization.cullMode = VK_CULL_MODE_FRONT_BIT;
 	//pipelineConfig.rasterization.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	pipeline.Create(pipelineConfig);
+
+	//PipelineConfig prePipelineConfig = pipelineConfig;
+	////prePipelineConfig.prepass = true;
+	//prePipelineConfig.subpass = 0;
+	//prePipeline.Create(prePipelineConfig);
 
 	PipelineConfig postPipelineConfig = Pipeline::DefaultConfig();
 	postPipelineConfig.shader = "post";
@@ -922,11 +1010,13 @@ void Start()
 	//Manager::GetCamera().Move(point3D(-931.948, -2051.53, -2499.46));
 	//Manager::GetCamera().Move(point3D(-24.9147, -904.676, 5320.23));
 	//Manager::GetCamera().Move(point3D(3884.26, -1783.41, 11323.2));
-	Manager::GetCamera().Move(point3D(0, 0, 0));
+	//Manager::GetCamera().Move(point3D(0, 0, 0));
+	Manager::GetCamera().Move(point3D(1242.74, -1730.73, 5410.96));
 	//Manager::GetCamera().Rotate(point3D(12.8998, -149.9, 0.0));
 	//Manager::GetCamera().Rotate(point3D(26.0998, -151.9, 0.0));
 	//Manager::GetCamera().Rotate(point3D(4.89981, 306.799, 0.0));
-	Manager::GetCamera().Rotate(point3D(-3.40032, 292.801, 0.0));
+	//Manager::GetCamera().Rotate(point3D(-3.40032, 292.801, 0.0));
+	Manager::GetCamera().Rotate(point3D(6.39966, 343.702, 0.0));
 	//Manager::GetCamera().Move(point3D(7523.26, 643.268, 518.602));
 	//Manager::GetCamera().Move(point3D(0, 10, 0));
 
@@ -953,9 +1043,35 @@ void Start()
 		computeCommands[i].Create(commandConfig, i, &Manager::GetDevice());
 	}
 
+	Menu& menu = UI::NewMenu("Atmosphere");
+	menu.TriggerNode("variables", UpdateAtmosphereData);
+	menu.AddSlider("mie phase function", atmosphereData.miePhaseFunction, 0.0, 1.0);
+	menu.AddSlider("offset radius", atmosphereData.offsetRadius, 0.0, 1.0);
+	menu.AddSlider("rayleigh scattering strength", atmosphereData.rayleighScatteringStrength, 0.0, 3.0);
+	menu.AddSlider("mie scattering strength", atmosphereData.mieScatteringStrength, 0.0, 3.0);
+	menu.AddSlider("mie Extinction strength", atmosphereData.mieExtinctionStrength, 0.0, 3.0);
+	menu.AddSlider("absorption Extinction strength", atmosphereData.absorptionExtinctionStrength, 0.0, 3.0);
+	menu.AddSlider("mist strength", atmosphereData.mistStrength, 0.0, 100.0);
+	menu.AddSlider("sky strength", atmosphereData.skyStrength, 0.0, 30.0);
+	menu.AddSlider("rayleigh scale height", atmosphereData.rayleighScaleHeight, 0.0, 24.0);
+	menu.AddSlider("mie scale height", atmosphereData.mieScaleHeight, 0.0, 12.0);
+	menu.AddSlider("camera scale", atmosphereData.cameraScale, 0.0, 0.1);
+	menu.AddSlider("absorption density height", atmosphereData.absorptionDensityHeight, 0.0, 100.0);
+	menu.AddSlider("absorption1", atmosphereData.absorption1, 0.0, 1.0);
+	menu.AddSlider("absorption2", atmosphereData.absorption2, -3.0, 0.0);
+	menu.AddSlider("absorption3", atmosphereData.absorption3, -1.0, 0.0);
+	menu.AddSlider("absorption4", atmosphereData.absorption4, 0.0, 5.0);
+	menu.TriggerNode("variables");
+
+	UI::CreateContext(pass.GetRenderpass(), 1);
+
 	Manager::RegisterResizeCall(Resize);
 
+	//Improve renderer to allow call registering for specific subpasses!
+
+	//Renderer::RegisterCall(0, RenderPre);
 	Renderer::RegisterCall(0, Render);
+	Renderer::RegisterCall(0, UI::Render);
 	//Renderer::RegisterCall(1, RenderPost);
 	//Renderer::RegisterCall(0, BlitFrameBuffer, true);
 	Renderer::RegisterCall(0, ComputeLuminance, true);
@@ -1000,8 +1116,8 @@ void Compute(int lod)
 
 void Frame()
 {
-	static double frameTime = 0;
-	static double frameTimeCount = 0;
+	//static double frameTime = 0;
+	//static double frameTimeCount = 0;
 
 	if (Input::GetKey(GLFW_KEY_M).pressed)
 	{
@@ -1067,16 +1183,15 @@ void Frame()
 		Manager::GetCamera().Move(point3D(0, 0, -camOffset));
 	}
 
-	if (Time::newTick)
-	{
-		double fps = frameTime / frameTimeCount;
-		glfwSetWindowTitle(Manager::GetWindow().GetData(), std::to_string(int(1.0 / fps)).c_str());
-
-		frameTime = 0;
-		frameTimeCount = 0;
-	}
-	frameTime += Time::deltaTime;
-	frameTimeCount += 1;
+	//if (Time::newTick)
+	//{
+	//	double fps = frameTime / frameTimeCount;
+	//	glfwSetWindowTitle(Manager::GetWindow().GetData(), std::to_string(int(1.0 / fps)).c_str());
+	//	frameTime = 0;
+	//	frameTimeCount = 0;
+	//}
+	//frameTime += Time::deltaTime;
+	//frameTimeCount += 1;
 
 	Manager::GetCamera().UpdateView();
 
@@ -1231,6 +1346,8 @@ void End()
 	for (Buffer& buffer : glillBuffers) { buffer.Destroy(); }
 	glillBuffers.clear();
 
+	atmosphereBuffer.Destroy();
+
 	luminanceBuffer.Destroy();
 	luminanceVariablesBuffer.Destroy();
 
@@ -1286,6 +1403,7 @@ void End()
 	glillDescriptor.Destroy();
 	computeDescriptor.Destroy();
 	pipeline.Destroy();
+	prePipeline.Destroy();
 	postPipeline.Destroy();
 	luminancePipeline.Destroy();
 	transmittancePipeline.Destroy();
@@ -1296,6 +1414,8 @@ void End()
 	glillPipeline.Destroy();
 	//screenPipeline.Destroy();
 	computePipeline.Destroy();
+
+	//UI::DestroyContext();
 }
 
 int main(int argc, char** argv)
@@ -1317,6 +1437,7 @@ int main(int argc, char** argv)
 
 	Manager::RegisterStartCall(Start);
 	Manager::RegisterFrameCall(Frame);
+	//Manager::RegisterFrameCall(UI::Frame);
 	Manager::RegisterEndCall(End);
 
 	Manager::Run();
