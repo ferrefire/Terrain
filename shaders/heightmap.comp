@@ -7,6 +7,12 @@
 layout(set = 1, binding = 0, rgba16) uniform image2D target16;
 layout(set = 1, binding = 1, rgba8) uniform image2D target8;
 layout(set = 1, binding = 2) uniform Config { vec4 sizes; } config;
+layout(set = 1, binding = 3) uniform Settings 
+{ 
+	float seed;
+	float erodeFactor;
+	float steepness;
+} settings;
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
@@ -37,7 +43,7 @@ void main()
 	float normalDis = mix(0.00001, 0.0001, clamp((config.sizes.x / cascadeCount), 0.0, 1.0));
 	//int octaveDecrease = int(floor(mix(0.0, 7.0, clamp((config.sizes.x / cascadeCount), 0.0, 1.0))));
 	int octaveDecrease = int(config.sizes.x);
-	vec3 tnoise = TerrainData(uv + config.sizes.yz, 15 - octaveDecrease, normalDis, false);
+	vec3 tnoise = TerrainData(uv + config.sizes.yz, 15 - octaveDecrease, normalDis, false, settings.seed, settings.erodeFactor, settings.steepness);
 	//vec3 tnoise = TerrainData(uv + config.sizes.yz, int(variables.terrainOffset.w), 0.0001, false);
 	//vec3 tnoise = TerrainData(uv + config.sizes.yz, int(variables.terrainOffset.w), 0.00001, false);
 

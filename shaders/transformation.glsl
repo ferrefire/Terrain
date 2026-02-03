@@ -14,6 +14,20 @@ vec3 WorldToClip(vec3 worldSpace)
     return (clipSpace);
 }
 
+/*vec3 ScreenToWorld(vec2 screenPosition, float depth)
+{
+	vec2 NDC = screenPosition * 2.0 - 1.0;
+	//NDC.y = -NDC.y;
+
+	vec4 clip = vec4(NDC, depth, 1.0);
+
+	mat4 invViewProjMat = inverse(variables.projection * variables.view);
+
+	vec4 worldH = invViewProjMat * clip;
+
+	return (worldH.xyz / worldH.w);
+}*/
+
 float LinearizeDepth(float depth)
 {
 	return ((variables.resolution.z * variables.resolution.w) / (variables.resolution.w - depth * (variables.resolution.w - variables.resolution.z)));

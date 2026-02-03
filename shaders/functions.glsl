@@ -15,4 +15,9 @@ float SquaredDistance(vec3 p1, vec3 p2)
 	return (dot(difference, difference));
 }
 
+float Exaggerate(float x)
+{
+	return (((exp(pow(x * 2.0 - 2.0, 3.0))) + (pow(x, 2.0))) * 0.5);
+}
+
 #endif

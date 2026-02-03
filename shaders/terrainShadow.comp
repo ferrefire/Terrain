@@ -35,7 +35,7 @@ bool IterateFinalStretch(vec3 startPosition, vec3 lightPosition)
 		rayPosition = mix(startPosition, lightPosition, inter);
 		if (rayPosition.y > 1500.0) {break;}
 
-		float terrainHeight = TerrainValues(rayPosition.xz).x * 5000.0;
+		float terrainHeight = TerrainValues(rayPosition.xz).x * maxHeight;
 
 		if (terrainHeight > rayPosition.y)
 		{
@@ -87,7 +87,7 @@ void main()
 	//if (config.sizes.y == 0) {terrainValues = TerrainValues(worldPosition.xz);}
 	//else if (config.sizes.y == 1) {terrainValues = TerrainValuesLod(worldPosition.xz, 5);}
 	//else {terrainValues = TerrainValuesLod(worldPosition.xz, 8);}
-	worldPosition.y = terrainValues.x * 5000.0;
+	worldPosition.y = terrainValues.x * maxHeight;
 
 	//vec3 lightPosition = variables.lightDirection.xyz * (variables.shadowmapOffsets[computeIndex].w * 0.5);
 	vec3 lightPosition = variables.lightDirection.xyz;
@@ -131,7 +131,7 @@ void main()
 		}
 	}*/
 
-	float heighest = -2500.0;
+	float heighest = -maxHeight * 0.5;
 
 	while (i <= iterations)
 	{
@@ -143,7 +143,7 @@ void main()
 		rayPosition = mix(lightPosition, worldPosition, inter);
 		//if (config.sizes.y < 1 && rayPosition.y > 1500.0) {break;}
 
-		terrainHeight = TerrainValues(rayPosition.xz).x * 5000.0;
+		terrainHeight = TerrainValues(rayPosition.xz).x * maxHeight;
 		//if (config.sizes.y == 0) {terrainHeight = TerrainValues(rayPosition.xz).x * 5000.0;}
 		//else if (config.sizes.y == 1) {terrainHeight = TerrainValuesLod(rayPosition.xz, 5).x * 5000.0;}
 		//else {terrainHeight = TerrainValuesLod(rayPosition.xz, 8).x * 5000.0;}
@@ -198,7 +198,7 @@ void main()
 
 	//float heightStore = clamp((worldPosition.y + (terrainHeight - rayPosition.y)) / 5000.0 + 0.5, 0.0, 1.0);
 	heighest = worldPosition.y + heighest;
-	float heightStore = clamp(heighest / 5000.0 + 0.5, 0.0, 1.0);
+	float heightStore = clamp(heighest / maxHeight + 0.5, 0.0, 1.0);
 
 	if (config.sizes.y < 2)
 	{

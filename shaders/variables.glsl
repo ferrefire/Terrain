@@ -2,6 +2,7 @@
 #define VARIABLES_INCLUDED
 
 const int cascadeCount = 8;
+const float maxHeight = 5000.0;
 
 layout(set = 0, binding = 0) uniform Variables
 {

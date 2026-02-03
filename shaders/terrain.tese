@@ -71,7 +71,7 @@ void main()
 	//float height = tnoise.x;
 
 	vec3 sampledPosition = tesselatedPosition.xyz;
-	sampledPosition.y = heightValues.x * 5000.0 - variables.terrainOffset.y * 10000;
+	sampledPosition.y = heightValues.x * maxHeight - variables.terrainOffset.y * 10000;
 
 	worldPosition = sampledPosition;
 

@@ -163,11 +163,11 @@ void main()
 	//vec3 sunDirection = normalize(vec3(0.39036, 0.48795, -0.78072));
 	mat4 invViewProjMat = inverse(variables.projection * variables.view);
     vec2 pixPos = worldCoordinates;
-    vec3 clipSpace = vec3(pixPos * vec2(2.0) - vec2(1.0), 1.0);
+    vec3 clipSpace = vec3(pixPos * vec2(2.0) - vec2(1.0), depth);
     
     vec4 Hpos = invViewProjMat * vec4(clipSpace, 1.0);
 
-	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale;
+	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale;
 
     vec3 worldDirection = normalize(Hpos.xyz / Hpos.w - variables.viewPosition.xyz);
 	vec3 worldPosistion = viewPosition + vec3(0.0, bottomRadius, 0.0);
@@ -211,6 +211,12 @@ void main()
 		//color = vec3(aerialResult.w);
 
 		//color += mistColor * 48;
+
+		//vec3 wPos = (Hpos.xyz / Hpos.w);
+		//float groundInter = clamp((wPos.y - (TerrainValues(wPos.xz).x * maxHeight)) / maxHeight, 0.0, 1.0);
+		//float occlusion = 1.0 - TerrainOcclusion(wPos.xz);
+		//occlusion = mix(occlusion, 0.0, groundInter);
+		//test = 1.0 + occlusion;
 	}
 
 	//color = color * (aerialResult.w) + mistColor * 64;
@@ -236,5 +242,6 @@ void main()
 	vec3 mappedColor = acesTonemap(exposedColor);
 	
 	pixelColor = vec4(mappedColor, 1.0);
+	//pixelColor = vec4(vec3(test), 1.0);
 	//pixelColor = vec4(texture(skyTexture, worldCoordinates).rgb, 1.0);
 }

@@ -96,7 +96,7 @@ void main()
 		{
 			terrainValues = TerrainValues(center.xz);
 			float height = terrainValues.x;
-			center.y = height * 5000.0;
+			center.y = height * maxHeight;
 			centerInView = InView(center, vec3(0)) == 1;
 		}
 

@@ -11,9 +11,9 @@ layout(set = 0, binding = 3) uniform sampler2D glillMaps[3];
 layout(set = 0, binding = 4) uniform sampler2D skyMap;
 
 #include "packing.glsl"
-#include "noise.glsl"
 #include "sampling.glsl"
 #include "atmosphere.glsl"
+#include "functions.glsl"
 
 vec4 TerrainValues(vec2 worldPosition)
 {
@@ -115,7 +115,7 @@ float BlendSample(sampler2D tex, vec3 uv, float texelSize)
 }
 
 const float maxDisUV = sqrt(2.0);
-const float maxHeightMult = 1.0 / 5000.0;
+const float maxHeightMult = 1.0 / maxHeight;
 
 float TerrainShadow(vec3 worldPosition)
 {
@@ -278,14 +278,13 @@ vec2 TerrainShadowValue(vec3 worldPosition, int lod)
 	return (vec4(skyColor, result));
 }*/
 
-float TerrainOcclusion(vec2 worldPosition)
+float TerrainOcclusion(vec2 worldPosition, int startingCascade)
 {
 	float result = 1.0;
 
-	//int start = (variables.glillOffsets[0].y == 1 ? 1 : 0);
-	//int i = 2;
-	//int first = -1;
-	for (int i = 0; i < 3; i++)
+	startingCascade = clamp(startingCascade, 0, 2);
+
+	for (int i = startingCascade; i < 3; i++)
 	{
 		if (variables.glillOffsets[i].y == 1) {return (result);}
 
@@ -296,23 +295,25 @@ float TerrainOcclusion(vec2 worldPosition)
 		{
 			float occlusion = texture(glillMaps[i], uv + 0.5).r;
 
-			occlusion = ((exp(pow(occlusion * 2.0 - 2.0, 3.0))) + (pow(occlusion, 2.0))) * 0.5;
+			//occlusion = ((exp(pow(occlusion * 2.0 - 2.0, 3.0))) + (pow(occlusion, 2.0))) * 0.5;
+			occlusion = Exaggerate(occlusion);
 			occlusion = mix(0.1, 1.0, occlusion);
 			
 			return (occlusion);
-
-			//result = min(result, occlusion);
-			//if (first == -1) {first = i;}
-			//else {return (result);}
 		}
 	}
 
 	return (0.5);
 }
 
+float TerrainOcclusion(vec2 worldPosition)
+{
+	return (TerrainOcclusion(worldPosition, 0));
+}
+
 vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 {
-	vec3 skyWorldPosition = ((worldPosition + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	vec3 skyWorldPosition = ((worldPosition + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale) + vec3(0.0, bottomRadius, 0.0);
 	//vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
 	vec3 up = normalize(skyWorldPosition);
 	float viewAngle = acos(dot(worldDirection, up));

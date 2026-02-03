@@ -99,7 +99,7 @@ vec3 IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldDirection, vec3 s
 void main()
 {
 	//const float cameraHeight = 0.2 * cameraScale;
-	const float cameraHeight = (variables.viewPosition.y + 2500.0 + (variables.terrainOffset.y * 10000.0)) * atmosphereData.cameraScale;
+	const float cameraHeight = (variables.viewPosition.y + (maxHeight * 0.5) + (variables.terrainOffset.y * 10000.0)) * atmosphereData.cameraScale;
 
 	//vec3 sunDirection = normalize(vec3(0.39036, 0.48795, -0.78072));
 	//vec3 sunDirection = normalize(vec3(0.0, 0.0, 1.0));

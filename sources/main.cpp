@@ -44,6 +44,7 @@ struct GlillData
 	point4D offset{};
 	point4D settings{};
 	float interPower = 1.5;
+	float globalSamplePower = 1.0;
 };
 
 struct AtmosphereData
@@ -65,6 +66,21 @@ struct AtmosphereData
 	float absorption3 = -1.0 / 15.0;
 	float absorption4 = 8.0 / 3.0;
 	float calculateInShadow = 0.0;
+};
+
+struct TerrainData
+{
+	float seed = 0.303586;
+	float erodeFactor = 1.0;
+	float steepness = 2.0;
+};
+
+struct AerialData
+{
+	float mistStrength = 10.0;
+	float mistHeight = 0.01;
+	float mistHeightPower = 1.0;
+	bool mistEnabled = true;
 };
 
 UniformData data{};
@@ -91,17 +107,24 @@ Buffer luminanceBuffer;
 Buffer luminanceVariablesBuffer;
 LuminanceData luminanceData{};
 
-Pipeline transmittancePipeline;
-Pipeline scatteringPipeline;
-Pipeline skyPipeline;
-Pipeline aerialPipeline;
 AtmosphereData atmosphereData{};
 Buffer atmosphereBuffer;
 Descriptor atmosphereDescriptor;
+
+Pipeline transmittancePipeline;
 Image transmittanceImage;
+
+Pipeline scatteringPipeline;
 Image scatteringImage;
+
+Pipeline skyPipeline;
 Image skyImage;
+
+Pipeline aerialPipeline;
 Image aerialImage;
+AerialData aerialData{};
+Buffer aerialBuffer;
+Descriptor aerialDescriptor;
 
 Pipeline glillPipeline;
 Descriptor glillDescriptor;
@@ -118,6 +141,8 @@ std::vector<bool> terrainShadowQueue;
 
 Pipeline computePipeline;
 Descriptor computeDescriptor;
+TerrainData terrainData{};
+Buffer terrainBuffer;
 
 std::vector<Image> computeImages(computeCascade);
 std::vector<Image> temporaryComputeImages(2);
@@ -164,6 +189,10 @@ int currentLod = -1;
 
 int shadowmapResolution = 256;
 int glillResolutions[3] = {512, 1024, 1024};
+
+float globalGlillSamplePower = 1.0;
+
+static bool allMapsComputed = false;
 
 /*void BlitFrameBuffer(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
@@ -265,6 +294,7 @@ void ComputeLuminance(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 	skyPipeline.Bind(commandBuffer);
 	vkCmdDispatch(commandBuffer, 12, 8, 1);
 
+	aerialDescriptor.Bind(0, commandBuffer, aerialPipeline);
 	aerialPipeline.Bind(commandBuffer);
 	vkCmdDispatch(commandBuffer, 1, 64, 32);
 
@@ -394,6 +424,11 @@ void UpdateAtmosphereData()
 	atmosphereBuffer.Update(&atmosphereData, sizeof(atmosphereData));
 }
 
+void UpdateAerialData()
+{
+	aerialBuffer.Update(&aerialData, sizeof(aerialData));
+}
+
 void UpdateGlillData()
 {
 	for (int i = 0; i < glillDatas.size(); i++)
@@ -401,6 +436,27 @@ void UpdateGlillData()
 		data.glillmapOffsets[i].x() = 10000000;
 		data.glillmapOffsets[i].z() = 10000000;
 	}
+}
+
+void UpdateTerrainData()
+{
+	allMapsComputed = false;
+
+	terrainBuffer.Update(&terrainData, sizeof(terrainData));
+
+	for (int i = 0; i < computeCascade; i++)
+	{
+		data.heightmapOffsets[i].x() = 10000000;
+		data.heightmapOffsets[i].y() = 10000000;
+	}
+
+	for (int i = 0; i < terrainShadowQueue.size(); i++)
+	{
+		data.shadowmapOffsets[i].x() = 10000000;
+		data.shadowmapOffsets[i].z() = 10000000;
+	}
+
+	UpdateGlillData();
 }
 
 void Start()
@@ -416,6 +472,13 @@ void Start()
 	////passConfig.colorAttachments[0].description.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	//passConfig.colorAttachments[0].description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	//pass.Create(passConfig);
+
+	aerialData.mistHeight = 0.075;
+	aerialData.mistStrength = 24.0;
+	aerialData.mistHeightPower = 0.35;
+	atmosphereData.mistStrength = 10.0;
+	atmosphereData.skyStrength = 12.0;
+	globalGlillSamplePower = 2.0;
 
 	pass.AddAttachment(Pass::DefaultHDRAttachment());
 	pass.AddAttachment(Pass::DefaultSwapAttachment());
@@ -671,7 +734,8 @@ void Start()
 	//data.lightDirection = point4D(point3D(0.2, 0.25, -0.4).Unitized());
 	//data.lightDirection = point4D(point3D(0.377384, 0.0347139, -0.925406));
 	//data.lightDirection = point4D(point3D(0.529019, 0.282315, -0.800273));
-	data.lightDirection = point4D(point3D(0.613087, 0.116438, 0.781388));
+	//data.lightDirection = point4D(point3D(0.613087, 0.116438, 0.781388));
+	data.lightDirection = point4D(point3D(0.582976, 0.328745, 0.743011));
 	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 
 		Manager::GetCamera().GetConfig().near, Manager::GetCamera().GetConfig().far);
 	data.terrainOffset = point4D(0.0);
@@ -777,13 +841,20 @@ void Start()
 		computeBuffers[i].Create(computeBufferConfig, &cascadeSize);
 	}
 
-	std::vector<DescriptorConfig> computeDescriptorConfigs(3);
+	BufferConfig terrainBufferConfig{};
+	terrainBufferConfig.mapped = true;
+	terrainBufferConfig.size = sizeof(TerrainData);
+	terrainBuffer.Create(terrainBufferConfig, &terrainData);
+
+	std::vector<DescriptorConfig> computeDescriptorConfigs(4);
 	computeDescriptorConfigs[0].type = DescriptorType::StorageImage;
 	computeDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	computeDescriptorConfigs[1].type = DescriptorType::StorageImage;
 	computeDescriptorConfigs[1].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	computeDescriptorConfigs[2].type = DescriptorType::UniformBuffer;
 	computeDescriptorConfigs[2].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	computeDescriptorConfigs[3].type = DescriptorType::UniformBuffer;
+	computeDescriptorConfigs[3].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	computeDescriptor.Create(1, computeDescriptorConfigs);
 
 	for (int i = 0; i < computeCascade; i++)
@@ -801,6 +872,7 @@ void Start()
 		}
 
 		computeDescriptor.Update(i, 2, computeBuffers[i]);
+		computeDescriptor.Update(i, 3, terrainBuffer);
 	}
 
 	BufferConfig luminanceBufferConfig = Buffer::StorageConfig();
@@ -911,6 +983,19 @@ void Start()
 		glillDescriptor.Update(i, 1, glillBuffers[i]);
 	}
 
+	BufferConfig aerialBufferConfig{};
+	aerialBufferConfig.mapped = true;
+	aerialBufferConfig.size = sizeof(AerialData);
+	aerialBuffer.Create(aerialBufferConfig, &aerialData);
+
+	std::vector<DescriptorConfig> aerialDescriptorConfigs(1);
+	aerialDescriptorConfigs[0].type = DescriptorType::UniformBuffer;
+	aerialDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	aerialDescriptor.Create(2, aerialDescriptorConfigs);
+
+	aerialDescriptor.GetNewSet();
+	aerialDescriptor.Update(0, 0, aerialBuffer);
+
 	BufferConfig terrainShadowBufferConfig{}; //remove computeCascade as size!!!!!!!!!!
 	terrainShadowBufferConfig.mapped = true;
 	terrainShadowBufferConfig.size = sizeof(point4D);
@@ -997,7 +1082,7 @@ void Start()
 	PipelineConfig aerialPipelineConfig{};
 	aerialPipelineConfig.shader = "aerial";
 	aerialPipelineConfig.type = PipelineType::Compute;
-	aerialPipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), atmosphereDescriptor.GetLayout() };
+	aerialPipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), atmosphereDescriptor.GetLayout(), aerialDescriptor.GetLayout() };
 	aerialPipeline.Create(aerialPipelineConfig);
 
 	PipelineConfig terrainShadowPipelineConfig{};
@@ -1077,8 +1162,18 @@ void Start()
 	menu.AddSlider("absorption4", atmosphereData.absorption4, 0.0, 5.0);
 	menu.AddSlider("calculate in shadow", atmosphereData.calculateInShadow, 0.0, 1.0);
 	menu.TriggerNode("variables");
+
+	menu.TriggerNode("aerial settings", UpdateAerialData);
+	menu.AddCheckbox("mist enabled", aerialData.mistEnabled);
+	menu.AddSlider("mist strength", aerialData.mistStrength, 0.0, 32.0);
+	menu.AddSlider("mist height", aerialData.mistHeight, 0.0, 0.25);
+	menu.AddSlider("mist height power", aerialData.mistHeightPower, 0.0, 4.0);
+	menu.TriggerNode("aerial settings");
 	
 	Menu& glillMenu = UI::NewMenu("Global illumination");
+	glillMenu.TriggerNode("global variables", UpdateGlillData);
+	glillMenu.AddSlider("global sample power", globalGlillSamplePower, 0.0, 2.0);
+	glillMenu.TriggerNode("global variables");
 	for (int i = 0; i < glillDatas.size(); i++)
 	{
 		glillMenu.TriggerNode(std::string("glill settings ").append(std::to_string(i)), UpdateGlillData);
@@ -1090,6 +1185,14 @@ void Start()
 
 		glillMenu.TriggerNode(std::string("glill settings ").append(std::to_string(i)));
 	}
+
+	Menu& terrainMenu = UI::NewMenu("Terrain");
+	terrainMenu.TriggerNode("Generation");
+	terrainMenu.AddSlider("seed", terrainData.seed, 0.0001, 1.0);
+	terrainMenu.AddSlider("erode factor", terrainData.erodeFactor, 0.0, 4.0);
+	terrainMenu.AddSlider("steepness", terrainData.steepness, 0.0, 4.0);
+	terrainMenu.AddButton("Regenerate", UpdateTerrainData);
+	terrainMenu.TriggerNode("Generation");
 
 	UI::CreateContext(pass.GetRenderpass(), 1);
 
@@ -1106,8 +1209,6 @@ void Start()
 	Renderer::RegisterCall(0, ComputeTerrainShadow, true);
 	Renderer::RegisterCall(0, ComputeTerrainGlill, true);
 }
-
-static bool allMapsComputed = false;
 
 void Compute(int lod)
 {
@@ -1318,6 +1419,7 @@ void Frame()
 			data.glillmapOffsets[i].z() = data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f);
 
 			glillDatas[i].offset = data.glillmapOffsets[i];
+			glillDatas[i].globalSamplePower = globalGlillSamplePower;
 			glillBuffers[i].Update(&glillDatas[i], sizeof(GlillData));
 
 			glillQueue[i] = true;
@@ -1375,6 +1477,8 @@ void End()
 	glillBuffers.clear();
 
 	atmosphereBuffer.Destroy();
+	aerialBuffer.Destroy();
+	terrainBuffer.Destroy();
 
 	luminanceBuffer.Destroy();
 	luminanceVariablesBuffer.Destroy();
@@ -1427,6 +1531,7 @@ void End()
 	postDescriptor.Destroy();
 	luminanceDescriptor.Destroy();
 	atmosphereDescriptor.Destroy();
+	aerialDescriptor.Destroy();
 	terrainShadowDescriptor.Destroy();
 	glillDescriptor.Destroy();
 	computeDescriptor.Destroy();

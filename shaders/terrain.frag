@@ -110,7 +110,8 @@ void main()
 	//vec4 heightData = texture(heightmaps[1], uv).rgba;
 	//vec3 _worldNormal = normalize(heightData.gba * 2.0 - 1.0);
 
-	vec3 _worldNormal = TerrainValues(worldPosition.xz).yzw;
+	vec4 terrainValues = TerrainValues(worldPosition.xz);
+	vec3 _worldNormal = terrainValues.yzw;
 	//if (viewDistance > 75.0) {_worldNormal = TerrainValues(worldPosition.xz).yzw;}
 	//else {_worldNormal = normalize(worldNormal);}
 
@@ -155,7 +156,11 @@ void main()
 	//snow = clamp(snow, 0.0, 1.0);
 	//float blendSteepness = mix(rockSteepness, snowSteepness, rockSnow);
 
-	float snow = pow(clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + 1500.0, 0.0, 1500.0) / 1500.0, 0.75);
+	float snowHeight = 1500.0;
+	//float snowHeight = 500.0;
+	float snowHeightBlend = 1500.0;
+
+	float snow = pow(clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + snowHeight, 0.0, snowHeightBlend) / snowHeightBlend, 0.75);
 	float blendSteepness = rockSteepness;
 	
 	//if (steepness <= drySteepness)
@@ -279,6 +284,10 @@ void main()
 		//SampleSteepnessTexture(rockTextures, textureData, strength, scale, 0.0);
 	}
 
+	//float snowArea = SimpleFractalNoise((worldPosition.xz * 0.0001 + variables.terrainOffset.xz) * 0.5, 1, 4);
+	//snowArea = ((((exp(pow(snowArea * 2.0 - 2.0, 3.0))) + (pow(snowArea, 2.0))) * 0.5) - 0.5) * 2.0;
+	//snow = clamp(snow + snowArea, 0.0, 1.0);
+
 	if (snow > 0.0)
 	{
 		float coverSteepness = mix(0.0, snowSteepness, snow);
@@ -320,7 +329,7 @@ void main()
 	//vec3 ambientDiffuse = 0.1 * textureData.color * vec3(1.0, 0.9, 0.7) * lightStrength;
 	//vec3 ambient = ambientDiffuse * ao;
 	
-	float shadow = TerrainShadow(vec3(worldPosition.x, -2500.0, worldPosition.z));
+	float shadow = TerrainShadow(vec3(worldPosition.x, -maxHeight * 0.5, worldPosition.z));
 	diffuse *= shadow;
 
 	vec3 illumination = TerrainIllumination(worldPosition, _worldNormal);
@@ -328,7 +337,7 @@ void main()
 	//float occlusion = illumination.w;
 	float occlusion = TerrainOcclusion(worldPosition.xz);
 
-	vec3 ambientDiffuse = 0.25 * textureData.color * illumination.rgb;
+	vec3 ambientDiffuse = 0.25 * (textureData.color * illumination.rgb);
 	vec3 ambient = ambientDiffuse * ao;
 
 	float aoMult = pow(occlusion, 0.5);
@@ -414,6 +423,9 @@ void main()
 	//int total = int(floor(abs(worldPosition.x) * 0.2) * 5 + floor(abs(worldPosition.z) * 0.2) * 5);
 	//finalColor *= (total % 2 == 0 ? 1.0 : 0.75);
 	vec3 finalColor = diffuse;
+	//vec3 finalColor = vec3(snowArea);
+
+	//if (terrainValues.x + 0.5 > 0.75) {finalColor = vec3(0.0);}
 
 	//float occlusion = TerrainIllumination(worldPosition.xz);
 	//if (occlusion < 0.9) {occlusion = 0;}
