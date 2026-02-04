@@ -20,6 +20,8 @@ layout(set = 2, binding = 0, std140) uniform AerialData
 	float mistHeight;
 	float mistHeightPower;
 	float mistBuildupPower;
+	float sliceOffset;
+	uint blendOcclusion;
 	uint mistEnabled;
 	uint shadowsEnabled;
 } aerialData;
@@ -116,6 +118,8 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 				{
 					occlusion = 1.0 - pow(TerrainOcclusion(realPos.xz), mix(aerialData.mistBuildupPower, 1.0, inShadow));
 					occlusion = 1.0 + mix(occlusion, 0.0, groundInter) * aerialData.mistStrength;
+
+					//test = 1.0 + occlusion * aerialData.shadowTolerance;
 				}
 			}
 		}
@@ -152,7 +156,7 @@ void main()
     vec3 worldDirection = normalize(Hpos.xyz / Hpos.w - variables.viewPosition.xyz);
 	vec3 worldPosition = viewPosition + vec3(0.0, bottomRadius, 0.0);
 
-	float slice = ((float(gl_GlobalInvocationID.z) + 0.5) / aerialDimensions.z);
+	float slice = ((float(gl_GlobalInvocationID.z) + aerialData.sliceOffset) / aerialDimensions.z);
     slice *= slice;
     slice *= aerialDimensions.z;
 

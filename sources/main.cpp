@@ -21,7 +21,7 @@
 
 const int computeCascade = 8;
 
-struct UniformData
+struct alignas(16) UniformData
 {
 	mat4 view;
 	mat4 projection;
@@ -34,20 +34,22 @@ struct UniformData
 	point4D glillmapOffsets[3]{};
 };
 
-struct LuminanceData
+struct alignas(16) LuminanceData
 {
 	float currentLuminance = 1;
+	uint32_t padding[3];
 };
 
-struct GlillData
+struct alignas(16) GlillData
 {
 	point4D offset{};
 	point4D settings{};
 	float interPower = 1.5;
 	float globalSamplePower = 1.0;
+	uint32_t padding[2];
 };
 
-struct AtmosphereData
+struct alignas(16) AtmosphereData
 {
 	float miePhaseFunction = 0.8;
 	float offsetRadius = 0.01;
@@ -66,13 +68,15 @@ struct AtmosphereData
 	float absorption3 = -1.0 / 15.0;
 	float absorption4 = 8.0 / 3.0;
 	float calculateInShadow = 0.0;
+	uint32_t padding[3];
 };
 
-struct TerrainData
+struct alignas(16) TerrainData
 {
 	float seed = 0.303586;
 	float erodeFactor = 1.0;
 	float steepness = 2.0;
+	uint32_t padding[1];
 };
 
 struct alignas(16) AerialData
@@ -81,9 +85,17 @@ struct alignas(16) AerialData
 	float mistHeight = 0.01;
 	float mistHeightPower = 1.0;
 	float mistBuildupPower = 1.0;
+	float sliceOffset = 0.5;
+	uint32_t blendOcclusion = 0.0;
 	uint32_t mistEnabled = 1;
 	uint32_t shadowsEnabled = 1;
-	uint32_t padding[2];
+	//uint32_t padding[2];
+};
+
+struct alignas(16) PostData
+{
+	uint32_t useLinearDepth = 0.0;
+	uint32_t padding[3];
 };
 
 UniformData data{};
@@ -104,6 +116,8 @@ Pipeline postPipeline;
 Descriptor postDescriptor;
 Pipeline luminancePipeline;
 Descriptor luminanceDescriptor;
+PostData postData{};
+Buffer postBuffer;
 meshP16 quadMesh;
 std::vector<Image> luminanceImages;
 Buffer luminanceBuffer;
@@ -194,6 +208,8 @@ int shadowmapResolution = 256;
 int glillResolutions[3] = {512, 1024, 1024};
 
 float globalGlillSamplePower = 1.0;
+
+Point<int, 3> aerialRes = Point<int, 3>(64, 64, 32);
 
 static bool allMapsComputed = false;
 
@@ -299,7 +315,7 @@ void ComputeLuminance(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 
 	aerialDescriptor.Bind(0, commandBuffer, aerialPipeline);
 	aerialPipeline.Bind(commandBuffer);
-	vkCmdDispatch(commandBuffer, 1, 64, 32);
+	vkCmdDispatch(commandBuffer, 1, aerialRes.y(), aerialRes.z());
 
 	//vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
 
@@ -471,6 +487,11 @@ void UpdateCameraSensitivity()
 	Manager::GetCamera().SetConfig(cameraConfig);
 }
 
+void UpdatePostData()
+{
+	postBuffer.Update(&postData, sizeof(postData));
+}
+
 void Start()
 {
 	//atmosphereData.rayleighScatteringStrength = 0.5;
@@ -486,9 +507,12 @@ void Start()
 	//pass.Create(passConfig);
 
 	aerialData.mistHeight = 0.075;
-	aerialData.mistStrength = 24.0;
+	//aerialData.mistHeight = 0.125;
+	//aerialData.mistStrength = 24.0;
+	aerialData.mistStrength = 32.0;
 	aerialData.mistHeightPower = 0.35;
 	aerialData.mistBuildupPower = 4.0;
+	aerialData.sliceOffset = 0.0;
 	atmosphereData.mistStrength = 10.0;
 	atmosphereData.skyStrength = 12.0;
 	globalGlillSamplePower = 2.0;
@@ -608,9 +632,9 @@ void Start()
 	skyImage.Create(skyImageConfig);
 
 	ImageConfig aerialImageConfig = Image::DefaultStorageConfig();
-	aerialImageConfig.width = 64;
-	aerialImageConfig.height = 64;
-	aerialImageConfig.depth = 32;
+	aerialImageConfig.width = aerialRes.x();
+	aerialImageConfig.height = aerialRes.y();
+	aerialImageConfig.depth = aerialRes.z();
 	aerialImageConfig.type = VK_IMAGE_TYPE_3D;
 	aerialImageConfig.viewConfig.type = VK_IMAGE_VIEW_TYPE_3D;
 	aerialImageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -915,8 +939,13 @@ void Start()
 		luminanceDescriptor.Update(i, 2, luminanceVariablesBuffer);
 	}
 
+	BufferConfig postBufferConfig{};
+	postBufferConfig.mapped = true;
+	postBufferConfig.size = sizeof(PostData);
+	postBuffer.Create(postBufferConfig, &postData);
+
 	int j = 0;
-	std::vector<DescriptorConfig> postDescriptorConfigs(7);
+	std::vector<DescriptorConfig> postDescriptorConfigs(8);
 	//postDescriptorConfigs[j].type = DescriptorType::CombinedSampler;
 	//postDescriptorConfigs[j++].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 	postDescriptorConfigs[j].type = DescriptorType::InputAttatchment;
@@ -933,6 +962,8 @@ void Start()
 	postDescriptorConfigs[j++].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 	postDescriptorConfigs[j].type = DescriptorType::StorageBuffer;
 	postDescriptorConfigs[j++].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+	postDescriptorConfigs[j].type = DescriptorType::UniformBuffer;
+	postDescriptorConfigs[j++].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 	postDescriptor.Create(1, postDescriptorConfigs);
 
 	for (int i = 0; i < Manager::GetSwapchain().GetFrameCount(); i++)
@@ -948,6 +979,7 @@ void Start()
 		postDescriptor.Update(i, k++, skyImage);
 		postDescriptor.Update(i, k++, aerialImage);
 		postDescriptor.Update(i, k++, luminanceBuffer);
+		postDescriptor.Update(i, k++, postBuffer);
 	}
 
 	std::vector<DescriptorConfig> atmosphereDescriptorConfigs(4);
@@ -1180,9 +1212,11 @@ void Start()
 	menu.AddCheckbox("shadows enabled", aerialData.shadowsEnabled);
 	menu.AddCheckbox("mist enabled", aerialData.mistEnabled);
 	menu.AddSlider("mist strength", aerialData.mistStrength, 0.0, 32.0);
-	menu.AddSlider("mist height", aerialData.mistHeight, 0.0, 0.25);
-	menu.AddSlider("mist height power", aerialData.mistHeightPower, 0.0, 4.0);
-	menu.AddSlider("mist buildup power", aerialData.mistBuildupPower, 0.0, 4.0);
+	menu.AddSlider("mist height", aerialData.mistHeight, 0.0, 0.125);
+	menu.AddSlider("mist height power", aerialData.mistHeightPower, 0.0, 2.0);
+	menu.AddSlider("mist buildup power", aerialData.mistBuildupPower, 0.0, 8.0);
+	menu.AddSlider("slice offset", aerialData.sliceOffset, 0.0, 1.0);
+	menu.AddCheckbox("blend occlusion", aerialData.blendOcclusion);
 	menu.TriggerNode("aerial settings");
 	
 	Menu& glillMenu = UI::NewMenu("Global illumination");
@@ -1213,6 +1247,11 @@ void Start()
 	cameraMenu.TriggerNode("Settings", UpdateCameraSensitivity);
 	cameraMenu.AddSlider("sensitivity", cameraSensitivity, 0.0, 0.2);
 	cameraMenu.TriggerNode("Settings");
+
+	Menu& postMenu = UI::NewMenu("Post");
+	postMenu.TriggerNode("Settings", UpdatePostData);
+	postMenu.AddCheckbox("use linear depth", postData.useLinearDepth);
+	postMenu.TriggerNode("Settings");
 
 	UI::CreateContext(pass.GetRenderpass(), 1);
 
@@ -1464,6 +1503,30 @@ void Frame()
 		//Manager::GetCamera().UpdateProjection();
 	}
 
+	if (Input::GetKey(GLFW_KEY_B).pressed)
+	{
+		//aerialData.mistHeight = 0.075;
+		//aerialData.mistHeight = 0.125;
+		aerialData.mistStrength = 24.0;
+		//aerialData.mistStrength = 32.0;
+		//aerialData.mistHeightPower = 0.35;
+		//aerialData.mistBuildupPower = 4.0;
+		aerialData.sliceOffset = 0.5;
+
+		UpdateAerialData();
+	}
+	else if (Input::GetKey(GLFW_KEY_N).pressed)
+	{
+		//aerialData.mistHeight = 0.075;
+		//aerialData.mistHeight = 0.1;
+		//aerialData.mistStrength = 24.0;
+		//aerialData.mistHeightPower = 0.50;
+		aerialData.mistStrength = 32.0;
+		aerialData.sliceOffset = 0.0;
+
+		UpdateAerialData();
+	}
+
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));
 
 	objectBuffers[Renderer::GetCurrentFrame()].Update(models.data(), sizeof(mat4) * models.size());
@@ -1499,6 +1562,7 @@ void End()
 	atmosphereBuffer.Destroy();
 	aerialBuffer.Destroy();
 	terrainBuffer.Destroy();
+	postBuffer.Destroy();
 
 	luminanceBuffer.Destroy();
 	luminanceVariablesBuffer.Destroy();
