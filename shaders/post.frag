@@ -103,12 +103,12 @@ vec3 sunWithBloom(vec3 worldDir, vec3 sunDir)
     return vec3(gaussianBloom + invBloom);
 }
 
-vec4 GetAerial(float depth, mat4 invViewProjMat)
+vec4 GetAerial(float depth, vec3 pixelWorldPos)
 {
-	vec3 clipSpace = vec3(worldCoordinates * vec2(2.0) - vec2(1.0), depth);
-	vec4 hPos = invViewProjMat * vec4(clipSpace, 1.0);
-	vec3 cameraRayWorld = normalize(hPos.xyz / hPos.w - variables.viewPosition.xyz);
-	float realDepth = length(hPos.xyz / hPos.w - variables.viewPosition.xyz);
+	//vec3 clipSpace = vec3(worldCoordinates * vec2(2.0) - vec2(1.0), depth);
+	//vec4 hPos = invViewProjMat * vec4(clipSpace, 1.0);
+	vec3 cameraRayWorld = normalize(pixelWorldPos - variables.viewPosition.xyz);
+	float realDepth = length(pixelWorldPos - variables.viewPosition.xyz);
 
 	float slice = realDepth * atmosphereData.cameraScale * (1.0 / 4.0); // Maybe use 0.1 as cameraScale
     //float weight = 1.0;
@@ -166,15 +166,16 @@ void main()
     vec3 clipSpace = vec3(pixPos * vec2(2.0) - vec2(1.0), depth);
     
     vec4 Hpos = invViewProjMat * vec4(clipSpace, 1.0);
+	vec3 pixelWorldPos = Hpos.xyz / Hpos.w;
 
 	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale;
 
-    vec3 worldDirection = normalize(Hpos.xyz / Hpos.w - variables.viewPosition.xyz);
+    vec3 worldDirection = normalize(pixelWorldPos - variables.viewPosition.xyz);
 	vec3 worldPosistion = viewPosition + vec3(0.0, bottomRadius, 0.0);
 
 	float viewHeight = length(worldPosistion);
 
-	vec4 aerialResult = GetAerial(depth, invViewProjMat);
+	vec4 aerialResult = GetAerial(depth, pixelWorldPos);
 	//aerialResult.w = pow(aerialResult.w, 2.0);
 	//vec3 mistColor = aerialResult.rgb * (1.0 - aerialResult.w);
 	//vec3 mistColor = aerialResult.rgb * pow(aerialResult.w, 0.125 * 0.5);
