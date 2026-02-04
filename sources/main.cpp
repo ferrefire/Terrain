@@ -75,12 +75,15 @@ struct TerrainData
 	float steepness = 2.0;
 };
 
-struct AerialData
+struct alignas(16) AerialData
 {
 	float mistStrength = 10.0;
 	float mistHeight = 0.01;
 	float mistHeightPower = 1.0;
-	bool mistEnabled = true;
+	float mistBuildupPower = 1.0;
+	uint32_t mistEnabled = 1;
+	uint32_t shadowsEnabled = 1;
+	uint32_t padding[2];
 };
 
 UniformData data{};
@@ -459,6 +462,15 @@ void UpdateTerrainData()
 	UpdateGlillData();
 }
 
+float cameraSensitivity = 0.1;
+
+void UpdateCameraSensitivity()
+{
+	CameraConfig cameraConfig = Manager::GetCamera().GetConfig();
+	cameraConfig.sensitivity = cameraSensitivity;
+	Manager::GetCamera().SetConfig(cameraConfig);
+}
+
 void Start()
 {
 	//atmosphereData.rayleighScatteringStrength = 0.5;
@@ -476,6 +488,7 @@ void Start()
 	aerialData.mistHeight = 0.075;
 	aerialData.mistStrength = 24.0;
 	aerialData.mistHeightPower = 0.35;
+	aerialData.mistBuildupPower = 4.0;
 	atmosphereData.mistStrength = 10.0;
 	atmosphereData.skyStrength = 12.0;
 	globalGlillSamplePower = 2.0;
@@ -1164,10 +1177,12 @@ void Start()
 	menu.TriggerNode("variables");
 
 	menu.TriggerNode("aerial settings", UpdateAerialData);
+	menu.AddCheckbox("shadows enabled", aerialData.shadowsEnabled);
 	menu.AddCheckbox("mist enabled", aerialData.mistEnabled);
 	menu.AddSlider("mist strength", aerialData.mistStrength, 0.0, 32.0);
 	menu.AddSlider("mist height", aerialData.mistHeight, 0.0, 0.25);
 	menu.AddSlider("mist height power", aerialData.mistHeightPower, 0.0, 4.0);
+	menu.AddSlider("mist buildup power", aerialData.mistBuildupPower, 0.0, 4.0);
 	menu.TriggerNode("aerial settings");
 	
 	Menu& glillMenu = UI::NewMenu("Global illumination");
@@ -1193,6 +1208,11 @@ void Start()
 	terrainMenu.AddSlider("steepness", terrainData.steepness, 0.0, 4.0);
 	terrainMenu.AddButton("Regenerate", UpdateTerrainData);
 	terrainMenu.TriggerNode("Generation");
+
+	Menu& cameraMenu = UI::NewMenu("Camera");
+	cameraMenu.TriggerNode("Settings", UpdateCameraSensitivity);
+	cameraMenu.AddSlider("sensitivity", cameraSensitivity, 0.0, 0.2);
+	cameraMenu.TriggerNode("Settings");
 
 	UI::CreateContext(pass.GetRenderpass(), 1);
 

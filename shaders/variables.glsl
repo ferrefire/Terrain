@@ -4,7 +4,7 @@
 const int cascadeCount = 8;
 const float maxHeight = 5000.0;
 
-layout(set = 0, binding = 0) uniform Variables
+layout(set = 0, binding = 0, std140) uniform Variables
 {
 	mat4 view;
 	mat4 projection;

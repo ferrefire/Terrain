@@ -15,12 +15,12 @@ layout(set = 0, binding = 4) uniform sampler2D skyMap;
 #include "atmosphere.glsl"
 #include "functions.glsl"
 
-vec4 TerrainValues(vec2 worldPosition)
+vec4 TerrainValues(vec2 worldPosition, int startLod)
 {
 	vec2 uv;
 	vec4 heightData;
 
-	for (int i = 0; i < cascadeCount; i++)
+	for (int i = startLod; i < cascadeCount; i++)
 	{
 		uv = worldPosition * 0.0001 - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz);
 		float size = baseDistance * pow(2.0, i);
@@ -42,6 +42,11 @@ vec4 TerrainValues(vec2 worldPosition)
 	}
 
 	return (vec4(-0.5, 0, 1, 0));
+}
+
+vec4 TerrainValues(vec2 worldPosition)
+{
+	return (TerrainValues(worldPosition, 0));
 }
 
 vec4 TerrainValuesLod(vec2 worldPosition, int targetLod)
@@ -278,13 +283,13 @@ vec2 TerrainShadowValue(vec3 worldPosition, int lod)
 	return (vec4(skyColor, result));
 }*/
 
-float TerrainOcclusion(vec2 worldPosition, int startingCascade)
+float TerrainOcclusion(vec2 worldPosition)
 {
-	float result = 1.0;
+	float result = 0.5;
 
-	startingCascade = clamp(startingCascade, 0, 2);
+	//startingCascade = clamp(startingCascade, 0, 2);
 
-	for (int i = startingCascade; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 	{
 		if (variables.glillOffsets[i].y == 1) {return (result);}
 
@@ -299,17 +304,19 @@ float TerrainOcclusion(vec2 worldPosition, int startingCascade)
 			occlusion = Exaggerate(occlusion);
 			occlusion = mix(0.1, 1.0, occlusion);
 			
-			return (occlusion);
+			//return (occlusion);
+			result = occlusion;
+			break;
 		}
 	}
 
-	return (0.5);
+	return (result);
 }
 
-float TerrainOcclusion(vec2 worldPosition)
-{
-	return (TerrainOcclusion(worldPosition, 0));
-}
+//float TerrainOcclusion(vec2 worldPosition)
+//{
+//	return (TerrainOcclusion(worldPosition, 0));
+//}
 
 vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 {

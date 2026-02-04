@@ -111,7 +111,7 @@ vec4 GetAerial(float depth, vec3 pixelWorldPos)
 	float realDepth = length(pixelWorldPos - variables.viewPosition.xyz);
 
 	float slice = realDepth * atmosphereData.cameraScale * (1.0 / 4.0); // Maybe use 0.1 as cameraScale
-    //float weight = 1.0;
+    float weight = 1.0;
 
 	//if (slice < 0.5)
 	//{

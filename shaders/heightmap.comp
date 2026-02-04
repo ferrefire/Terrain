@@ -6,8 +6,8 @@
 
 layout(set = 1, binding = 0, rgba16) uniform image2D target16;
 layout(set = 1, binding = 1, rgba8) uniform image2D target8;
-layout(set = 1, binding = 2) uniform Config { vec4 sizes; } config;
-layout(set = 1, binding = 3) uniform Settings 
+layout(set = 1, binding = 2, std140) uniform Config { vec4 sizes; } config;
+layout(set = 1, binding = 3, std140) uniform Settings 
 { 
 	float seed;
 	float erodeFactor;

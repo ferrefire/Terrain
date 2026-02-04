@@ -7,7 +7,7 @@
 #include "terrainFunctions.glsl"
 
 layout(set = 1, binding = 0, r8) uniform image2D glillImage;
-layout(set = 1, binding = 1) uniform Config
+layout(set = 1, binding = 1, std140) uniform Config
 {
 	vec4 sizes;
 	vec4 settings;

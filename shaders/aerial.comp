@@ -14,12 +14,14 @@ layout(set = 1, binding = 1, rgba16f) uniform readonly image2D scatteringImage;
 layout(set = 1, binding = 2, rgba16f) uniform readonly image2D skyImage;
 layout(set = 1, binding = 3, rgba16f) uniform image3D aerialImage;
 
-layout(set = 2, binding = 0) uniform AerialData
+layout(set = 2, binding = 0, std140) uniform AerialData
 {
 	float mistStrength;
 	float mistHeight;
 	float mistHeightPower;
-	bool mistEnabled;
+	float mistBuildupPower;
+	uint mistEnabled;
+	uint shadowsEnabled;
 } aerialData;
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
@@ -96,24 +98,27 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 		realPos /= atmosphereData.cameraScale;
 		realPos -= vec3(0.0, maxHeight * 0.5, 0.0);
 
-		if (inShadow == 1.0)
-		{
-			
-			//inShadow = TerrainShadow(realPos);
-			inShadow = TerrainShadow(realPos, 0, true);
-			//if (inShadow < 1.0) {inShadow *= inShadow;}
-		}
-
 		float occlusion = 1.0;
 
-		if (aerialData.mistEnabled)
+		if (realPos.y < 750.0 && realPos.y > -2500.0)
 		{
-			float groundInter = pow(clamp(((realPos.y - (TerrainValues(realPos.xz).x * maxHeight)) / maxHeight) / aerialData.mistHeight, 0.0, 1.0), aerialData.mistHeightPower);
-			occlusion = 1.0 - TerrainOcclusion(realPos.xz);
-			occlusion = 1.0 + mix(occlusion, 0.0, groundInter) * aerialData.mistStrength;
-		}
+			if (aerialData.shadowsEnabled == 1 && inShadow == 1.0)
+			{
+				//inShadow = TerrainShadow(realPos);
+				inShadow = TerrainShadow(realPos, 0, true);
+			}
 
-		//Make variables and update them through UI!
+			if (aerialData.mistEnabled == 1)
+			{
+				float groundInter = pow(clamp(((realPos.y - (TerrainValues(realPos.xz).x * maxHeight)) / maxHeight) / aerialData.mistHeight, 0.0, 1.0), aerialData.mistHeightPower);
+
+				if (groundInter < 0.99)
+				{
+					occlusion = 1.0 - pow(TerrainOcclusion(realPos.xz), mix(aerialData.mistBuildupPower, 1.0, inShadow));
+					occlusion = 1.0 + mix(occlusion, 0.0, groundInter) * aerialData.mistStrength;
+				}
+			}
+		}
 
 		vec3 multiScatteredLuminance = MultiScattering(rayPosition, dot(sunDirection, up));
 

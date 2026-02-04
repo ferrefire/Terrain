@@ -1,7 +1,7 @@
 #ifndef ATMOSPHERE_INCLUDED
 #define ATMOSPHERE_INCLUDED
 
-layout(set = 0, binding = 5) uniform AtmosphereData
+layout(set = 0, binding = 5, std140) uniform AtmosphereData
 {
 	float miePhaseFunction;
 	float offsetRadius;
