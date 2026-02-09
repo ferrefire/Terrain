@@ -20,6 +20,9 @@ layout(set = 0, binding = 5, std140) uniform AtmosphereData
 	float absorption3;
 	float absorption4;
 	float calculateInShadow;
+	float skyPower;
+	float defaultSkyPower;
+	float skyDilute;
 } atmosphereData;
 
 #define PI 3.1415926535897932384626433832795

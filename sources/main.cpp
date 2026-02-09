@@ -68,7 +68,10 @@ struct alignas(16) AtmosphereData
 	float absorption3 = -1.0 / 15.0;
 	float absorption4 = 8.0 / 3.0;
 	float calculateInShadow = 0.0;
-	uint32_t padding[3];
+	float skyPower = 1.0;
+	float defaultSkyPower = 500.0;
+	float skyDilute = 1.0;
+	//uint32_t padding[2];
 };
 
 struct alignas(16) TerrainData
@@ -530,6 +533,9 @@ void Start()
 	//atmosphereData.skyStrength = 6.0;
 	//globalGlillSamplePower = 2.0;
 	globalGlillSamplePower = 1.0;
+
+	atmosphereData.skyPower = 2.0;
+	atmosphereData.skyDilute = 128.0;
 
 	
 
@@ -1222,6 +1228,9 @@ void Start()
 	menu.AddSlider("absorption3", atmosphereData.absorption3, -1.0, 0.0);
 	menu.AddSlider("absorption4", atmosphereData.absorption4, 0.0, 5.0);
 	menu.AddSlider("calculate in shadow", atmosphereData.calculateInShadow, 0.0, 1.0);
+	menu.AddSlider("sky power", atmosphereData.skyPower, 0.0, 8.0);
+	menu.AddSlider("default sky power", atmosphereData.defaultSkyPower, 0.0, 1000.0);
+	menu.AddSlider("sky dilute", atmosphereData.skyDilute, 0.0, 512.0);
 	menu.TriggerNode("variables");
 
 	menu.TriggerNode("aerial settings", UpdateAerialData);

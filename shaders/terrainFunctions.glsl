@@ -357,7 +357,9 @@ vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 
 	vec2 skyUV = SkyToUV(groundIntersect, vec2(viewAngle, lightAngle), viewHeight);
 
-	vec3 skyColor = texture(skyMap, skyUV).rgb * 500;
+	float disInter = 1.0 - pow(1.0 - clamp(SquaredDistance(worldPosition, variables.viewPosition.xyz) / (variables.resolution.w * variables.resolution.w), 0.0, 1.0), atmosphereData.skyDilute);
+
+	vec3 skyColor = texture(skyMap, skyUV).rgb * atmosphereData.defaultSkyPower * mix(atmosphereData.skyPower, 1.0, disInter);
 
 	return (skyColor);
 }
