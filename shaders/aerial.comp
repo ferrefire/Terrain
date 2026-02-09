@@ -21,7 +21,14 @@ layout(set = 2, binding = 0, std140) uniform AerialData
 	float mistHeightPower;
 	float mistBuildupPower;
 	float sliceOffset;
+	float maximumHeight;
+	float decreaseHeight;
+	float decreasePower;
+	float blendDistance;
+	float defaultOcclusion;
+	uint lodOcclusion;
 	uint blendOcclusion;
+	uint useOcclusion;
 	uint mistEnabled;
 	uint shadowsEnabled;
 } aerialData;
@@ -102,7 +109,7 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 
 		float occlusion = 1.0;
 
-		if (realPos.y < 750.0 && realPos.y > -2500.0)
+		if (realPos.y < aerialData.maximumHeight && realPos.y > -2500.0)
 		{
 			if (aerialData.shadowsEnabled == 1 && inShadow == 1.0)
 			{
@@ -112,11 +119,28 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 
 			if (aerialData.mistEnabled == 1)
 			{
+				float heightInter = 0.0;
+				if (realPos.y > aerialData.maximumHeight - aerialData.decreaseHeight)
+				{
+					heightInter = clamp((realPos.y - (aerialData.maximumHeight - aerialData.decreaseHeight)) / aerialData.decreaseHeight, 0.0, 1.0);
+					heightInter = pow(heightInter, aerialData.decreasePower);
+				}
+
 				float groundInter = pow(clamp(((realPos.y - (TerrainValues(realPos.xz).x * maxHeight)) / maxHeight) / aerialData.mistHeight, 0.0, 1.0), aerialData.mistHeightPower);
+
+				groundInter = mix(groundInter, 1.0, heightInter);
 
 				if (groundInter < 0.99)
 				{
-					occlusion = 1.0 - pow(TerrainOcclusion(realPos.xz), mix(aerialData.mistBuildupPower, 1.0, inShadow));
+					float occlusionValue = aerialData.defaultOcclusion;
+
+					if (aerialData.useOcclusion == 1)
+					{
+						if (aerialData.lodOcclusion == 0) {occlusionValue = TerrainOcclusion(realPos.xz);}
+						else {occlusionValue = TerrainOcclusionCascade(realPos.xz, 2);}
+					}
+					
+					occlusion = 1.0 - pow(occlusionValue, mix(aerialData.mistBuildupPower, 1.0, inShadow));
 					occlusion = 1.0 + mix(occlusion, 0.0, groundInter) * aerialData.mistStrength;
 
 					//test = 1.0 + occlusion * aerialData.shadowTolerance;

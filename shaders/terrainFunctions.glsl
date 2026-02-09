@@ -283,6 +283,31 @@ vec2 TerrainShadowValue(vec3 worldPosition, int lod)
 	return (vec4(skyColor, result));
 }*/
 
+float TerrainOcclusionCascade(vec2 worldPosition, int cascade)
+{
+	float result = 0.5;
+	int i = clamp(cascade, 0, 2);
+
+	if (variables.glillOffsets[i].y == 1) {return (result);}
+
+	vec2 uv = worldPosition * 0.0001 - (variables.glillOffsets[i].xz - variables.terrainOffset.xz);
+	uv = (uv * 10000.0) / variables.glillOffsets[i].w;
+
+	if (max(abs(uv.x), abs(uv.y)) <= 0.5)
+	{
+		float occlusion = texture(glillMaps[i], uv + 0.5).r;
+
+		//occlusion = ((exp(pow(occlusion * 2.0 - 2.0, 3.0))) + (pow(occlusion, 2.0))) * 0.5;
+		occlusion = Exaggerate(occlusion);
+		occlusion = mix(0.1, 1.0, occlusion);
+			
+		//return (occlusion);
+		result = occlusion;
+	}
+
+	return (result);
+}
+
 float TerrainOcclusion(vec2 worldPosition)
 {
 	float result = 0.5;

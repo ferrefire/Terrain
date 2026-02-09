@@ -86,10 +86,17 @@ struct alignas(16) AerialData
 	float mistHeightPower = 1.0;
 	float mistBuildupPower = 1.0;
 	float sliceOffset = 0.5;
+	float maximumHeight = 750.0;
+	float decreaseHeight = 0.0;
+	float decreasePower = 1.0;
+	float blendDistance = 10.0;
+	float defaultOcclusion = 0.5;
+	uint32_t lodOcclusion = 0.0;
 	uint32_t blendOcclusion = 0.0;
+	uint32_t useOcclusion = 1.0;
 	uint32_t mistEnabled = 1;
 	uint32_t shadowsEnabled = 1;
-	//uint32_t padding[2];
+	uint32_t padding[1];
 };
 
 struct alignas(16) PostData
@@ -508,14 +515,23 @@ void Start()
 
 	aerialData.mistHeight = 0.075;
 	//aerialData.mistHeight = 0.125;
-	//aerialData.mistStrength = 24.0;
-	aerialData.mistStrength = 32.0;
+	aerialData.mistStrength = 24.0;
+	//aerialData.mistStrength = 32.0;
 	aerialData.mistHeightPower = 0.35;
 	aerialData.mistBuildupPower = 4.0;
 	aerialData.sliceOffset = 0.0;
-	atmosphereData.mistStrength = 10.0;
+	aerialData.lodOcclusion = 1;
+	//aerialData.useOcclusion = 0;
+	//atmosphereData.mistStrength = 10.0;
 	atmosphereData.skyStrength = 12.0;
-	globalGlillSamplePower = 2.0;
+	atmosphereData.mistStrength = 16.0;
+	aerialData.defaultOcclusion = 0.75;
+	//atmosphereData.mistStrength = 16.0;
+	//atmosphereData.skyStrength = 6.0;
+	//globalGlillSamplePower = 2.0;
+	globalGlillSamplePower = 1.0;
+
+	
 
 	pass.AddAttachment(Pass::DefaultHDRAttachment());
 	pass.AddAttachment(Pass::DefaultSwapAttachment());
@@ -1216,6 +1232,13 @@ void Start()
 	menu.AddSlider("mist height power", aerialData.mistHeightPower, 0.0, 2.0);
 	menu.AddSlider("mist buildup power", aerialData.mistBuildupPower, 0.0, 8.0);
 	menu.AddSlider("slice offset", aerialData.sliceOffset, 0.0, 1.0);
+	menu.AddSlider("maximum height", aerialData.maximumHeight, -500.0, 1000.0);
+	menu.AddSlider("decrease height", aerialData.decreaseHeight, 0.0, 500.0);
+	menu.AddSlider("decrease power", aerialData.decreasePower, 0.0, 4.0);
+	menu.AddSlider("blend distance", aerialData.blendDistance, 0.0, 1000.0);
+	menu.AddSlider("default occlusion", aerialData.defaultOcclusion, 0.0, 1.0);
+	menu.AddCheckbox("use occlusion", aerialData.useOcclusion);
+	menu.AddCheckbox("lod occlusion", aerialData.lodOcclusion);
 	menu.AddCheckbox("blend occlusion", aerialData.blendOcclusion);
 	menu.TriggerNode("aerial settings");
 	
@@ -1505,24 +1528,60 @@ void Frame()
 
 	if (Input::GetKey(GLFW_KEY_B).pressed)
 	{
-		//aerialData.mistHeight = 0.075;
-		//aerialData.mistHeight = 0.125;
+		////aerialData.mistHeight = 0.075;
+		////aerialData.mistHeight = 0.125;
+		//aerialData.mistStrength = 24.0;
+		////aerialData.mistStrength = 32.0;
+		////aerialData.mistHeightPower = 0.35;
+		////aerialData.mistBuildupPower = 4.0;
+		//aerialData.sliceOffset = 0.5;
+
+		//atmosphereData.mistStrength = 16.0;
+		//atmosphereData.skyStrength = 6.0;
+		//aerialData.mistHeight = 0.05;
+
+		//aerialData.maximumHeight = 0.0;
+		//aerialData.decreaseHeight = 500.0;
+		//aerialData.decreasePower = 0.5;
+
+		//atmosphereData.mistStrength = 16.0;
+		//aerialData.defaultOcclusion = 0.75;
+
 		aerialData.mistStrength = 24.0;
-		//aerialData.mistStrength = 32.0;
-		//aerialData.mistHeightPower = 0.35;
-		//aerialData.mistBuildupPower = 4.0;
-		aerialData.sliceOffset = 0.5;
+		globalGlillSamplePower = 1.0;
+
+		//UpdateAtmosphereData();
+
+		UpdateGlillData();
 
 		UpdateAerialData();
 	}
 	else if (Input::GetKey(GLFW_KEY_N).pressed)
 	{
+		////aerialData.mistHeight = 0.075;
+		////aerialData.mistHeight = 0.1;
+		////aerialData.mistStrength = 24.0;
+		////aerialData.mistHeightPower = 0.50;
+		//aerialData.mistStrength = 32.0;
+		//aerialData.sliceOffset = 0.0;
+
+		//atmosphereData.mistStrength = 10.0;
+		//atmosphereData.skyStrength = 12.0;
 		//aerialData.mistHeight = 0.075;
-		//aerialData.mistHeight = 0.1;
-		//aerialData.mistStrength = 24.0;
-		//aerialData.mistHeightPower = 0.50;
+
+		//aerialData.maximumHeight = 750.0;
+		//aerialData.decreaseHeight = 0.0;
+		//aerialData.decreasePower = 1.0;
+
+		//atmosphereData.mistStrength = 10.0;
+		//aerialData.defaultOcclusion = 0.5;
+
 		aerialData.mistStrength = 32.0;
-		aerialData.sliceOffset = 0.0;
+		globalGlillSamplePower = 2.0;
+
+		//UpdateAtmosphereData();
+
+		UpdateGlillData();
 
 		UpdateAerialData();
 	}
