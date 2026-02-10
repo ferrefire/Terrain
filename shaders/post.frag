@@ -25,6 +25,7 @@ layout(set = 1, binding = 6, std430) buffer LuminanceData{float value;} luminanc
 layout(set = 1, binding = 7, std140) uniform PostData
 {
 	uint useLinearDepth;
+	uint aerialBlendMode;
 } postData;
 
 
@@ -131,12 +132,35 @@ vec4 GetAerial(float depth, vec3 pixelWorldPos)
 	const float offset = aerialTexelSize * 0.5;
 
 	float w = sqrt(slice / aerialDimensions.z);
-    //vec4 aerialValue = texture(aerialTexture, vec3(worldCoordinates, w));
-    vec4 aerialValue = texture(aerialTexture, vec3(worldCoordinates + vec2(-offset), w));
-    aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset, -offset), w));
-    aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(-offset, offset), w));
-    aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset), w));
-	aerialValue *= 0.25;
+
+	vec4 aerialValue = vec4(0.0);
+
+	if (postData.aerialBlendMode == 0.0)
+	{
+		aerialValue = texture(aerialTexture, vec3(worldCoordinates, w));
+	}
+	else if (postData.aerialBlendMode == 1.0)
+	{
+		aerialValue = texture(aerialTexture, vec3(worldCoordinates + vec2(-offset), w));
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset, -offset), w));
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(-offset, offset), w));
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset), w));
+		aerialValue *= 0.25;
+	}
+	else if (postData.aerialBlendMode == 2.0)
+	{
+		aerialValue = texture(aerialTexture, vec3(worldCoordinates, w)) * 0.4;
+		aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(-offset * 2.0), w)) * 0.15;
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset * 2.0, -offset * 2.0), w)) * 0.15;
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(-offset * 2.0, offset * 2.0), w)) * 0.15;
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset * 2.0), w)) * 0.15;
+	}
+
+    //vec4 aerialValue = texture(aerialTexture, vec3(worldCoordinates + vec2(-offset), w));
+    //aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset, -offset), w));
+    //aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(-offset, offset), w));
+    //aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset), w));
+	//aerialValue *= 0.25;
     //vec4 aerialValue = weight * texture(aerialTexture, vec3(worldCoordinates, w));
 
 	//if (slice - floor(slice) > 0.9)

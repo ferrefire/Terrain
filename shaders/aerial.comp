@@ -28,6 +28,7 @@ layout(set = 2, binding = 0, std140) uniform AerialData
 	float defaultOcclusion;
 	float phaseStrength;
 	float sunStrength;
+	float sampleCountMult;
 	uint lodOcclusion;
 	uint blendOcclusion;
 	uint useOcclusion;
@@ -234,7 +235,7 @@ void main()
 		tMax = max(0.0, tMax - atmosphereDistance);
 	}
 
-	int sampleCount = int(max(1.0, float(gl_GlobalInvocationID.z + 1.0) * 2.0));
+	int sampleCount = int(max(1.0, float(gl_GlobalInvocationID.z + 1.0) * 2.0 * aerialData.sampleCountMult));
 	TransmittedLuminance transmittedLuminance = IntegrateScatteredLuminance(worldPosition, worldDirection, sunDirection, sampleCount, tMax);
 
 	float averageTransmittance = (transmittedLuminance.transmittance.x + transmittedLuminance.transmittance.y + transmittedLuminance.transmittance.z) / 3.0;

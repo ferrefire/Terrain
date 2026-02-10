@@ -96,6 +96,7 @@ struct alignas(16) AerialData
 	float defaultOcclusion = 0.5;
 	float phaseStrength = 1.0;
 	float sunStrength = 1.0;
+	float sampleCountMult = 1.0;
 	uint32_t lodOcclusion = 0.0;
 	uint32_t blendOcclusion = 0.0;
 	uint32_t useOcclusion = 1.0;
@@ -122,7 +123,8 @@ struct alignas(16) SkyData
 struct alignas(16) PostData
 {
 	uint32_t useLinearDepth = 0.0;
-	uint32_t padding[3];
+	uint32_t aerialBlendMode = 0.0;
+	uint32_t padding[2];
 };
 
 UniformData data{};
@@ -578,6 +580,7 @@ void Start()
 	atmosphereData.mistStrength = 24.0;
 	skyData.rayleighStrength = 0.25;
 	aerialData.mistBuildupPower = 2.0;
+	postData.aerialBlendMode = 2.0;
 
 	pass.AddAttachment(Pass::DefaultHDRAttachment());
 	pass.AddAttachment(Pass::DefaultSwapAttachment());
@@ -1314,6 +1317,7 @@ void Start()
 	menu.AddSlider("default occlusion", aerialData.defaultOcclusion, 0.0, 1.0);
 	menu.AddSlider("phase strength", aerialData.phaseStrength, 0.0, 2.0);
 	menu.AddSlider("sun strength", aerialData.sunStrength, 0.0, 2.0);
+	menu.AddSlider("sample count mult", aerialData.sampleCountMult, 0.0, 4.0);
 	menu.AddCheckbox("use occlusion", aerialData.useOcclusion);
 	menu.AddCheckbox("lod occlusion", aerialData.lodOcclusion);
 	menu.AddCheckbox("blend occlusion", aerialData.blendOcclusion);
@@ -1362,6 +1366,7 @@ void Start()
 	Menu& postMenu = UI::NewMenu("Post");
 	postMenu.TriggerNode("Settings", UpdatePostData);
 	postMenu.AddCheckbox("use linear depth", postData.useLinearDepth);
+	postMenu.AddDropdown("aerial blend mode", postData.aerialBlendMode, {"none", "texel corners", "weighted"});
 	postMenu.TriggerNode("Settings");
 
 	UI::CreateContext(pass.GetRenderpass(), 1);
