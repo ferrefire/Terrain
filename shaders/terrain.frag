@@ -122,8 +122,8 @@ void main()
 	float steepness = 1.0 - (dot(_worldNormal, vec3(0, 1, 0)) * 0.5 + 0.5);
 
 	//float lightStrength = 6 * clamp(dot(variables.lightDirection.xyz, vec3(0, 1, 0)) * 3.0, 1.0, 2.0);
-	float lightStrength = 6;
-	//float lightStrength = 8;
+	//float lightStrength = 6;
+	float lightStrength = 8;
 	//float lightStrength = 10;
 
 	//if (variables.glillOffsets[0].y == 1) {lightStrength = 8;}

@@ -13,6 +13,11 @@ layout(set = 1, binding = 1, rgba16f) uniform readonly image2D scatteringImage;
 layout(set = 1, binding = 2, rgba16f) uniform image2D skyImage;
 layout(set = 1, binding = 3, rgba16f) uniform readonly image3D aerialImage;
 
+layout(set = 2, binding = 0, std140) uniform SkyData
+{
+	float rayleighStrength;
+} skyData;
+
 layout(local_size_x = 16, local_size_y = 16) in;
 
 vec3 MultiScattering(vec3 worldPosition, float viewAngle)
@@ -69,7 +74,7 @@ vec3 IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldDirection, vec3 s
 		ivec2 uvTCoords = ivec2(uvT * transmittanceDimensions);
 
 		vec3 sunTransmittance = imageLoad(transmittanceImage, uvTCoords).rgb;
-		vec3 phaseScattering = mediumScattering.mie * miePhaseValue + mediumScattering.ray * rayPhaseValue;
+		vec3 phaseScattering = mediumScattering.mie * miePhaseValue + mediumScattering.ray * rayPhaseValue * skyData.rayleighStrength;
 
 		float raySurfaceDistance = IntersectSphere(rayPosition, sunDirection, atmosphereData.offsetRadius * up, bottomRadius);
 		float inShadow = raySurfaceDistance == -1.0 ? 1.0 : 0.0;

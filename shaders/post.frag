@@ -114,6 +114,7 @@ vec4 GetAerial(float depth, vec3 pixelWorldPos)
 	//vec3 clipSpace = vec3(worldCoordinates * vec2(2.0) - vec2(1.0), depth);
 	//vec4 hPos = invViewProjMat * vec4(clipSpace, 1.0);
 	//vec3 cameraRayWorld = normalize(pixelWorldPos - variables.viewPosition.xyz);
+
 	float realDepth = length(pixelWorldPos - variables.viewPosition.xyz);
 
 	if (postData.useLinearDepth == 1) {realDepth = LinearizeDepth(depth);}

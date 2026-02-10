@@ -94,12 +94,29 @@ struct alignas(16) AerialData
 	float decreasePower = 1.0;
 	float blendDistance = 10.0;
 	float defaultOcclusion = 0.5;
+	float phaseStrength = 1.0;
+	float sunStrength = 1.0;
 	uint32_t lodOcclusion = 0.0;
 	uint32_t blendOcclusion = 0.0;
 	uint32_t useOcclusion = 1.0;
 	uint32_t mistEnabled = 1;
 	uint32_t shadowsEnabled = 1;
+	uint32_t sunMist = 0;
+	uint32_t padding[2];
+};
+
+struct alignas(16) ScatteringData
+{
+	float scatteringStrength = 1.0;
+	float lightStrength = 1.0;
+	float transmittanceStrength = 0.0;
 	uint32_t padding[1];
+};
+
+struct alignas(16) SkyData
+{
+	float rayleighStrength = 1.0;
+	uint32_t padding[3];
 };
 
 struct alignas(16) PostData
@@ -143,9 +160,15 @@ Image transmittanceImage;
 
 Pipeline scatteringPipeline;
 Image scatteringImage;
+ScatteringData scatteringData{};
+Buffer scatteringBuffer;
+Descriptor scatteringDescriptor;
 
 Pipeline skyPipeline;
 Image skyImage;
+SkyData skyData{};
+Buffer skyBuffer;
+Descriptor skyDescriptor;
 
 Pipeline aerialPipeline;
 Image aerialImage;
@@ -314,12 +337,14 @@ void ComputeLuminance(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 
 		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
 
+		scatteringDescriptor.Bind(0, commandBuffer, scatteringPipeline);
 		scatteringPipeline.Bind(commandBuffer);
 		vkCmdDispatch(commandBuffer, 32, 32, 1);
 
 		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
 	}
 
+	skyDescriptor.Bind(0, commandBuffer, skyPipeline);
 	skyPipeline.Bind(commandBuffer);
 	vkCmdDispatch(commandBuffer, 12, 8, 1);
 
@@ -458,6 +483,17 @@ void UpdateAerialData()
 	aerialBuffer.Update(&aerialData, sizeof(aerialData));
 }
 
+void UpdateScatteringData()
+{
+	recompileAtmosphere = true;
+	scatteringBuffer.Update(&scatteringData, sizeof(scatteringData));
+}
+
+void UpdateSkyData()
+{
+	skyBuffer.Update(&skyData, sizeof(skyData));
+}
+
 void UpdateGlillData()
 {
 	for (int i = 0; i < glillDatas.size(); i++)
@@ -518,26 +554,30 @@ void Start()
 
 	aerialData.mistHeight = 0.075;
 	//aerialData.mistHeight = 0.125;
-	aerialData.mistStrength = 24.0;
+	//aerialData.mistStrength = 24.0;
 	//aerialData.mistStrength = 32.0;
 	aerialData.mistHeightPower = 0.35;
-	aerialData.mistBuildupPower = 4.0;
+	//aerialData.mistBuildupPower = 4.0;
 	aerialData.sliceOffset = 0.0;
 	aerialData.lodOcclusion = 1;
 	//aerialData.useOcclusion = 0;
 	//atmosphereData.mistStrength = 10.0;
-	atmosphereData.skyStrength = 12.0;
-	atmosphereData.mistStrength = 16.0;
+	//atmosphereData.skyStrength = 12.0;
+	//atmosphereData.mistStrength = 16.0;
 	aerialData.defaultOcclusion = 0.75;
 	//atmosphereData.mistStrength = 16.0;
 	//atmosphereData.skyStrength = 6.0;
 	//globalGlillSamplePower = 2.0;
 	globalGlillSamplePower = 1.0;
-
 	atmosphereData.skyPower = 2.0;
 	atmosphereData.skyDilute = 128.0;
-
-	
+	scatteringData.scatteringStrength = 1.0;
+	aerialData.mistStrength = 8.0;
+	//skyData.rayleighStrength = 0.5;
+	atmosphereData.skyStrength = 24.0;
+	atmosphereData.mistStrength = 24.0;
+	skyData.rayleighStrength = 0.25;
+	aerialData.mistBuildupPower = 2.0;
 
 	pass.AddAttachment(Pass::DefaultHDRAttachment());
 	pass.AddAttachment(Pass::DefaultSwapAttachment());
@@ -1063,6 +1103,32 @@ void Start()
 	aerialDescriptor.GetNewSet();
 	aerialDescriptor.Update(0, 0, aerialBuffer);
 
+	BufferConfig scatteringBufferConfig{};
+	scatteringBufferConfig.mapped = true;
+	scatteringBufferConfig.size = sizeof(ScatteringData);
+	scatteringBuffer.Create(scatteringBufferConfig, &scatteringData);
+
+	std::vector<DescriptorConfig> scatteringDescriptorConfigs(1);
+	scatteringDescriptorConfigs[0].type = DescriptorType::UniformBuffer;
+	scatteringDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	scatteringDescriptor.Create(2, scatteringDescriptorConfigs);
+
+	scatteringDescriptor.GetNewSet();
+	scatteringDescriptor.Update(0, 0, scatteringBuffer);
+
+	BufferConfig skyBufferConfig{};
+	skyBufferConfig.mapped = true;
+	skyBufferConfig.size = sizeof(SkyData);
+	skyBuffer.Create(skyBufferConfig, &skyData);
+
+	std::vector<DescriptorConfig> skyDescriptorConfigs(1);
+	skyDescriptorConfigs[0].type = DescriptorType::UniformBuffer;
+	skyDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	skyDescriptor.Create(2, skyDescriptorConfigs);
+
+	skyDescriptor.GetNewSet();
+	skyDescriptor.Update(0, 0, skyBuffer);
+
 	BufferConfig terrainShadowBufferConfig{}; //remove computeCascade as size!!!!!!!!!!
 	terrainShadowBufferConfig.mapped = true;
 	terrainShadowBufferConfig.size = sizeof(point4D);
@@ -1137,13 +1203,13 @@ void Start()
 	PipelineConfig scatteringPipelineConfig{};
 	scatteringPipelineConfig.shader = "scattering";
 	scatteringPipelineConfig.type = PipelineType::Compute;
-	scatteringPipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), atmosphereDescriptor.GetLayout() };
+	scatteringPipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), atmosphereDescriptor.GetLayout(), scatteringDescriptor.GetLayout() };
 	scatteringPipeline.Create(scatteringPipelineConfig);
 
 	PipelineConfig skyPipelineConfig{};
 	skyPipelineConfig.shader = "sky";
 	skyPipelineConfig.type = PipelineType::Compute;
-	skyPipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), atmosphereDescriptor.GetLayout() };
+	skyPipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), atmosphereDescriptor.GetLayout(), skyDescriptor.GetLayout() };
 	skyPipeline.Create(skyPipelineConfig);
 
 	PipelineConfig aerialPipelineConfig{};
@@ -1246,10 +1312,23 @@ void Start()
 	menu.AddSlider("decrease power", aerialData.decreasePower, 0.0, 4.0);
 	menu.AddSlider("blend distance", aerialData.blendDistance, 0.0, 1000.0);
 	menu.AddSlider("default occlusion", aerialData.defaultOcclusion, 0.0, 1.0);
+	menu.AddSlider("phase strength", aerialData.phaseStrength, 0.0, 2.0);
+	menu.AddSlider("sun strength", aerialData.sunStrength, 0.0, 2.0);
 	menu.AddCheckbox("use occlusion", aerialData.useOcclusion);
 	menu.AddCheckbox("lod occlusion", aerialData.lodOcclusion);
 	menu.AddCheckbox("blend occlusion", aerialData.blendOcclusion);
+	menu.AddCheckbox("sun mist", aerialData.sunMist);
 	menu.TriggerNode("aerial settings");
+
+	menu.TriggerNode("scattering settings", UpdateScatteringData);
+	menu.AddSlider("scattering strength", scatteringData.scatteringStrength, 0.0, 3.0);
+	menu.AddSlider("light strength", scatteringData.lightStrength, 0.0, 2.0);
+	menu.AddSlider("transmittance strength", scatteringData.transmittanceStrength, 0.0, 0.2);
+	menu.TriggerNode("scattering settings");
+
+	menu.TriggerNode("sky settings", UpdateSkyData);
+	menu.AddSlider("rayleigh strength", skyData.rayleighStrength, 0.0, 2.0);
+	menu.TriggerNode("sky settings");
 	
 	Menu& glillMenu = UI::NewMenu("Global illumination");
 	glillMenu.TriggerNode("global variables", UpdateGlillData);
@@ -1556,14 +1635,29 @@ void Frame()
 		//atmosphereData.mistStrength = 16.0;
 		//aerialData.defaultOcclusion = 0.75;
 
-		aerialData.mistStrength = 24.0;
-		globalGlillSamplePower = 1.0;
+		//aerialData.mistStrength = 24.0;
+		//globalGlillSamplePower = 1.0;
 
-		//UpdateAtmosphereData();
+		//scatteringData.scatteringStrength = 1.0;
+		//atmosphereData.defaultSkyPower = 500.0;
 
-		UpdateGlillData();
+		//aerialData.mistStrength = 8.0;
+		//skyData.rayleighStrength = 0.5;
+		//atmosphereData.skyStrength = 24.0;
 
-		UpdateAerialData();
+		//atmosphereData.defaultSkyPower = 750.0;
+		atmosphereData.mistStrength = 24.0;
+		skyData.rayleighStrength = 0.25;
+
+		//UpdateScatteringData();
+
+		UpdateAtmosphereData();
+
+		//UpdateGlillData();
+
+		//UpdateAerialData();
+
+		UpdateSkyData();
 	}
 	else if (Input::GetKey(GLFW_KEY_N).pressed)
 	{
@@ -1585,14 +1679,29 @@ void Frame()
 		//atmosphereData.mistStrength = 10.0;
 		//aerialData.defaultOcclusion = 0.5;
 
-		aerialData.mistStrength = 32.0;
-		globalGlillSamplePower = 2.0;
+		//aerialData.mistStrength = 32.0;
+		//globalGlillSamplePower = 2.0;
 
-		//UpdateAtmosphereData();
+		//scatteringData.scatteringStrength = 2.0;
+		//atmosphereData.defaultSkyPower = 350.0;
 
-		UpdateGlillData();
+		//aerialData.mistStrength = 24.0;
+		//skyData.rayleighStrength = 1.0;
+		//atmosphereData.skyStrength = 12.0;
 
-		UpdateAerialData();
+		//atmosphereData.defaultSkyPower = 500.0;
+		atmosphereData.mistStrength = 16.0;
+		skyData.rayleighStrength = 0.5;
+
+		//UpdateScatteringData();
+
+		UpdateAtmosphereData();
+
+		//UpdateGlillData();
+
+		//UpdateAerialData();
+
+		UpdateSkyData();
 	}
 
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));
@@ -1629,6 +1738,8 @@ void End()
 
 	atmosphereBuffer.Destroy();
 	aerialBuffer.Destroy();
+	scatteringBuffer.Destroy();
+	skyBuffer.Destroy();
 	terrainBuffer.Destroy();
 	postBuffer.Destroy();
 
@@ -1684,6 +1795,8 @@ void End()
 	luminanceDescriptor.Destroy();
 	atmosphereDescriptor.Destroy();
 	aerialDescriptor.Destroy();
+	scatteringDescriptor.Destroy();
+	skyDescriptor.Destroy();
 	terrainShadowDescriptor.Destroy();
 	glillDescriptor.Destroy();
 	computeDescriptor.Destroy();

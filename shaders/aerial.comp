@@ -26,11 +26,14 @@ layout(set = 2, binding = 0, std140) uniform AerialData
 	float decreasePower;
 	float blendDistance;
 	float defaultOcclusion;
+	float phaseStrength;
+	float sunStrength;
 	uint lodOcclusion;
 	uint blendOcclusion;
 	uint useOcclusion;
 	uint mistEnabled;
 	uint shadowsEnabled;
+	uint sunMist;
 } aerialData;
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
@@ -95,8 +98,10 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 		vec2 uvT = TransmittanceToUV(paramT);
 		ivec2 uvTCoords = ivec2(uvT * transmittanceDimensions);
 
-		vec3 sunTransmittance = imageLoad(transmittanceImage, uvTCoords).rgb;
-		vec3 phaseScattering = mediumScattering.mie * miePhaseValue + mediumScattering.ray * rayPhaseValue;
+		vec3 sunTransmittance = vec3(0.0);
+		vec3 phaseScattering = vec3(0.0);
+		//vec3 sunTransmittance = imageLoad(transmittanceImage, uvTCoords).rgb;
+		//vec3 phaseScattering = mediumScattering.mie * miePhaseValue + mediumScattering.ray * rayPhaseValue;
 
 		float raySurfaceDistance = IntersectSphere(rayPosition, sunDirection, atmosphereData.offsetRadius * up, bottomRadius);
 		float inShadow = raySurfaceDistance == -1.0 ? 1.0 : 0.0;
@@ -108,6 +113,7 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 		realPos -= vec3(0.0, maxHeight * 0.5, 0.0);
 
 		float occlusion = 1.0;
+		float occlusionValue = 1.0;
 
 		if (realPos.y < aerialData.maximumHeight && realPos.y > -2500.0)
 		{
@@ -132,7 +138,7 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 
 				if (groundInter < 0.99)
 				{
-					float occlusionValue = aerialData.defaultOcclusion;
+					occlusionValue = aerialData.defaultOcclusion;
 
 					if (aerialData.useOcclusion == 1)
 					{
@@ -141,6 +147,7 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 					}
 					
 					occlusion = 1.0 - pow(occlusionValue, mix(aerialData.mistBuildupPower, 1.0, inShadow));
+					//occlusion = 1.0 - occlusionValue;
 					occlusion = 1.0 + mix(occlusion, 0.0, groundInter) * aerialData.mistStrength;
 
 					//test = 1.0 + occlusion * aerialData.shadowTolerance;
@@ -148,15 +155,26 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 			}
 		}
 
+		if (inShadow > 0.0)
+		{
+			sunTransmittance = imageLoad(transmittanceImage, uvTCoords).rgb;
+			phaseScattering = mediumScattering.mie * miePhaseValue + mediumScattering.ray * rayPhaseValue;
+		}
+
 		vec3 multiScatteredLuminance = MultiScattering(rayPosition, dot(sunDirection, up));
 
+		phaseScattering *= aerialData.phaseStrength;
+		sunTransmittance *= aerialData.sunStrength;
+
 		vec3 sunLight = inShadow * sunTransmittance * phaseScattering + multiScatteredLuminance * (mediumScattering.ray + mediumScattering.mie);
-		//sunLight *= occlusion;
+		sunLight *= occlusion;
+		//if (aerialData.sunMist == 1) {sunLight *= occlusion;}
 
 		vec3 transmittanceIncrease = exp(-(mediumExtinction * integrationStep));
-		vec3 sunLightIntegration = (sunLight - sunLight * transmittanceIncrease) / mediumExtinction;
+		vec3 sunLightIntegration = ((sunLight - sunLight * transmittanceIncrease) / mediumExtinction);
+		//if (aerialData.sunMist == 0) {sunLightIntegration *= occlusion;}
 
-		accumulatedLight += (accumulatedTransmittance * sunLightIntegration) * occlusion;
+		accumulatedLight += (accumulatedTransmittance * sunLightIntegration);
 		accumulatedTransmittance *= transmittanceIncrease;
 	}
 

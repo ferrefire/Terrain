@@ -151,8 +151,6 @@ float rnd(vec2 p, float seed)
     return hash21(p + salt);
 }
 
-
-// Quintic fade and derivative (correct)
 float fade(float t)  { return t*t*t*(t*(t*6.0 - 15.0) + 10.0); }
 float dfade(float t) { return 30.0*t*t*(t - 1.0)*(t - 1.0); }  // 30 t^2 (t-1)^2
 

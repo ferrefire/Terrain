@@ -11,6 +11,13 @@ layout(set = 1, binding = 1, rgba16f) uniform image2D scatteringImage;
 layout(set = 1, binding = 2, rgba16f) uniform readonly image2D skyImage;
 layout(set = 1, binding = 3, rgba16f) uniform readonly image3D aerialImage;
 
+layout(set = 2, binding = 0, std140) uniform ScatteringData
+{
+	float scatteringStrength;
+	float lightStrength;
+	float transmittanceStrength;
+} scatteringData;
+
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 64) in;
 
 const float sphereSamples = 64.0;
@@ -77,9 +84,9 @@ ScatteredLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldDir
 			inScatterIntegration = vec3(0.0);
 		}
 
-		result.scattering += accumulatedTransmittance * multiScatterIntegration;
-		accumulatedLight += accumulatedTransmittance * inScatterIntegration;
-		accumulatedTransmittance *= transmittanceIncrease;
+		result.scattering += accumulatedTransmittance * multiScatterIntegration * scatteringData.scatteringStrength;
+		accumulatedLight += accumulatedTransmittance * inScatterIntegration * scatteringData.lightStrength;
+		accumulatedTransmittance *= transmittanceIncrease * (1.0 + scatteringData.transmittanceStrength);
 	}
 
 	result.luminance = accumulatedLight;
