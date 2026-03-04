@@ -127,6 +127,12 @@ struct alignas(16) PostData
 	uint32_t padding[2];
 };
 
+struct alignas(16) RetrieveData
+{
+	float viewTerrainHeight;
+	uint32_t padding[3];
+};
+
 UniformData data{};
 std::vector<mat4> models(1);
 std::vector<Buffer> frameBuffers;
@@ -218,6 +224,11 @@ Image grass_arm;
 Image dry_diff;
 Image dry_norm;
 Image dry_arm;
+
+RetrieveData retrieveData{};
+Pipeline retrievePipeline;
+Buffer retrieveBuffer;
+Descriptor retrieveDescriptor;
 
 int terrainRadius = 2;
 int terrainLength = 2 * terrainRadius + 1;
@@ -328,6 +339,11 @@ void ComputeLuminance(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 	//vkCmdDispatch(commandBuffer, 1, 1, 1);
 
 	frameDescriptor.BindDynamic(0, commandBuffer, transmittancePipeline);
+
+	retrieveDescriptor.Bind(0, commandBuffer, retrievePipeline);
+	retrievePipeline.Bind(commandBuffer);
+	vkCmdDispatch(commandBuffer, 1, 1, 1);
+
 	atmosphereDescriptor.Bind(0, commandBuffer, transmittancePipeline);
 
 	if (recompileAtmosphere)
@@ -853,6 +869,10 @@ void Start()
 		data.heightmapOffsets[i].y() = 100;
 	}
 
+	BufferConfig retrieveBufferConfig = Buffer::MappedStorageConfig();
+	retrieveBufferConfig.size = sizeof(RetrieveData);
+	retrieveBuffer.Create(retrieveBufferConfig);
+
 	BufferConfig frameBufferConfig{};
 	frameBufferConfig.mapped = true;
 	frameBufferConfig.size = sizeof(UniformData);
@@ -976,6 +996,14 @@ void Start()
 		computeDescriptor.Update(i, 2, computeBuffers[i]);
 		computeDescriptor.Update(i, 3, terrainBuffer);
 	}
+
+	std::vector<DescriptorConfig> retrieveDescriptorConfigs(1);
+	retrieveDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
+	retrieveDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	retrieveDescriptor.Create(1, retrieveDescriptorConfigs);
+
+	retrieveDescriptor.GetNewSet();
+	retrieveDescriptor.Update(0, 0, retrieveBuffer);
 
 	BufferConfig luminanceBufferConfig = Buffer::StorageConfig();
 	luminanceBufferConfig.size = sizeof(LuminanceData);
@@ -1239,6 +1267,12 @@ void Start()
 	computePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), computeDescriptor.GetLayout() };
 	computePipeline.Create(computePipelineConfig);
 
+	PipelineConfig retrievePipelineConfig{};
+	retrievePipelineConfig.shader = "retrieve";
+	retrievePipelineConfig.type = PipelineType::Compute;
+	retrievePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), retrieveDescriptor.GetLayout() };
+	retrievePipeline.Create(retrievePipelineConfig);
+
 	//Manager::GetCamera().Move(point3D(-5000, 2500, 5000));
 	Input::TriggerMouse();
 	//Manager::GetCamera().Move(point3D(-1486.45, -1815.79, -3094.54));
@@ -1418,6 +1452,8 @@ void Compute(int lod)
 	computeCommands[Renderer::GetCurrentFrame()].Submit();
 }
 
+static bool flying = true;
+
 void Frame()
 {
 	//static double frameTime = 0;
@@ -1426,6 +1462,16 @@ void Frame()
 	if (Input::GetKey(GLFW_KEY_M).pressed)
 	{
 		Input::TriggerMouse();
+	}
+
+	if (Input::GetKey(GLFW_KEY_F).pressed) {flying = !flying;}
+
+	if (!flying)
+	{
+		float cameraHeight = (Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0).y();
+		float cameraTerrainHeight = (*reinterpret_cast<RetrieveData*>(retrieveBuffer.GetAddress())).viewTerrainHeight;
+
+		Manager::GetCamera().Move(point3D(0.0, cameraTerrainHeight - cameraHeight + 2.0, 0.0));
 	}
 
 	if (Input::GetKey(GLFW_KEY_C).pressed)
@@ -1609,7 +1655,7 @@ void Frame()
 		}
 	}
 
-	if (Input::GetKey(GLFW_KEY_F).pressed)
+	if (Input::GetKey(GLFW_KEY_V).pressed)
 	{
 		CameraConfig cameraConfig = Manager::GetCamera().GetConfig();
 		cameraConfig.fov = cameraConfig.fov == 60.0 ? 75.0 : 60.0;
@@ -1747,6 +1793,7 @@ void End()
 	skyBuffer.Destroy();
 	terrainBuffer.Destroy();
 	postBuffer.Destroy();
+	retrieveBuffer.Destroy();
 
 	luminanceBuffer.Destroy();
 	luminanceVariablesBuffer.Destroy();
@@ -1805,6 +1852,7 @@ void End()
 	terrainShadowDescriptor.Destroy();
 	glillDescriptor.Destroy();
 	computeDescriptor.Destroy();
+	retrieveDescriptor.Destroy();
 	pipeline.Destroy();
 	prePipeline.Destroy();
 	postPipeline.Destroy();
@@ -1817,6 +1865,7 @@ void End()
 	glillPipeline.Destroy();
 	//screenPipeline.Destroy();
 	computePipeline.Destroy();
+	retrievePipeline.Destroy();
 
 	//UI::DestroyContext();
 }
