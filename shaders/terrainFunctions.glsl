@@ -1,6 +1,8 @@
 #ifndef TERRAIN_FUCTIONS_INCLUDED
 #define TERRAIN_FUCTIONS_INCLUDED
 
+#extension GL_EXT_nonuniform_qualifier : enable
+
 const float baseDistance = 0.075;
 const float shadowResolution = 256.0;
 const float shadowTexelSize = 1.0 / shadowResolution;
@@ -28,7 +30,7 @@ vec4 TerrainValues(vec2 worldPosition, int startLod)
 		{
 			uv = uv / size;
 
-			heightData = textureLod(heightmaps[i], uv + 0.5, 0).rgba;
+			heightData = textureLod(heightmaps[nonuniformEXT(i)], uv + 0.5, 0).rgba;
 
 			float height = unpackRG8ToFloat(heightData.xy);
 			//float height = unpackRG16ToFloat(heightData.xy);
@@ -61,7 +63,7 @@ vec4 TerrainValuesLod(vec2 worldPosition, int targetLod)
 	if (max(abs(uv.x), abs(uv.y)) < (size * 0.5))
 	{
 		uv = uv / size;
-		heightData = textureLod(heightmaps[i], uv + 0.5, 0).rgba;
+		heightData = textureLod(heightmaps[nonuniformEXT(i)], uv + 0.5, 0).rgba;
 		float height = unpackRG8ToFloat(heightData.xy);
 		//float height = unpackRG16ToFloat(heightData.xy);
 		vec3 terrainNormal = UnpackNormal(vec4(heightData.zw, 0.0, 0.0), 1.0).xzy;
@@ -139,7 +141,7 @@ float TerrainShadow(vec3 worldPosition)
 		if (abs(uv.x) < 0.5 && abs(uv.y) < 0.5)
 		{
 			vec3 sampleUV = vec3(uv.x, heightUV, uv.y) + 0.5;
-			float value = 1.0 - BlendSample(shadowmaps[i], sampleUV, shadowTexelSize);
+			float value = 1.0 - BlendSample(shadowmaps[nonuniformEXT(i)], sampleUV, shadowTexelSize);
 			
 			if (i < 2)
 			{
@@ -183,11 +185,11 @@ float TerrainShadow(vec3 worldPosition, int lod, bool blended)
 
 			if (blended)
 			{
-				value = 1.0 - BlendSample(shadowmaps[i], sampleUV, shadowTexelSize);
+				value = 1.0 - BlendSample(shadowmaps[nonuniformEXT(i)], sampleUV, shadowTexelSize);
 			}
 			else
 			{
-				vec2 s0 = texture(shadowmaps[i], sampleUV.xz).rg;
+				vec2 s0 = textureLod(shadowmaps[nonuniformEXT(i)], sampleUV.xz, 0.0).rg;
 				value = 1.0 - (sampleUV.y <= s0.g ? s0.r : 1.0);
 			}
 			
@@ -226,7 +228,7 @@ vec2 TerrainShadowValue(vec3 worldPosition, int lod)
 	if (abs(uv.x) < 0.5 && abs(uv.y) < 0.5)
 	{
 		vec3 sampleUV = vec3(uv.x, heightUV, uv.y) + 0.5;
-		vec2 s0 = texture(shadowmaps[i], sampleUV.xz).rg;
+		vec2 s0 = textureLod(shadowmaps[nonuniformEXT(i)], sampleUV.xz, 0.0).rg;
 		return (s0);
 		//value = 1.0 - (sampleUV.y <= s0.g ? s0.r : 1.0);
 
@@ -295,7 +297,7 @@ float TerrainOcclusionCascade(vec2 worldPosition, int cascade)
 
 	if (max(abs(uv.x), abs(uv.y)) <= 0.5)
 	{
-		float occlusion = texture(glillMaps[i], uv + 0.5).r;
+		float occlusion = textureLod(glillMaps[nonuniformEXT(i)], uv + 0.5, 0.0).r;
 
 		//occlusion = ((exp(pow(occlusion * 2.0 - 2.0, 3.0))) + (pow(occlusion, 2.0))) * 0.5;
 		occlusion = Exaggerate(occlusion);
@@ -318,12 +320,14 @@ float TerrainOcclusion(vec2 worldPosition)
 	{
 		if (variables.glillOffsets[i].y == 1) {return (result);}
 
-		vec2 uv = worldPosition * 0.0001 - (variables.glillOffsets[i].xz - variables.terrainOffset.xz);
-		uv = (uv * 10000.0) / variables.glillOffsets[i].w;
+		//vec2 uv = worldPosition * 0.0001 - (variables.glillOffsets[i].xz - variables.terrainOffset.xz);
+		//uv = (uv * 10000.0) / variables.glillOffsets[i].w;
+
+		vec2 uv = (worldPosition - (10000.0 * (variables.glillOffsets[i].xz - variables.terrainOffset.xz))) / variables.glillOffsets[i].w;
 
 		if (max(abs(uv.x), abs(uv.y)) <= 0.5)
 		{
-			float occlusion = texture(glillMaps[i], uv + 0.5).r;
+			float occlusion = textureLod(glillMaps[nonuniformEXT(i)], uv + 0.5, 0.0).r;
 
 			//occlusion = ((exp(pow(occlusion * 2.0 - 2.0, 3.0))) + (pow(occlusion, 2.0))) * 0.5;
 			occlusion = Exaggerate(occlusion);
