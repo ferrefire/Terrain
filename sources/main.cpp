@@ -133,6 +133,13 @@ struct alignas(16) RetrieveData
 	uint32_t padding[3];
 };
 
+struct alignas(16) TreeData
+{
+	point4D position{};
+	point4D terrainValues{};
+	//uint32_t padding[3];
+};
+
 UniformData data{};
 std::vector<mat4> models(1);
 std::vector<Buffer> frameBuffers;
@@ -202,6 +209,15 @@ Descriptor computeDescriptor;
 TerrainData terrainData{};
 Buffer terrainBuffer;
 
+Pipeline treeComputePipeline;
+Descriptor treeComputeDescriptor;
+Buffer treeDataBuffer;
+Buffer treeDrawBuffer;
+
+meshPN16 treeMesh;
+//Descriptor treeDescriptor;
+Pipeline treePipeline;
+
 std::vector<Image> computeImages(computeCascade);
 std::vector<Image> temporaryComputeImages(2);
 
@@ -257,7 +273,12 @@ float globalGlillSamplePower = 1.0;
 
 Point<int, 3> aerialRes = Point<int, 3>(64, 64, 32);
 
+int treeComputeBase = 256;
+int treeCount = treeComputeBase * treeComputeBase;
+
 static bool allMapsComputed = false;
+
+static bool shouldComputeTrees = true;
 
 /*void BlitFrameBuffer(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
@@ -409,6 +430,44 @@ void ComputeTerrainShadow(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 	}
 }
 
+void ComputeTrees(VkCommandBuffer commandBuffer, uint32_t frameIndex)
+{
+	if (allMapsComputed)
+	{
+		shouldComputeTrees = false;
+
+		//frameDescriptor.BindDynamic(0, commandBuffer, treeComputePipeline);
+		treeComputeDescriptor.Bind(0, commandBuffer, treeComputePipeline);
+		treeComputeDescriptor.BindDynamic(0, commandBuffer, treeComputePipeline);
+		treeComputePipeline.Bind(commandBuffer);
+		vkCmdDispatch(commandBuffer, treeComputeBase / 8, treeComputeBase / 8, 1);
+
+		//vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
+
+		VkMemoryBarrier2 barriers[2] = {};
+
+		// indirect command buffer visibility
+		barriers[0].sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+		barriers[0].srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		barriers[0].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+		barriers[0].dstStageMask  = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+		barriers[0].dstAccessMask = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
+
+		// instance data visibility to vertex input/shader
+		barriers[1].sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+		barriers[1].srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		barriers[1].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+		barriers[1].dstStageMask  = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
+		barriers[1].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
+
+		VkDependencyInfo depInfo{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+		depInfo.memoryBarrierCount = 2;
+		depInfo.pMemoryBarriers = barriers;
+
+		vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+	}
+}
+
 void SetTerrainShadowValues(int index)
 {
 	if (terrainShadowQueue[index]) {return;}
@@ -447,6 +506,15 @@ void RenderPost(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
 	frameDescriptor.BindDynamic(0, commandBuffer, pipeline);
+
+	//uint32_t treeRenderCount = (*reinterpret_cast<uint32_t*>(treeCountBuffer.GetAddress()));
+
+	treeComputeDescriptor.Bind(0, commandBuffer, treePipeline);
+	treePipeline.Bind(commandBuffer);
+	treeMesh.Bind(commandBuffer);
+	//vkCmdDrawIndexed(commandBuffer, treeMesh.GetIndices().size(), treeRenderCount, 0, 0, 0);
+	vkCmdDrawIndexedIndirect(commandBuffer, treeDrawBuffer.GetBuffer(), 0, 1, sizeof(VkDrawIndexedIndirectCommand));
+
 	materialDescriptor.Bind(0, commandBuffer, pipeline);
 
 	pipeline.Bind(commandBuffer);
@@ -673,6 +741,9 @@ void Start()
 	planeLod2Mesh.Create(planeLod2Shape);
 
 	quadMesh.Create(ShapeType::Quad);
+
+	shapePN16 cubeShape(ShapeType::Cube);
+	treeMesh.Create(cubeShape);
 
 	ImageConfig sceneLuminanceConfig = Image::DefaultConfig();
 	sceneLuminanceConfig.format = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -997,6 +1068,47 @@ void Start()
 		computeDescriptor.Update(i, 3, terrainBuffer);
 	}
 
+	//treeDataBuffers.resize(Renderer::GetFrameCount());
+
+	BufferConfig treeDataBufferConfig = Buffer::StorageConfig();
+	treeDataBufferConfig.size = sizeof(TreeData) * treeCount;
+	treeDataBuffer.Create(treeDataBufferConfig);
+	//for (int i = 0; i < Renderer::GetFrameCount(); i++)
+	//{
+	//	treeDataBuffers[i].Create(treeDataBufferConfig);
+	//}
+
+	//treeDrawBuffers.resize(Renderer::GetFrameCount());
+
+	VkDrawIndexedIndirectCommand drawCommand{};
+	drawCommand.indexCount = treeMesh.GetIndices().size();
+	drawCommand.instanceCount = 0;
+	drawCommand.firstIndex = 0;
+	drawCommand.vertexOffset = 0;
+	drawCommand.firstInstance = 0;
+
+	BufferConfig treeDrawBufferConfig = Buffer::DrawCommandConfig();
+	treeDrawBuffer.Create(treeDrawBufferConfig, &drawCommand);
+	//for (int i = 0; i < Renderer::GetFrameCount(); i++)
+	//{
+	//	treeDrawBuffers[i].Create(treeDrawBufferConfig, &drawCommand);
+	//}
+
+	std::vector<DescriptorConfig> treeComputeDescriptorConfigs(2);
+	treeComputeDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
+	treeComputeDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT;
+	treeComputeDescriptorConfigs[1].type = DescriptorType::StorageBuffer;
+	treeComputeDescriptorConfigs[1].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	treeComputeDescriptor.Create(1, treeComputeDescriptorConfigs);
+
+	//treeComputeDescriptor.GetNewSetDynamic();
+	//treeComputeDescriptor.UpdateDynamic(0, 0, Utilities::Pointerize(treeDataBuffers));
+	//treeComputeDescriptor.UpdateDynamic(0, 1, Utilities::Pointerize(treeDrawBuffers));
+
+	treeComputeDescriptor.GetNewSet();
+	treeComputeDescriptor.Update(0, 0, treeDataBuffer);
+	treeComputeDescriptor.Update(0, 1, treeDrawBuffer);
+
 	std::vector<DescriptorConfig> retrieveDescriptorConfigs(1);
 	retrieveDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
 	retrieveDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -1273,6 +1385,23 @@ void Start()
 	retrievePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), retrieveDescriptor.GetLayout() };
 	retrievePipeline.Create(retrievePipelineConfig);
 
+	PipelineConfig treeComputePipelineConfig{};
+	treeComputePipelineConfig.shader = "treeCompute";
+	treeComputePipelineConfig.type = PipelineType::Compute;
+	treeComputePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), treeComputeDescriptor.GetLayout() };
+	treeComputePipeline.Create(treeComputePipelineConfig);
+
+	PipelineConfig treePipelineConfig = Pipeline::DefaultConfig();
+	treePipelineConfig.shader = "tree";
+	treePipelineConfig.vertexInfo = treeMesh.GetVertexInfo();
+	treePipelineConfig.renderpass = pass.GetRenderpass();
+	treePipelineConfig.type = PipelineType::Graphics;
+	treePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), treeComputeDescriptor.GetLayout() };
+	treePipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+	treePipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+	treePipelineConfig.subpass = 0;
+	treePipeline.Create(treePipelineConfig);
+
 	//Manager::GetCamera().Move(point3D(-5000, 2500, 5000));
 	Input::TriggerMouse();
 	//Manager::GetCamera().Move(point3D(-1486.45, -1815.79, -3094.54));
@@ -1417,6 +1546,7 @@ void Start()
 	Renderer::RegisterCall(0, ComputeLuminance, true);
 	Renderer::RegisterCall(0, ComputeTerrainShadow, true);
 	Renderer::RegisterCall(0, ComputeTerrainGlill, true);
+	Renderer::RegisterCall(0, ComputeTrees, true);
 }
 
 void Compute(int lod)
@@ -1517,6 +1647,8 @@ void Frame()
 		float camOffset = ((int(Manager::GetCamera().GetPosition().x()) / int(terrainResetDis)) * terrainResetDis);
 		data.terrainOffset.x() += camOffset / 10000.0f;
 		Manager::GetCamera().Move(point3D(-camOffset, 0, 0));
+
+		shouldComputeTrees = true;
 	}
 
 	if (fabs(Manager::GetCamera().GetPosition().y()) > terrainResetDis)
@@ -1524,6 +1656,8 @@ void Frame()
 		float camOffset = ((int(Manager::GetCamera().GetPosition().y()) / int(terrainResetDis)) * terrainResetDis);
 		data.terrainOffset.y() += camOffset / 10000.0f;
 		Manager::GetCamera().Move(point3D(0, -camOffset, 0));
+
+		shouldComputeTrees = true;
 	}
 
 	if (fabs(Manager::GetCamera().GetPosition().z()) > terrainResetDis)
@@ -1531,6 +1665,8 @@ void Frame()
 		float camOffset = ((int(Manager::GetCamera().GetPosition().z()) / int(terrainResetDis)) * terrainResetDis);
 		data.terrainOffset.z() += camOffset / 10000.0f;
 		Manager::GetCamera().Move(point3D(0, 0, -camOffset));
+
+		shouldComputeTrees = true;
 	}
 
 	//if (Time::newTick)
@@ -1771,6 +1907,7 @@ void End()
 	planeLodMesh.Destroy();
 	planeLod2Mesh.Destroy();
 	quadMesh.Destroy();
+	treeMesh.Destroy();
 
 	for (Buffer& buffer : frameBuffers) { buffer.Destroy(); }
 	frameBuffers.clear();
@@ -1787,6 +1924,12 @@ void End()
 	for (Buffer& buffer : glillBuffers) { buffer.Destroy(); }
 	glillBuffers.clear();
 
+	//for (Buffer& buffer : treeDataBuffers) { buffer.Destroy(); }
+	//treeDataBuffers.clear();
+
+	//for (Buffer& buffer : treeDrawBuffers) { buffer.Destroy(); }
+	//treeDrawBuffers.clear();
+
 	atmosphereBuffer.Destroy();
 	aerialBuffer.Destroy();
 	scatteringBuffer.Destroy();
@@ -1794,6 +1937,8 @@ void End()
 	terrainBuffer.Destroy();
 	postBuffer.Destroy();
 	retrieveBuffer.Destroy();
+	treeDataBuffer.Destroy();
+	treeDrawBuffer.Destroy();
 
 	luminanceBuffer.Destroy();
 	luminanceVariablesBuffer.Destroy();
@@ -1853,6 +1998,7 @@ void End()
 	glillDescriptor.Destroy();
 	computeDescriptor.Destroy();
 	retrieveDescriptor.Destroy();
+	treeComputeDescriptor.Destroy();
 	pipeline.Destroy();
 	prePipeline.Destroy();
 	postPipeline.Destroy();
@@ -1866,6 +2012,8 @@ void End()
 	//screenPipeline.Destroy();
 	computePipeline.Destroy();
 	retrievePipeline.Destroy();
+	treeComputePipeline.Destroy();
+	treePipeline.Destroy();
 
 	//UI::DestroyContext();
 }

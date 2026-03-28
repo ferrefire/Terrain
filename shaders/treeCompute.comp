@@ -1,0 +1,76 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "variables.glsl"
+#include "terrainFunctions.glsl"
+#include "culling.glsl"
+
+struct TreeData
+{
+	vec4 position;
+	vec4 terrainValues;
+};
+
+struct DrawCommand
+{
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+};
+
+layout(set = 1, binding = 0, std430) buffer TreeBuffer
+{
+	TreeData data[];
+};
+
+layout(set = 1, binding = 1, std430) buffer DrawBuffer
+{
+	DrawCommand drawCommand;
+};
+
+//layout(set = 1, binding = 1, std430) buffer CountBuffer
+//{
+//	uint count;
+//};
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+const int treeBase = 256;
+const float treeSpacing = 50;
+
+void main()
+{
+	//uint index = gl_GlobalInvocationID.x * treeBase + gl_GlobalInvocationID.y;
+
+	if ((gl_GlobalInvocationID.x * treeBase + gl_GlobalInvocationID.y) == 0) {atomicExchange(drawCommand.instanceCount, 0);}
+
+	int ix = int(gl_GlobalInvocationID.x) - int(treeBase * 0.5);
+	int iz = int(gl_GlobalInvocationID.y) - int(treeBase * 0.5);
+
+	float px = ix * treeSpacing;
+	float pz = iz * treeSpacing;
+
+	float dis = max(abs(px), abs(pz));
+
+	float vx = floor((variables.viewPosition.x + variables.terrainOffset.x * 10000.0) / treeSpacing) * treeSpacing - variables.terrainOffset.x * 10000.0;
+	float vz = floor((variables.viewPosition.z + variables.terrainOffset.z * 10000.0) / treeSpacing) * treeSpacing - variables.terrainOffset.z * 10000.0;
+
+	//vec4 treePosition = vec4(px, 0.0, pz, 0.0) + variables.viewPosition;
+	vec4 treePosition = vec4(px + vx, 0.0, pz + vz, 0.0);
+	vec4 terrainValues = TerrainValues(treePosition.xz);
+
+	float treeHeight = terrainValues.x * maxHeight - variables.terrainOffset.y * 10000.0;
+
+	treePosition.y = treeHeight;
+
+	if (dis < 100.0 || InView(treePosition.xyz + vec3(0.0, 10.0, 0.0), vec3(0.0)) == 1)
+	{
+		uint index = atomicAdd(drawCommand.instanceCount, 1);
+
+		data[index].position = treePosition;
+		data[index].terrainValues = terrainValues;
+	}
+}

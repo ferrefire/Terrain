@@ -295,12 +295,12 @@ void main()
 		float diff = coverSteepness - steepness;
 		if (diff > 0.05)
 		{
-			textureData.color = vec3(1.0);
+			textureData.color = ToLinear(vec3(1.0));
 		}
 		else if (diff > 0.0)
 		{
 			float diffBlend = diff / 0.05;
-			textureData.color = mix(textureData.color, vec3(1.0), diffBlend);
+			textureData.color = mix(textureData.color, ToLinear(vec3(1.0)), diffBlend);
 		}
 		//textureData.color = mix(textureData.color, vec3(1.0), snow);
 	}

@@ -102,6 +102,14 @@ vec3 ToNonLinear(vec3 linearColor)
 	return (mix(lower, higher, cutoff));
 }
 
+vec3 ToLinear(vec3 nonLinearColor) 
+{
+    vec3 cutoff = step(vec3(0.04045), nonLinearColor);
+    vec3 lower = nonLinearColor / 12.92;
+    vec3 higher = pow((nonLinearColor + 0.055) / 1.055, vec3(2.4));
+    return mix(lower, higher, cutoff);
+}
+
 vec3 Normalize(vec3 vec)
 {
 	float total = abs(vec.x) + abs(vec.y) + abs(vec.z);
