@@ -31,7 +31,9 @@ void main()
 	float shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z), 0, true);
 	diffuse *= shadow;
 
+	//vec3 illumination = TerrainIllumination(worldPosition, normalize(mix(terrainValues.yzw, data.N, 0.5)));
 	vec3 illumination = TerrainIllumination(worldPosition, normalize(terrainValues.yzw));
+	//vec3 illumination = TerrainIllumination(worldPosition, normalize(data.N));
 	//float occlusion = TerrainOcclusion(worldPosition.xz);
 	float occlusion = 1.0;
 

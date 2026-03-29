@@ -1601,7 +1601,7 @@ void Frame()
 		float cameraHeight = (Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0).y();
 		float cameraTerrainHeight = (*reinterpret_cast<RetrieveData*>(retrieveBuffer.GetAddress())).viewTerrainHeight;
 
-		Manager::GetCamera().Move(point3D(0.0, cameraTerrainHeight - cameraHeight + 2.0, 0.0));
+		Manager::GetCamera().Move(point3D(0.0, cameraTerrainHeight - cameraHeight + 1.75, 0.0));
 	}
 
 	if (Input::GetKey(GLFW_KEY_C).pressed)
