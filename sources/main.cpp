@@ -140,6 +140,19 @@ struct alignas(16) TreeData
 	//uint32_t padding[3];
 };
 
+struct alignas(16) TreeComputeConfig
+{
+	float treeSpacing = 50.0;
+	float treeOffset = 20.0;
+
+	float noiseCutoff = 0.5;
+	float noiseCutoffRandomness = 0.1;
+
+	int32_t lod0Radius = 3;
+	int32_t lod1Radius = 25;
+	uint32_t padding[2];
+};
+
 UniformData data{};
 std::vector<mat4> models(1);
 std::vector<Buffer> frameBuffers;
@@ -209,13 +222,16 @@ Descriptor computeDescriptor;
 TerrainData terrainData{};
 Buffer terrainBuffer;
 
+TreeComputeConfig treeComputeConfig{};
 Pipeline treeComputePipeline;
 Descriptor treeComputeDescriptor;
 Buffer treeDataBuffer;
 Buffer treeDrawBuffer;
+Buffer treeConfigBuffer;
 
 meshPN16 treeMesh;
-//Descriptor treeDescriptor;
+//meshPN16 treeMeshLod1;
+Descriptor treeDescriptor;
 Pipeline treePipeline;
 
 std::vector<Image> computeImages(computeCascade);
@@ -434,11 +450,11 @@ void ComputeTrees(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
 	if (allMapsComputed)
 	{
-		shouldComputeTrees = false;
+		//shouldComputeTrees = false;
 
-		//frameDescriptor.BindDynamic(0, commandBuffer, treeComputePipeline);
+		frameDescriptor.BindDynamic(0, commandBuffer, treeComputePipeline);
 		treeComputeDescriptor.Bind(0, commandBuffer, treeComputePipeline);
-		treeComputeDescriptor.BindDynamic(0, commandBuffer, treeComputePipeline);
+		//treeComputeDescriptor.BindDynamic(0, commandBuffer, treeComputePipeline);
 		treeComputePipeline.Bind(commandBuffer);
 		vkCmdDispatch(commandBuffer, treeComputeBase / 8, treeComputeBase / 8, 1);
 
@@ -509,11 +525,11 @@ void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 
 	//uint32_t treeRenderCount = (*reinterpret_cast<uint32_t*>(treeCountBuffer.GetAddress()));
 
-	treeComputeDescriptor.Bind(0, commandBuffer, treePipeline);
+	treeDescriptor.Bind(0, commandBuffer, treePipeline);
 	treePipeline.Bind(commandBuffer);
 	treeMesh.Bind(commandBuffer);
 	//vkCmdDrawIndexed(commandBuffer, treeMesh.GetIndices().size(), treeRenderCount, 0, 0, 0);
-	vkCmdDrawIndexedIndirect(commandBuffer, treeDrawBuffer.GetBuffer(), 0, 1, sizeof(VkDrawIndexedIndirectCommand));
+	vkCmdDrawIndexedIndirect(commandBuffer, treeDrawBuffer.GetBuffer(), 0, 3, sizeof(VkDrawIndexedIndirectCommand));
 
 	materialDescriptor.Bind(0, commandBuffer, pipeline);
 
@@ -622,6 +638,11 @@ void UpdateCameraSensitivity()
 void UpdatePostData()
 {
 	postBuffer.Update(&postData, sizeof(postData));
+}
+
+void UpdateTreeComputeData()
+{
+	treeConfigBuffer.Update(&treeComputeConfig, sizeof(treeComputeConfig));
 }
 
 void Start()
@@ -742,8 +763,40 @@ void Start()
 
 	quadMesh.Create(ShapeType::Quad);
 
-	shapePN16 cubeShape(ShapeType::Cube);
-	treeMesh.Create(cubeShape);
+	std::vector<VkDrawIndexedIndirectCommand> drawCommands;
+	drawCommands.resize(3);
+
+	shapePN16 cubeShape0(ShapeType::Cube);
+
+	drawCommands[0].indexCount = cubeShape0.GetIndices().size();
+	drawCommands[0].instanceCount = 0;
+	drawCommands[0].firstIndex = 0;
+	drawCommands[0].vertexOffset = 0;
+	drawCommands[0].firstInstance = 0;
+
+	shapePN16 cubeShape1(ShapeType::Cube);
+	cubeShape1.Scale(point3D(3.0, 1.0, 3.0));
+
+	drawCommands[1].indexCount = cubeShape1.GetIndices().size();
+	drawCommands[1].instanceCount = 0;
+	drawCommands[1].firstIndex = cubeShape0.GetIndices().size();
+	drawCommands[1].vertexOffset = 0;
+	drawCommands[1].firstInstance = 0;
+
+	cubeShape0.Join(cubeShape1);
+
+	shapePN16 cubeShape2(ShapeType::Cube);
+	cubeShape2.Scale(point3D(6.0, 1.0, 6.0));
+
+	drawCommands[2].indexCount = cubeShape2.GetIndices().size();
+	drawCommands[2].instanceCount = 0;
+	drawCommands[2].firstIndex = cubeShape0.GetIndices().size();
+	drawCommands[2].vertexOffset = 0;
+	drawCommands[2].firstInstance = 0;
+
+	cubeShape0.Join(cubeShape2);
+
+	treeMesh.Create(cubeShape0);
 
 	ImageConfig sceneLuminanceConfig = Image::DefaultConfig();
 	sceneLuminanceConfig.format = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -1073,32 +1126,41 @@ void Start()
 	BufferConfig treeDataBufferConfig = Buffer::StorageConfig();
 	treeDataBufferConfig.size = sizeof(TreeData) * treeCount;
 	treeDataBuffer.Create(treeDataBufferConfig);
+
 	//for (int i = 0; i < Renderer::GetFrameCount(); i++)
 	//{
 	//	treeDataBuffers[i].Create(treeDataBufferConfig);
 	//}
 
+	BufferConfig treeConfigBufferConfig{};
+	treeConfigBufferConfig.mapped = true;
+	treeConfigBufferConfig.size = sizeof(TreeComputeConfig);
+	treeConfigBuffer.Create(treeConfigBufferConfig, &treeComputeConfig);
+
 	//treeDrawBuffers.resize(Renderer::GetFrameCount());
 
-	VkDrawIndexedIndirectCommand drawCommand{};
-	drawCommand.indexCount = treeMesh.GetIndices().size();
-	drawCommand.instanceCount = 0;
-	drawCommand.firstIndex = 0;
-	drawCommand.vertexOffset = 0;
-	drawCommand.firstInstance = 0;
+	//VkDrawIndexedIndirectCommand drawCommand{};
+	//drawCommand.indexCount = treeMeshLod0.GetIndices().size();
+	//drawCommand.instanceCount = 0;
+	//drawCommand.firstIndex = 0;
+	//drawCommand.vertexOffset = 0;
+	//drawCommand.firstInstance = 0;
 
 	BufferConfig treeDrawBufferConfig = Buffer::DrawCommandConfig();
-	treeDrawBuffer.Create(treeDrawBufferConfig, &drawCommand);
+	treeDrawBufferConfig.size = sizeof(VkDrawIndexedIndirectCommand) * drawCommands.size();
+	treeDrawBuffer.Create(treeDrawBufferConfig, drawCommands.data());
 	//for (int i = 0; i < Renderer::GetFrameCount(); i++)
 	//{
 	//	treeDrawBuffers[i].Create(treeDrawBufferConfig, &drawCommand);
 	//}
 
-	std::vector<DescriptorConfig> treeComputeDescriptorConfigs(2);
+	std::vector<DescriptorConfig> treeComputeDescriptorConfigs(3);
 	treeComputeDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
-	treeComputeDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT;
+	treeComputeDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	treeComputeDescriptorConfigs[1].type = DescriptorType::StorageBuffer;
 	treeComputeDescriptorConfigs[1].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	treeComputeDescriptorConfigs[2].type = DescriptorType::UniformBuffer;
+	treeComputeDescriptorConfigs[2].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	treeComputeDescriptor.Create(1, treeComputeDescriptorConfigs);
 
 	//treeComputeDescriptor.GetNewSetDynamic();
@@ -1108,6 +1170,15 @@ void Start()
 	treeComputeDescriptor.GetNewSet();
 	treeComputeDescriptor.Update(0, 0, treeDataBuffer);
 	treeComputeDescriptor.Update(0, 1, treeDrawBuffer);
+	treeComputeDescriptor.Update(0, 2, treeConfigBuffer);
+
+	std::vector<DescriptorConfig> treeDescriptorConfigs(1);
+	treeDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
+	treeDescriptorConfigs[0].stages = VK_SHADER_STAGE_VERTEX_BIT;
+	treeDescriptor.Create(1, treeDescriptorConfigs);
+
+	treeDescriptor.GetNewSet();
+	treeDescriptor.Update(0, 0, treeDataBuffer);
 
 	std::vector<DescriptorConfig> retrieveDescriptorConfigs(1);
 	retrieveDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
@@ -1396,7 +1467,7 @@ void Start()
 	treePipelineConfig.vertexInfo = treeMesh.GetVertexInfo();
 	treePipelineConfig.renderpass = pass.GetRenderpass();
 	treePipelineConfig.type = PipelineType::Graphics;
-	treePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), treeComputeDescriptor.GetLayout() };
+	treePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), treeDescriptor.GetLayout() };
 	treePipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
 	treePipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 	treePipelineConfig.subpass = 0;
@@ -1532,6 +1603,16 @@ void Start()
 	postMenu.AddDropdown("aerial blend mode", postData.aerialBlendMode, {"none", "texel corners", "weighted"});
 	postMenu.TriggerNode("Settings");
 
+	Menu& treeMenu = UI::NewMenu("Trees");
+	treeMenu.TriggerNode("Compute", UpdateTreeComputeData);
+	treeMenu.AddSlider("spacing", treeComputeConfig.treeSpacing, 0.1, 100.0);
+	treeMenu.AddSlider("random offset", treeComputeConfig.treeOffset, 0.0, 50.0);
+	treeMenu.AddSlider("noise cutoff", treeComputeConfig.noiseCutoff, 0.0, 1.0);
+	treeMenu.AddSlider("cutoff randomness", treeComputeConfig.noiseCutoffRandomness, 0.0, 0.5);
+	treeMenu.AddSlider("lod 0 radius", treeComputeConfig.lod0Radius, 0, 10);
+	treeMenu.AddSlider("lod 1 radius", treeComputeConfig.lod1Radius, 11, 100);
+	treeMenu.TriggerNode("Compute");
+
 	UI::CreateContext(pass.GetRenderpass(), 1);
 
 	Manager::RegisterResizeCall(Resize);
@@ -1615,6 +1696,7 @@ void Frame()
 
 		std::cout << "Camera position: " << Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0 << std::endl;
 		std::cout << "Camera Rotation: " << Manager::GetCamera().GetAngles() << std::endl;
+		std::cout << "Camera Direction: " << Manager::GetCamera().GetDirection() << std::endl;
 		std::cout << "Light direction: " << data.lightDirection << std::endl;
 	}
 
@@ -1939,6 +2021,7 @@ void End()
 	retrieveBuffer.Destroy();
 	treeDataBuffer.Destroy();
 	treeDrawBuffer.Destroy();
+	treeConfigBuffer.Destroy();
 
 	luminanceBuffer.Destroy();
 	luminanceVariablesBuffer.Destroy();
@@ -1999,6 +2082,7 @@ void End()
 	computeDescriptor.Destroy();
 	retrieveDescriptor.Destroy();
 	treeComputeDescriptor.Destroy();
+	treeDescriptor.Destroy();
 	pipeline.Destroy();
 	prePipeline.Destroy();
 	postPipeline.Destroy();

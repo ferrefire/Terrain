@@ -28,7 +28,7 @@ void main()
 	vec3 diffuse = PBRLighting(data);
 	float ao = 1.0;
 
-	float shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z), 0, true);
+	float shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z));
 	diffuse *= shadow;
 
 	//vec3 illumination = TerrainIllumination(worldPosition, normalize(mix(terrainValues.yzw, data.N, 0.5)));

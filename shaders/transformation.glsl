@@ -38,4 +38,17 @@ float LinearizeDepth01(float depth)
 	return (((variables.resolution.z * variables.resolution.w) / (variables.resolution.w - depth * (variables.resolution.w - variables.resolution.z))) / variables.resolution.w);
 }
 
+vec3 RotateY(vec3 pos, float deg)
+{
+	float r = radians(deg);
+	float c = cos(r);
+	float s = sin(r);
+
+	mat3 rot = mat3(c, 0.0, s,
+					0.0, 1.0, 0.0,
+					-s, 0.0, c);
+
+	return (rot * pos);
+}
+
 #endif

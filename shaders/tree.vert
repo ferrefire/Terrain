@@ -3,6 +3,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "variables.glsl"
+#include "transformation.glsl"
 
 struct TreeData
 {
@@ -26,9 +27,11 @@ void main()
 {
 	int instanceIndex = gl_InstanceIndex;
 
-	worldNormal = normalize(localNormal);
+	//Precalculate sin and cos rotations
 
-	vec3 treePosition = localPosition;
+	worldNormal = normalize(RotateY(localNormal, data[instanceIndex].position.w));
+
+	vec3 treePosition = RotateY(localPosition, data[instanceIndex].position.w);
 	treePosition.y += 0.5;
 	treePosition.y *= 20.0;
 	treePosition.y -= 0.5;

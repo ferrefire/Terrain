@@ -99,24 +99,24 @@ float BlendSample(sampler2D tex, vec3 uv, float texelSize)
 	const float offset = texelSize * 0.5;
 
 	vec2 s0 = texture(tex, uv.xz + vec2(-offset)).rg;
-	//float d0 = clamp((uv.y - s0.g) * 5000.0, 0.0, 50.0) * 0.02;
-	//float v0 = mix(s0.r, 1.0, d0);
-	float v0 = (uv.y <= s0.g ? s0.r : 1.0);
+	float d0 = clamp((uv.y - s0.g) * 5000.0, 0.0, 10.0) * 0.1;
+	float v0 = mix(s0.r, 1.0, d0);
+	//float v0 = (uv.y <= s0.g ? s0.r : 1.0);
 
 	vec2 s1 = texture(tex, uv.xz + vec2(offset, -offset)).rg;
-	//float d1 = clamp((uv.y - s1.g) * 5000.0, 0.0, 50.0) * 0.02;
-	//float v1 = mix(s1.r, 1.0, d1);
-	float v1 = (uv.y <= s1.g ? s1.r : 1.0);
+	float d1 = clamp((uv.y - s1.g) * 5000.0, 0.0, 10.0) * 0.1;
+	float v1 = mix(s1.r, 1.0, d1);
+	//float v1 = (uv.y <= s1.g ? s1.r : 1.0);
 
 	vec2 s2 = texture(tex, uv.xz + vec2(-offset, offset)).rg;
-	//float d2 = clamp((uv.y - s2.g) * 5000.0, 0.0, 50.0) * 0.02;
-	//float v2 = mix(s2.r, 1.0, d2);
-	float v2 = (uv.y <= s2.g ? s2.r : 1.0);
+	float d2 = clamp((uv.y - s2.g) * 5000.0, 0.0, 10.0) * 0.1;
+	float v2 = mix(s2.r, 1.0, d2);
+	//float v2 = (uv.y <= s2.g ? s2.r : 1.0);
 
 	vec2 s3 = texture(tex, uv.xz + vec2(offset)).rg;
-	//float d3 = clamp((uv.y - s3.g) * 5000.0, 0.0, 50.0) * 0.02;
-	//float v3 = mix(s3.r, 1.0, d3);
-	float v3 = (uv.y <= s3.g ? s3.r : 1.0);
+	float d3 = clamp((uv.y - s3.g) * 5000.0, 0.0, 10.0) * 0.1;
+	float v3 = mix(s3.r, 1.0, d3);
+	//float v3 = (uv.y <= s3.g ? s3.r : 1.0);
 
 	return ((v0 + v1 + v2 + v3) * 0.25);
 }
