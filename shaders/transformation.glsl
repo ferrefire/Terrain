@@ -51,4 +51,13 @@ vec3 RotateY(vec3 pos, float deg)
 	return (rot * pos);
 }
 
+vec3 RotateY(vec3 pos, float c, float s)
+{
+	mat3 rot = mat3(c, 0.0, s,
+					0.0, 1.0, 0.0,
+					-s, 0.0, c);
+
+	return (rot * pos);
+}
+
 #endif

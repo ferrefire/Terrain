@@ -190,7 +190,10 @@ float TerrainShadow(vec3 worldPosition, int lod, bool blended)
 			else
 			{
 				vec2 s0 = textureLod(shadowmaps[nonuniformEXT(i)], sampleUV.xz, 0.0).rg;
-				value = 1.0 - (sampleUV.y <= s0.g ? s0.r : 1.0);
+				float d0 = clamp((uv.y - s0.g) * 5000.0, 0.0, 10.0) * 0.1;
+				float v0 = mix(s0.r, 1.0, d0);
+				value = 1.0 - v0;
+				//value = 1.0 - (sampleUV.y <= s0.g ? s0.r : 1.0);
 			}
 			
 			if (i < 2)

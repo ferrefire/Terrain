@@ -136,6 +136,7 @@ struct alignas(16) RetrieveData
 struct alignas(16) TreeData
 {
 	point4D position{};
+	point4D rotation{};
 	point4D terrainValues{};
 	//uint32_t padding[3];
 };
@@ -223,9 +224,11 @@ TerrainData terrainData{};
 Buffer terrainBuffer;
 
 TreeComputeConfig treeComputeConfig{};
-Pipeline treeComputePipeline;
+Pipeline treeSetupComputePipeline;
+Pipeline treeRenderComputePipeline;
 Descriptor treeComputeDescriptor;
-Buffer treeDataBuffer;
+Buffer treeSetupDataBuffer;
+Buffer treeRenderDataBuffer;
 Buffer treeDrawBuffer;
 Buffer treeConfigBuffer;
 
@@ -289,7 +292,7 @@ float globalGlillSamplePower = 1.0;
 
 Point<int, 3> aerialRes = Point<int, 3>(64, 64, 32);
 
-int treeComputeBase = 256;
+int treeComputeBase = 512;
 int treeCount = treeComputeBase * treeComputeBase;
 
 static bool allMapsComputed = false;
@@ -450,12 +453,34 @@ void ComputeTrees(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
 	if (allMapsComputed)
 	{
-		//shouldComputeTrees = false;
-
-		frameDescriptor.BindDynamic(0, commandBuffer, treeComputePipeline);
-		treeComputeDescriptor.Bind(0, commandBuffer, treeComputePipeline);
+		frameDescriptor.BindDynamic(0, commandBuffer, treeRenderComputePipeline);
+		treeComputeDescriptor.Bind(0, commandBuffer, treeRenderComputePipeline);
 		//treeComputeDescriptor.BindDynamic(0, commandBuffer, treeComputePipeline);
-		treeComputePipeline.Bind(commandBuffer);
+
+		if (shouldComputeTrees)
+		{
+			shouldComputeTrees = false;
+
+			treeSetupComputePipeline.Bind(commandBuffer);
+			vkCmdDispatch(commandBuffer, treeComputeBase / 8, treeComputeBase / 8, 1);
+
+			VkMemoryBarrier2 barriers[1] = {};
+
+			// indirect command buffer visibility
+			barriers[0].sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+			barriers[0].srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+			barriers[0].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+			barriers[0].dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+			barriers[0].dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+
+			VkDependencyInfo depInfo{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+			depInfo.memoryBarrierCount = 1;
+			depInfo.pMemoryBarriers = barriers;
+
+			vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+		}
+
+		treeRenderComputePipeline.Bind(commandBuffer);
 		vkCmdDispatch(commandBuffer, treeComputeBase / 8, treeComputeBase / 8, 1);
 
 		//vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
@@ -1123,9 +1148,13 @@ void Start()
 
 	//treeDataBuffers.resize(Renderer::GetFrameCount());
 
-	BufferConfig treeDataBufferConfig = Buffer::StorageConfig();
-	treeDataBufferConfig.size = sizeof(TreeData) * treeCount;
-	treeDataBuffer.Create(treeDataBufferConfig);
+	BufferConfig treeSetupDataBufferConfig = Buffer::StorageConfig();
+	treeSetupDataBufferConfig.size = sizeof(TreeData) * treeCount;
+	treeSetupDataBuffer.Create(treeSetupDataBufferConfig);
+
+	BufferConfig treeRenderDataBufferConfig = Buffer::StorageConfig();
+	treeRenderDataBufferConfig.size = sizeof(TreeData) * treeCount;
+	treeRenderDataBuffer.Create(treeRenderDataBufferConfig);
 
 	//for (int i = 0; i < Renderer::GetFrameCount(); i++)
 	//{
@@ -1154,13 +1183,15 @@ void Start()
 	//	treeDrawBuffers[i].Create(treeDrawBufferConfig, &drawCommand);
 	//}
 
-	std::vector<DescriptorConfig> treeComputeDescriptorConfigs(3);
+	std::vector<DescriptorConfig> treeComputeDescriptorConfigs(4);
 	treeComputeDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
 	treeComputeDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	treeComputeDescriptorConfigs[1].type = DescriptorType::StorageBuffer;
 	treeComputeDescriptorConfigs[1].stages = VK_SHADER_STAGE_COMPUTE_BIT;
-	treeComputeDescriptorConfigs[2].type = DescriptorType::UniformBuffer;
+	treeComputeDescriptorConfigs[2].type = DescriptorType::StorageBuffer;
 	treeComputeDescriptorConfigs[2].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	treeComputeDescriptorConfigs[3].type = DescriptorType::UniformBuffer;
+	treeComputeDescriptorConfigs[3].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	treeComputeDescriptor.Create(1, treeComputeDescriptorConfigs);
 
 	//treeComputeDescriptor.GetNewSetDynamic();
@@ -1168,9 +1199,10 @@ void Start()
 	//treeComputeDescriptor.UpdateDynamic(0, 1, Utilities::Pointerize(treeDrawBuffers));
 
 	treeComputeDescriptor.GetNewSet();
-	treeComputeDescriptor.Update(0, 0, treeDataBuffer);
-	treeComputeDescriptor.Update(0, 1, treeDrawBuffer);
-	treeComputeDescriptor.Update(0, 2, treeConfigBuffer);
+	treeComputeDescriptor.Update(0, 0, treeSetupDataBuffer);
+	treeComputeDescriptor.Update(0, 1, treeRenderDataBuffer);
+	treeComputeDescriptor.Update(0, 2, treeDrawBuffer);
+	treeComputeDescriptor.Update(0, 3, treeConfigBuffer);
 
 	std::vector<DescriptorConfig> treeDescriptorConfigs(1);
 	treeDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
@@ -1178,7 +1210,7 @@ void Start()
 	treeDescriptor.Create(1, treeDescriptorConfigs);
 
 	treeDescriptor.GetNewSet();
-	treeDescriptor.Update(0, 0, treeDataBuffer);
+	treeDescriptor.Update(0, 0, treeRenderDataBuffer);
 
 	std::vector<DescriptorConfig> retrieveDescriptorConfigs(1);
 	retrieveDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
@@ -1456,11 +1488,17 @@ void Start()
 	retrievePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), retrieveDescriptor.GetLayout() };
 	retrievePipeline.Create(retrievePipelineConfig);
 
-	PipelineConfig treeComputePipelineConfig{};
-	treeComputePipelineConfig.shader = "treeCompute";
-	treeComputePipelineConfig.type = PipelineType::Compute;
-	treeComputePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), treeComputeDescriptor.GetLayout() };
-	treeComputePipeline.Create(treeComputePipelineConfig);
+	PipelineConfig treeSetupComputePipelineConfig{};
+	treeSetupComputePipelineConfig.shader = "treeSetupCompute";
+	treeSetupComputePipelineConfig.type = PipelineType::Compute;
+	treeSetupComputePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), treeComputeDescriptor.GetLayout() };
+	treeSetupComputePipeline.Create(treeSetupComputePipelineConfig);
+
+	PipelineConfig treeRenderComputePipelineConfig{};
+	treeRenderComputePipelineConfig.shader = "treeRenderCompute";
+	treeRenderComputePipelineConfig.type = PipelineType::Compute;
+	treeRenderComputePipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), treeComputeDescriptor.GetLayout() };
+	treeRenderComputePipeline.Create(treeRenderComputePipelineConfig);
 
 	PipelineConfig treePipelineConfig = Pipeline::DefaultConfig();
 	treePipelineConfig.shader = "tree";
@@ -2019,7 +2057,8 @@ void End()
 	terrainBuffer.Destroy();
 	postBuffer.Destroy();
 	retrieveBuffer.Destroy();
-	treeDataBuffer.Destroy();
+	treeSetupDataBuffer.Destroy();
+	treeRenderDataBuffer.Destroy();
 	treeDrawBuffer.Destroy();
 	treeConfigBuffer.Destroy();
 
@@ -2096,7 +2135,8 @@ void End()
 	//screenPipeline.Destroy();
 	computePipeline.Destroy();
 	retrievePipeline.Destroy();
-	treeComputePipeline.Destroy();
+	treeSetupComputePipeline.Destroy();
+	treeRenderComputePipeline.Destroy();
 	treePipeline.Destroy();
 
 	//UI::DestroyContext();

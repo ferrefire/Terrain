@@ -9,6 +9,7 @@
 layout(location = 0) in vec3 worldPosition;
 layout(location = 1) in vec3 worldNormal;
 layout(location = 2) in vec4 terrainValues;
+layout(location = 3) flat in int lod;
 
 layout(location = 0) out vec4 pixelColor;
 
@@ -28,6 +29,9 @@ void main()
 	vec3 diffuse = PBRLighting(data);
 	float ao = 1.0;
 
+	//float shadow = 1.0;
+	//if (lod > 1) {shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z), 0, false);}
+	//else {shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z));}
 	float shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z));
 	diffuse *= shadow;
 

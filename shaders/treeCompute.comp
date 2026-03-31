@@ -11,6 +11,7 @@
 struct TreeData
 {
 	vec4 position;
+	vec4 rotation;
 	vec4 terrainValues;
 };
 
@@ -37,17 +38,22 @@ struct TreeComputeConfig
 	int lod1Radius;
 };
 
-layout(set = 1, binding = 0, std430) buffer TreeBuffer
+layout(set = 1, binding = 0, std430) buffer TreeSetupBuffer
 {
-	TreeData data[];
+	TreeData setupData[];
 };
 
-layout(set = 1, binding = 1, std430) buffer DrawBuffer
+layout(set = 1, binding = 1, std430) buffer TreeRenderBuffer
+{
+	TreeData renderData[];
+};
+
+layout(set = 1, binding = 2, std430) buffer DrawBuffer
 {
 	DrawCommand drawCommands[];
 };
 
-layout(set = 1, binding = 2, std140) uniform ComputeConfig
+layout(set = 1, binding = 3, std140) uniform ComputeConfig
 {
 	TreeComputeConfig config;
 };
@@ -59,10 +65,100 @@ const int treeBase = 256;
 //const float treeRandomOffset = 20;
 //const int lod0Radius = 3;
 
-void main()
+/*void setup()
 {
-	//uint index = gl_GlobalInvocationID.x * treeBase + gl_GlobalInvocationID.y;
+	uint index = gl_GlobalInvocationID.x * treeBase + gl_GlobalInvocationID.y;
+	setupData[index].position = vec4(0.0, 0.0, 0.0, -1.0);
 
+	int ix = int(gl_GlobalInvocationID.x) - int(treeBase * 0.5);
+	int iz = int(gl_GlobalInvocationID.y) - int(treeBase * 0.5);
+
+	float px = ix * config.treeSpacing;
+	float pz = iz * config.treeSpacing;
+
+	float vx = floor((variables.viewPosition.x + variables.terrainOffset.x * 10000.0) / config.treeSpacing) * config.treeSpacing - variables.terrainOffset.x * 10000.0;
+	float vz = floor((variables.viewPosition.z + variables.terrainOffset.z * 10000.0) / config.treeSpacing) * config.treeSpacing - variables.terrainOffset.z * 10000.0;
+
+	vec4 treePosition = vec4(px + vx, 0.0, pz + vz, 1.0);
+	vec2 treeUV = vec2(treePosition.x + variables.terrainOffset.x * 10000.0, treePosition.z + variables.terrainOffset.z * 10000.0);
+
+	uint treeSeed = uint(ceil((abs(treeUV.x) * 0.75) + (abs(treeUV.y) * 1.5)));
+	float offsetX = rand11(treeSeed) * config.treeOffset;
+	treeSeed = uint(ceil(abs((treeUV.x) * 2.0) + abs((treeUV.y) * 0.5)));
+	float offsetZ = rand11(treeSeed) * config.treeOffset;
+
+	treePosition.x += offsetX;
+	treePosition.z += offsetZ;
+
+	float n = SimpleFractalNoise(treeUV * 0.001, 0.165923, 2);
+	treeSeed = uint(ceil(abs((treeUV.x) * 0.5) + abs((treeUV.y) * 2.0)));
+	if (n + rand11(treeSeed) * config.noiseCutoffRandomness > config.noiseCutoff) {return;}
+
+	vec4 terrainValues = TerrainValues(treePosition.xz);
+
+	float steepness = 1.0 - (dot(normalize(terrainValues.yzw), vec3(0, 1, 0)) * 0.5 + 0.5);
+
+	if (steepness > 0.075) {return;}
+
+	float treeHeight = terrainValues.x * maxHeight - variables.terrainOffset.y * 10000.0;
+
+	treePosition.y = treeHeight;
+
+	treeSeed = uint(ceil(abs(treeUV.x) + abs(treeUV.y) + abs(terrainValues.x * maxHeight)));
+	float deg = rand11(treeSeed) * 180.0;
+
+	float r = radians(deg);
+	float c = cos(r);
+	float s = sin(r);
+	vec4 treeRotation = vec4(treePosition.w, r, c, s);
+
+	setupData[index].position = treePosition;
+	setupData[index].rotation = treeRotation;
+	setupData[index].terrainValues = terrainValues;
+}
+
+void render()
+{
+	uint setupIndex = gl_GlobalInvocationID.x * treeBase + gl_GlobalInvocationID.y;
+
+	if ((gl_GlobalInvocationID.x * treeBase + gl_GlobalInvocationID.y) == 0)
+	{
+		atomicExchange(drawCommands[0].instanceCount, 0);
+		atomicExchange(drawCommands[1].instanceCount, 0);
+		atomicExchange(drawCommands[2].instanceCount, 0);
+
+		int lod0Length = config.lod0Radius * 2 + 1;
+		drawCommands[1].firstInstance = lod0Length * lod0Length;
+
+		int lod1Length = config.lod1Radius * 2 + 1;
+		drawCommands[2].firstInstance = lod1Length * lod1Length;
+	}
+
+	TreeData currentTree = setupData[setupIndex];
+
+	if (currentTree.position.w < 0.0) {return;}
+
+	int ix = int(gl_GlobalInvocationID.x) - int(treeBase * 0.5);
+	int iz = int(gl_GlobalInvocationID.y) - int(treeBase * 0.5);
+
+	uint lod = 0;
+
+	if (max(abs(ix), abs(iz)) > config.lod1Radius) {lod = 2;}
+	else if (max(abs(ix), abs(iz)) > config.lod0Radius) {lod = 1;}
+
+	if (InView(currentTree.position.xyz + vec3(0.0, 10.0, 0.0), vec3(0.0)) == 0) {return;}
+
+	uint index = atomicAdd(drawCommands[lod].instanceCount, 1) + drawCommands[lod].firstInstance;
+
+	renderData[index] = currentTree;
+
+	//data[index].position = treePosition;
+	//data[index].rotation = treeRotation;
+	//data[index].terrainValues = terrainValues;
+}*/
+
+/*void main()
+{
 	if ((gl_GlobalInvocationID.x * treeBase + gl_GlobalInvocationID.y) == 0)
 	{
 		atomicExchange(drawCommands[0].instanceCount, 0);
@@ -96,7 +192,7 @@ void main()
 	vec4 treePosition = vec4(px + vx, 0.0, pz + vz, 0.0);
 	vec2 treeUV = vec2(treePosition.x + variables.terrainOffset.x * 10000.0, treePosition.z + variables.terrainOffset.z * 10000.0);
 
-	uint treeSeed = uint(ceil(abs(treeUV.x) + abs(treeUV.y)));
+	uint treeSeed = uint(ceil((abs(treeUV.x) * 0.75) + (abs(treeUV.y) * 1.5)));
 	float offsetX = rand11(treeSeed) * config.treeOffset;
 	treeSeed = uint(ceil(abs((treeUV.x) * 2.0) + abs((treeUV.y) * 0.5)));
 	float offsetZ = rand11(treeSeed) * config.treeOffset;
@@ -112,18 +208,30 @@ void main()
 
 	float steepness = 1.0 - (dot(normalize(terrainValues.yzw), vec3(0, 1, 0)) * 0.5 + 0.5);
 
+	if (steepness > 0.075) {return;}
+
 	float treeHeight = terrainValues.x * maxHeight - variables.terrainOffset.y * 10000.0;
 
 	treePosition.y = treeHeight;
 
+	if (dis > 100.0 && InView(treePosition.xyz + vec3(0.0, 10.0, 0.0), vec3(0.0)) == 0) {return;}
+
 	treeSeed = uint(ceil(abs(treeUV.x) + abs(treeUV.y) + abs(terrainValues.x * maxHeight)));
 	treePosition.w = rand11(treeSeed) * 180.0;
 
-	if (steepness < 0.075 && (dis < 100.0 || InView(treePosition.xyz + vec3(0.0, 10.0, 0.0), vec3(0.0)) == 1))
-	{
-		uint index = atomicAdd(drawCommands[lod].instanceCount, 1) + drawCommands[lod].firstInstance;
+	float r = radians(treePosition.w);
+	float c = cos(r);
+	float s = sin(r);
+	vec4 treeRotation = vec4(treePosition.w, r, c, s);
 
-		data[index].position = treePosition;
-		data[index].terrainValues = terrainValues;
-	}
+	uint index = atomicAdd(drawCommands[lod].instanceCount, 1) + drawCommands[lod].firstInstance;
+
+	data[index].position = treePosition;
+	data[index].rotation = treeRotation;
+	data[index].terrainValues = terrainValues;
+}*/
+
+void main()
+{
+	
 }
