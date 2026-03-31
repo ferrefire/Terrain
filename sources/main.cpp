@@ -2147,6 +2147,8 @@ int main(int argc, char** argv)
 	Manager::ParseArguments(argv, argc);
 	Manager::GetConfig().deviceConfig.anisotropic = true;
 	Manager::GetConfig().deviceConfig.tesselation = true;
+	Manager::GetConfig().deviceConfig.multiDrawIndirect = true;
+	Manager::GetConfig().deviceConfig.synchronization2 = true;
 	Manager::GetConfig().deviceConfig.nonUniformIndexingShaderSampledImageArray = true;
 	Manager::GetConfig().framesInFlight = 1;
 	//Manager::GetConfig().uncapped = true;
