@@ -7,6 +7,7 @@
 #include "culling.glsl"
 #include "random.glsl"
 #include "noise.glsl"
+#include "functions.glsl"
 
 struct TreeData
 {
@@ -36,6 +37,12 @@ struct TreeComputeConfig
 
 	int lod0Radius;
 	int lod1Radius;
+	int lod2Radius;
+	int renderRadius;
+
+	int occlusionCulling;
+	int cullIterations;
+	uint cullExponent;
 };
 
 layout(set = 1, binding = 0, std430) buffer TreeSetupBuffer
@@ -74,12 +81,16 @@ void main()
 		atomicExchange(drawCommands[0].instanceCount, 0);
 		atomicExchange(drawCommands[1].instanceCount, 0);
 		atomicExchange(drawCommands[2].instanceCount, 0);
+		atomicExchange(drawCommands[3].instanceCount, 0);
 
 		int lod0Length = config.lod0Radius * 2 + 1;
 		drawCommands[1].firstInstance = lod0Length * lod0Length;
 
 		int lod1Length = config.lod1Radius * 2 + 1;
 		drawCommands[2].firstInstance = lod1Length * lod1Length;
+
+		int lod2Length = config.lod2Radius * 2 + 1;
+		drawCommands[3].firstInstance = lod2Length * lod2Length;
 	}
 
 	TreeData currentTree = setupData[setupIndex];
@@ -93,20 +104,39 @@ void main()
 	//ix -= vx;
 	//iz -= vz;
 
-	int ix = int(floor((currentTree.position.x - variables.viewPosition.x) / config.treeSpacing));
-	int iz = int(floor((currentTree.position.z - variables.viewPosition.z) / config.treeSpacing));
+	//int ix = int(InvTrunc((currentTree.position.x - variables.viewPosition.x) / config.treeSpacing));
+	//int iz = int(InvTrunc((currentTree.position.z - variables.viewPosition.z) / config.treeSpacing));
+	int ix = int(trunc((currentTree.position.x - variables.viewPosition.x) / config.treeSpacing));
+	int iz = int(trunc((currentTree.position.z - variables.viewPosition.z) / config.treeSpacing));
+	vec2 ixz = vec2(ix, iz);
 
 	uint lod = 0;
 
-	if (max(abs(ix), abs(iz)) > config.lod1Radius) {lod = 2;}
-	else if (max(abs(ix), abs(iz)) > config.lod0Radius) {lod = 1;}
+	//if (max(abs(ix), abs(iz)) > config.renderRadius) {return;}
+	//else if (max(abs(ix), abs(iz)) > config.lod2Radius) {lod = 3;}
+	//else if (max(abs(ix), abs(iz)) > config.lod1Radius) {lod = 2;}
+	//else if (max(abs(ix), abs(iz)) > config.lod0Radius) {lod = 1;}
+
+	if (SquaredMagnitude(ixz) > config.renderRadius * config.renderRadius) {return;}
+	else if (SquaredMagnitude(ixz) > config.lod2Radius * config.lod2Radius) {lod = 3;}
+	else if (SquaredMagnitude(ixz) > config.lod1Radius * config.lod1Radius) {lod = 2;}
+	else if (SquaredMagnitude(ixz) > config.lod0Radius * config.lod0Radius) {lod = 1;}
+
+	//float lodInter = float(lod) * (1.0 / 3.0);
 
 	float px = ix * config.treeSpacing;
 	float pz = iz * config.treeSpacing;
 
 	float dis = max(abs(px), abs(pz));
+	float cullOffset = 25.0;
+	if (lod == 2) {cullOffset = 15.0;}
+	else if (lod == 3) {cullOffset = 0.0;}
 
-	if (dis > 100.0 && InView(currentTree.position.xyz + vec3(0.0, 10.0, 0.0), vec3(0.0)) == 0) {return;}
+	if (dis > 100.0)
+	{
+		if (InView(currentTree.position.xyz + vec3(0.0, 10.0, 0.0), vec3(0.0)) == 0) {return;}
+		else if (config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, cullOffset, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}
+	}
 
 	uint index = atomicAdd(drawCommands[lod].instanceCount, 1) + drawCommands[lod].firstInstance;
 

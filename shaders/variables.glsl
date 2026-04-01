@@ -9,6 +9,7 @@ layout(set = 0, binding = 0, std140) uniform Variables
 	mat4 view;
 	mat4 projection;
 	vec4 viewPosition;
+	vec4 viewDirection;
 	vec4 lightDirection;
 	vec4 resolution;
 	vec4 terrainOffset;

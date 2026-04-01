@@ -22,9 +22,9 @@ layout(location = 0) patch out int patchLod;
 
 #include "noise.glsl"
 #include "sampling.glsl"
-#include "culling.glsl"
 #include "transformation.glsl"
 #include "terrainFunctions.glsl"
+#include "culling.glsl"
 
 const float tesselationFactor = 15;
 
@@ -109,6 +109,11 @@ void main()
 			if (CullWinding(center, terrainValues) && CullWinding(p0, vertTerrainValues[0]) && CullWinding(p1, vertTerrainValues[1]) && CullWinding(p2, vertTerrainValues[2])) {cull = true;}
 		}
 	}
+
+	//if (!cull)
+	//{
+	//	if (BehindTerrain(center, 5, 2) == 1 && BehindTerrain(p0, 5, 2) == 1 && BehindTerrain(p1, 5, 2) == 1 && BehindTerrain(p2, 5, 2) == 1) {cull = true;}
+	//}
 	
 	if (cull)
 	{

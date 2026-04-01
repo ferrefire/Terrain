@@ -36,6 +36,12 @@ struct TreeComputeConfig
 
 	int lod0Radius;
 	int lod1Radius;
+	int lod2Radius;
+	int renderRadius;
+
+	int occlusionCulling;
+	int cullIterations;
+	uint cullExponent;
 };
 
 layout(set = 1, binding = 0, std430) buffer TreeSetupBuffer

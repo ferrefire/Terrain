@@ -12,7 +12,7 @@ struct TreeData
 	vec4 terrainValues;
 };
 
-layout(set = 1, binding = 0, std430) buffer TreeRenderBuffer
+layout(set = 1, binding = 0, std430) readonly buffer TreeRenderBuffer
 {
 	TreeData renderData[];
 };
@@ -36,8 +36,8 @@ void main()
 	worldNormal = normalize(RotateY(localNormal, currentTree.rotation.z, currentTree.rotation.w));
 
 	vec3 treePosition = RotateY(localPosition, currentTree.rotation.z, currentTree.rotation.w);
-	treePosition.y += 0.5;
-	treePosition.y *= 20.0;
+	//treePosition.y += 0.5;
+	//treePosition.y *= 20.0;
 	treePosition.y -= 0.5;
 
 	worldPosition = treePosition + currentTree.position.xyz;

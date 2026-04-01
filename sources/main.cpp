@@ -12,6 +12,7 @@
 #include "loader.hpp"
 #include "command.hpp"
 #include "ui.hpp"
+#include "tree.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -26,6 +27,7 @@ struct alignas(16) UniformData
 	mat4 view;
 	mat4 projection;
 	point4D viewPosition;
+	point4D viewDirection;
 	point4D lightDirection;
 	point4D resolution;
 	point4D terrainOffset;
@@ -143,15 +145,24 @@ struct alignas(16) TreeData
 
 struct alignas(16) TreeComputeConfig
 {
-	float treeSpacing = 50.0;
+	//float treeSpacing = 50.0;
+	float treeSpacing = 40.0;
 	float treeOffset = 20.0;
 
 	float noiseCutoff = 0.5;
 	float noiseCutoffRandomness = 0.1;
 
 	int32_t lod0Radius = 3;
-	int32_t lod1Radius = 25;
-	uint32_t padding[2];
+	//int32_t lod1Radius = 25;
+	int32_t lod1Radius = 10;
+	int32_t lod2Radius = 25;
+	int32_t renderRadius = 128;
+
+	uint32_t occlusionCulling = 1;
+	int32_t cullIterations = 10;
+	uint32_t cullExponent = 2;
+
+	uint32_t padding[1];
 };
 
 UniformData data{};
@@ -232,7 +243,8 @@ Buffer treeRenderDataBuffer;
 Buffer treeDrawBuffer;
 Buffer treeConfigBuffer;
 
-meshPN16 treeMesh;
+mesh32 treeMesh;
+//meshPN16 treeMesh;
 //meshPN16 treeMeshLod1;
 Descriptor treeDescriptor;
 Pipeline treePipeline;
@@ -294,6 +306,11 @@ Point<int, 3> aerialRes = Point<int, 3>(64, 64, 32);
 
 int treeComputeBase = 512;
 int treeCount = treeComputeBase * treeComputeBase;
+
+uint32_t terrainEnabled = true;
+
+uint32_t treesEnabled = true;
+TreeConfig treeMeshConfig{};
 
 static bool allMapsComputed = false;
 
@@ -445,13 +462,39 @@ void ComputeTerrainShadow(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 		terrainShadowPipeline.Bind(commandBuffer);
 		vkCmdDispatch(commandBuffer, shadowmapResolution / 8, shadowmapResolution / 8, 1);
 
+		VkImageMemoryBarrier2 barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+
+		barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+		barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+		barrier.dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+
+		barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+		barrier.image = terrainShadowImages[i].GetImage();
+
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = 1;
+
+		VkDependencyInfo dependency{};
+		dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+		dependency.imageMemoryBarrierCount = 1;
+		dependency.pImageMemoryBarriers = &barrier;
+
+		vkCmdPipelineBarrier2(commandBuffer, &dependency);
+
 		//vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
 	}
 }
 
 void ComputeTrees(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
-	if (allMapsComputed)
+	if (treesEnabled && allMapsComputed)
 	{
 		frameDescriptor.BindDynamic(0, commandBuffer, treeRenderComputePipeline);
 		treeComputeDescriptor.Bind(0, commandBuffer, treeRenderComputePipeline);
@@ -498,8 +541,8 @@ void ComputeTrees(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 		barriers[1].sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
 		barriers[1].srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
 		barriers[1].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-		barriers[1].dstStageMask  = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
-		barriers[1].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
+		barriers[1].dstStageMask  = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+		barriers[1].dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
 
 		VkDependencyInfo depInfo{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
 		depInfo.memoryBarrierCount = 2;
@@ -550,25 +593,30 @@ void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 
 	//uint32_t treeRenderCount = (*reinterpret_cast<uint32_t*>(treeCountBuffer.GetAddress()));
 
-	treeDescriptor.Bind(0, commandBuffer, treePipeline);
-	treePipeline.Bind(commandBuffer);
-	treeMesh.Bind(commandBuffer);
-	//vkCmdDrawIndexed(commandBuffer, treeMesh.GetIndices().size(), treeRenderCount, 0, 0, 0);
-	vkCmdDrawIndexedIndirect(commandBuffer, treeDrawBuffer.GetBuffer(), 0, 3, sizeof(VkDrawIndexedIndirectCommand));
+	if (treesEnabled)
+	{
+		treeDescriptor.Bind(0, commandBuffer, treePipeline);
+		treePipeline.Bind(commandBuffer);
+		treeMesh.Bind(commandBuffer);
+		vkCmdDrawIndexedIndirect(commandBuffer, treeDrawBuffer.GetBuffer(), 0, 4, sizeof(VkDrawIndexedIndirectCommand));
+	}
 
-	materialDescriptor.Bind(0, commandBuffer, pipeline);
+	if (terrainEnabled)
+	{
+		materialDescriptor.Bind(0, commandBuffer, pipeline);
 
-	pipeline.Bind(commandBuffer);
-
-	planeMesh.Bind(commandBuffer);
-	objectDescriptor.BindDynamic(0, commandBuffer, pipeline, 0 * sizeof(mat4));
-	vkCmdDrawIndexed(commandBuffer, planeMesh.GetIndices().size(), 1, 0, 0, 0);
-
-	planeLodMesh.Bind(commandBuffer);
-	vkCmdDrawIndexed(commandBuffer, planeLodMesh.GetIndices().size(), terrainCount - 1, 0, 0, 1);
-
-	planeLod2Mesh.Bind(commandBuffer);
-	vkCmdDrawIndexed(commandBuffer, planeLod2Mesh.GetIndices().size(), terrainLodCount - terrainCount, 0, 0, terrainCount);
+		pipeline.Bind(commandBuffer);
+	
+		planeMesh.Bind(commandBuffer);
+		objectDescriptor.BindDynamic(0, commandBuffer, pipeline, 0 * sizeof(mat4));
+		vkCmdDrawIndexed(commandBuffer, planeMesh.GetIndices().size(), 1, 0, 0, 0);
+	
+		planeLodMesh.Bind(commandBuffer);
+		vkCmdDrawIndexed(commandBuffer, planeLodMesh.GetIndices().size(), terrainCount - 1, 0, 0, 1);
+	
+		planeLod2Mesh.Bind(commandBuffer);
+		vkCmdDrawIndexed(commandBuffer, planeLod2Mesh.GetIndices().size(), terrainLodCount - terrainCount, 0, 0, terrainCount);	
+	}
 
 	RenderPost(commandBuffer, frameIndex); // Remoce and add it as a renderer call!
 }
@@ -668,6 +716,7 @@ void UpdatePostData()
 void UpdateTreeComputeData()
 {
 	treeConfigBuffer.Update(&treeComputeConfig, sizeof(treeComputeConfig));
+	shouldComputeTrees = true;
 }
 
 void Start()
@@ -789,39 +838,69 @@ void Start()
 	quadMesh.Create(ShapeType::Quad);
 
 	std::vector<VkDrawIndexedIndirectCommand> drawCommands;
-	drawCommands.resize(3);
+	drawCommands.resize(4);
 
-	shapePN16 cubeShape0(ShapeType::Cube);
+	//shapePN16 cubeShape0(ShapeType::Cube);
+	treeMeshConfig.seed = 6282;
+	shape32 treeShape = Tree::GenerateTree(treeMeshConfig);
+	treeShape.Scale(point3D(4.0));
 
-	drawCommands[0].indexCount = cubeShape0.GetIndices().size();
+	//shape32 treeShape(ShapeType::Cube);
+	//treeShape.Scale(point3D(0.5, 2.0, 0.5));
+	//treeShape.Move(point3D(0.0, 1.0, 0.0));
+
+	drawCommands[0].indexCount = treeShape.GetIndices().size();
 	drawCommands[0].instanceCount = 0;
 	drawCommands[0].firstIndex = 0;
 	drawCommands[0].vertexOffset = 0;
 	drawCommands[0].firstInstance = 0;
 
-	shapePN16 cubeShape1(ShapeType::Cube);
-	cubeShape1.Scale(point3D(3.0, 1.0, 3.0));
+	//shape32 cubeShape1(ShapeType::Cube);
+	//cubeShape1.Scale(point3D(3.0, 20.0, 3.0));
+	//cubeShape1.Move(point3D(0.0, 10.0, 0.0));
 
-	drawCommands[1].indexCount = cubeShape1.GetIndices().size();
+	treeMeshConfig.horizontalResolution = {3, 4};
+	treeMeshConfig.verticalResolution = {1, 4};
+	treeMeshConfig.minimumThickness = 0.075;
+	shape32 treeShape1 = Tree::GenerateTree(treeMeshConfig);
+	treeShape1.Scale(point3D(4.0));
+
+	drawCommands[1].indexCount = treeShape1.GetIndices().size();
 	drawCommands[1].instanceCount = 0;
-	drawCommands[1].firstIndex = cubeShape0.GetIndices().size();
+	drawCommands[1].firstIndex = treeShape.GetIndices().size();
 	drawCommands[1].vertexOffset = 0;
 	drawCommands[1].firstInstance = 0;
 
-	cubeShape0.Join(cubeShape1);
+	treeShape.Join(treeShape1);
 
-	shapePN16 cubeShape2(ShapeType::Cube);
-	cubeShape2.Scale(point3D(6.0, 1.0, 6.0));
+	treeMeshConfig.horizontalResolution = {3, 3};
+	treeMeshConfig.verticalResolution = {1, 1};
+	treeMeshConfig.minimumThickness = 0.135;
+	shape32 treeShape2 = Tree::GenerateTree(treeMeshConfig);
+	treeShape2.Scale(point3D(6.0, 4.0, 6.0));
 
-	drawCommands[2].indexCount = cubeShape2.GetIndices().size();
+	drawCommands[2].indexCount = treeShape2.GetIndices().size();
 	drawCommands[2].instanceCount = 0;
-	drawCommands[2].firstIndex = cubeShape0.GetIndices().size();
+	drawCommands[2].firstIndex = treeShape.GetIndices().size();
 	drawCommands[2].vertexOffset = 0;
 	drawCommands[2].firstInstance = 0;
 
-	cubeShape0.Join(cubeShape2);
+	treeShape.Join(treeShape2);
 
-	treeMesh.Create(cubeShape0);
+	shape32 treeShape3(ShapeType::Cube);
+	//treeShape3.Scale(point3D(6.0, 300.0, 6.0));
+	treeShape3.Scale(point3D(2.0, 20.0, 2.0));
+	treeShape3.Move(point3D(0.0, 10.0, 0.0));
+
+	drawCommands[3].indexCount = treeShape3.GetIndices().size();
+	drawCommands[3].instanceCount = 0;
+	drawCommands[3].firstIndex = treeShape.GetIndices().size();
+	drawCommands[3].vertexOffset = 0;
+	drawCommands[3].firstInstance = 0;
+
+	treeShape.Join(treeShape3);
+
+	treeMesh.Create(treeShape);
 
 	ImageConfig sceneLuminanceConfig = Image::DefaultConfig();
 	sceneLuminanceConfig.format = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -1623,6 +1702,7 @@ void Start()
 	}
 
 	Menu& terrainMenu = UI::NewMenu("Terrain");
+	terrainMenu.AddCheckbox("terrain enabled", terrainEnabled);
 	terrainMenu.TriggerNode("Generation");
 	terrainMenu.AddSlider("seed", terrainData.seed, 0.0001, 1.0);
 	terrainMenu.AddSlider("erode factor", terrainData.erodeFactor, 0.0, 4.0);
@@ -1642,13 +1722,19 @@ void Start()
 	postMenu.TriggerNode("Settings");
 
 	Menu& treeMenu = UI::NewMenu("Trees");
+	treeMenu.AddCheckbox("trees enabled", treesEnabled);
 	treeMenu.TriggerNode("Compute", UpdateTreeComputeData);
 	treeMenu.AddSlider("spacing", treeComputeConfig.treeSpacing, 0.1, 100.0);
 	treeMenu.AddSlider("random offset", treeComputeConfig.treeOffset, 0.0, 50.0);
 	treeMenu.AddSlider("noise cutoff", treeComputeConfig.noiseCutoff, 0.0, 1.0);
 	treeMenu.AddSlider("cutoff randomness", treeComputeConfig.noiseCutoffRandomness, 0.0, 0.5);
 	treeMenu.AddSlider("lod 0 radius", treeComputeConfig.lod0Radius, 0, 10);
-	treeMenu.AddSlider("lod 1 radius", treeComputeConfig.lod1Radius, 11, 100);
+	treeMenu.AddSlider("lod 1 radius", treeComputeConfig.lod1Radius, 3, 25);
+	treeMenu.AddSlider("lod 2 radius", treeComputeConfig.lod2Radius, 15, 50);
+	treeMenu.AddSlider("render radius", treeComputeConfig.renderRadius, 0, treeComputeBase);
+	treeMenu.AddCheckbox("occlusion culling", treeComputeConfig.occlusionCulling);
+	treeMenu.AddSlider("cull iterations", treeComputeConfig.cullIterations, 1, 25);
+	treeMenu.AddDropdown("cull exponent", treeComputeConfig.cullExponent, {"none", "in out quad", "in out cubic", "quad"});
 	treeMenu.TriggerNode("Compute");
 
 	UI::CreateContext(pass.GetRenderpass(), 1);
@@ -1804,6 +1890,7 @@ void Frame()
 	data.view = Manager::GetCamera().GetView();
 	data.projection = Manager::GetCamera().GetProjection();
 	data.viewPosition = Manager::GetCamera().GetPosition();
+	data.viewDirection = Manager::GetCamera().GetDirection();
 
 	data.resolution.x() = Manager::GetCamera().GetConfig().width;
 	data.resolution.y() = Manager::GetCamera().GetConfig().height;
@@ -1919,96 +2006,6 @@ void Frame()
 		Manager::GetCamera().UpdateProjection();
 		data.projection = Manager::GetCamera().GetProjection();
 		//Manager::GetCamera().UpdateProjection();
-	}
-
-	if (Input::GetKey(GLFW_KEY_B).pressed)
-	{
-		////aerialData.mistHeight = 0.075;
-		////aerialData.mistHeight = 0.125;
-		//aerialData.mistStrength = 24.0;
-		////aerialData.mistStrength = 32.0;
-		////aerialData.mistHeightPower = 0.35;
-		////aerialData.mistBuildupPower = 4.0;
-		//aerialData.sliceOffset = 0.5;
-
-		//atmosphereData.mistStrength = 16.0;
-		//atmosphereData.skyStrength = 6.0;
-		//aerialData.mistHeight = 0.05;
-
-		//aerialData.maximumHeight = 0.0;
-		//aerialData.decreaseHeight = 500.0;
-		//aerialData.decreasePower = 0.5;
-
-		//atmosphereData.mistStrength = 16.0;
-		//aerialData.defaultOcclusion = 0.75;
-
-		//aerialData.mistStrength = 24.0;
-		//globalGlillSamplePower = 1.0;
-
-		//scatteringData.scatteringStrength = 1.0;
-		//atmosphereData.defaultSkyPower = 500.0;
-
-		//aerialData.mistStrength = 8.0;
-		//skyData.rayleighStrength = 0.5;
-		//atmosphereData.skyStrength = 24.0;
-
-		//atmosphereData.defaultSkyPower = 750.0;
-		atmosphereData.mistStrength = 24.0;
-		skyData.rayleighStrength = 0.25;
-
-		//UpdateScatteringData();
-
-		UpdateAtmosphereData();
-
-		//UpdateGlillData();
-
-		//UpdateAerialData();
-
-		UpdateSkyData();
-	}
-	else if (Input::GetKey(GLFW_KEY_N).pressed)
-	{
-		////aerialData.mistHeight = 0.075;
-		////aerialData.mistHeight = 0.1;
-		////aerialData.mistStrength = 24.0;
-		////aerialData.mistHeightPower = 0.50;
-		//aerialData.mistStrength = 32.0;
-		//aerialData.sliceOffset = 0.0;
-
-		//atmosphereData.mistStrength = 10.0;
-		//atmosphereData.skyStrength = 12.0;
-		//aerialData.mistHeight = 0.075;
-
-		//aerialData.maximumHeight = 750.0;
-		//aerialData.decreaseHeight = 0.0;
-		//aerialData.decreasePower = 1.0;
-
-		//atmosphereData.mistStrength = 10.0;
-		//aerialData.defaultOcclusion = 0.5;
-
-		//aerialData.mistStrength = 32.0;
-		//globalGlillSamplePower = 2.0;
-
-		//scatteringData.scatteringStrength = 2.0;
-		//atmosphereData.defaultSkyPower = 350.0;
-
-		//aerialData.mistStrength = 24.0;
-		//skyData.rayleighStrength = 1.0;
-		//atmosphereData.skyStrength = 12.0;
-
-		//atmosphereData.defaultSkyPower = 500.0;
-		atmosphereData.mistStrength = 16.0;
-		skyData.rayleighStrength = 0.5;
-
-		//UpdateScatteringData();
-
-		UpdateAtmosphereData();
-
-		//UpdateGlillData();
-
-		//UpdateAerialData();
-
-		UpdateSkyData();
 	}
 
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));
