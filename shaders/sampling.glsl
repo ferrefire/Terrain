@@ -3,6 +3,8 @@
 
 #include "functions.glsl"
 
+const float triplanarSamplingCutoff = 0.01;
+
 vec3 GetWeights(vec3 normal, float strength)
 {
     vec3 weights = abs(normal);
@@ -49,15 +51,15 @@ vec3 SampleTriplanarColor(sampler2D textureSampler, vec3 uv, vec3 weights)
 	vec3 xy = vec3(0.0);
 	vec3 zy = vec3(0.0);
 
-	if (weights.y <= 0.01) {weights.y = 0;}
-	if (weights.z <= 0.01) {weights.z = 0;}
-	if (weights.x <= 0.01) {weights.x = 0;}
+	if (weights.y <= triplanarSamplingCutoff) {weights.y = 0;}
+	if (weights.z <= triplanarSamplingCutoff) {weights.z = 0;}
+	if (weights.x <= triplanarSamplingCutoff) {weights.x = 0;}
 
 	weights = NormalizeSum(weights);
 
-	if (weights.y > 0.01) xz = (texture(textureSampler, uvy).rgb);
-	if (weights.z > 0.01) xy = (texture(textureSampler, uvz).rgb);
-	if (weights.x > 0.01) zy = (texture(textureSampler, uvx).rgb);
+	if (weights.y > triplanarSamplingCutoff) xz = (texture(textureSampler, uvy).rgb);
+	if (weights.z > triplanarSamplingCutoff) xy = (texture(textureSampler, uvz).rgb);
+	if (weights.x > triplanarSamplingCutoff) zy = (texture(textureSampler, uvx).rgb);
 
 	vec3 result = xz * weights.y + xy * weights.z + zy * weights.x;
 
@@ -105,17 +107,17 @@ vec3 SampleTriplanarNormal(sampler2D textureSampler, vec3 uv, vec3 weights, vec3
 	vec3 tangentY = vec3(0.0, 0.0, 1.0);
 	vec3 tangentZ = vec3(0.0, 0.0, 1.0);
 
-	if (weights.x <= 0.01) {weights.x = 0;}
-	if (weights.y <= 0.01) {weights.y = 0;}
-	if (weights.z <= 0.01) {weights.z = 0;}
+	if (weights.x <= triplanarSamplingCutoff) {weights.x = 0;}
+	if (weights.y <= triplanarSamplingCutoff) {weights.y = 0;}
+	if (weights.z <= triplanarSamplingCutoff) {weights.z = 0;}
 
 	weights = NormalizeSum(weights);
 
 	if (lodInter < 1.0)
 	{
-		if (weights.x > 0.01) {tangentX = UnpackNormal(vec4(texture(textureSampler, uvx).rg, 0.0, 0.0), power);}
-		if (weights.y > 0.01) {tangentY = UnpackNormal(vec4(texture(textureSampler, uvy).rg, 0.0, 0.0), power);}
-		if (weights.z > 0.01) {tangentZ = UnpackNormal(vec4(texture(textureSampler, uvz).rg, 0.0, 0.0), power);}
+		if (weights.x > triplanarSamplingCutoff) {tangentX = UnpackNormal(vec4(texture(textureSampler, uvx).rg, 0.0, 0.0), power);}
+		if (weights.y > triplanarSamplingCutoff) {tangentY = UnpackNormal(vec4(texture(textureSampler, uvy).rg, 0.0, 0.0), power);}
+		if (weights.z > triplanarSamplingCutoff) {tangentZ = UnpackNormal(vec4(texture(textureSampler, uvz).rg, 0.0, 0.0), power);}
 		//if (weights.x > 0.01) {tangentX = UnpackNormal(vec4(texture(textureSampler, uvx).rgb, 0.0), power);}
 		//if (weights.y > 0.01) {tangentY = UnpackNormal(vec4(texture(textureSampler, uvy).rgb, 0.0), power);}
 		//if (weights.z > 0.01) {tangentZ = UnpackNormal(vec4(texture(textureSampler, uvz).rgb, 0.0), power);}

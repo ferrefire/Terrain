@@ -165,6 +165,18 @@ struct alignas(16) TreeComputeConfig
 	uint32_t padding[1];
 };
 
+struct alignas(16) TreeShaderConfig
+{
+	int32_t weightPower = 72;
+	float uvScale = 0.25;
+	float glillNormalMix = 0.45;
+	float normalStrength = 1.0;
+	
+	int32_t textureLod = 2;
+	
+	uint32_t padding[3];
+};
+
 UniformData data{};
 std::vector<mat4> models(1);
 std::vector<Buffer> frameBuffers;
@@ -241,13 +253,16 @@ Descriptor treeComputeDescriptor;
 Buffer treeSetupDataBuffer;
 Buffer treeRenderDataBuffer;
 Buffer treeDrawBuffer;
-Buffer treeConfigBuffer;
+Buffer treeComputeConfigBuffer;
 
+TreeShaderConfig treeShaderConfig{};
+Buffer treeShaderConfigBuffer;
 mesh32 treeMesh;
-//meshPN16 treeMesh;
-//meshPN16 treeMeshLod1;
 Descriptor treeDescriptor;
 Pipeline treePipeline;
+Image bark_diff;
+Image bark_norm;
+Image bark_arm;
 
 std::vector<Image> computeImages(computeCascade);
 std::vector<Image> temporaryComputeImages(2);
@@ -715,8 +730,13 @@ void UpdatePostData()
 
 void UpdateTreeComputeData()
 {
-	treeConfigBuffer.Update(&treeComputeConfig, sizeof(treeComputeConfig));
+	treeComputeConfigBuffer.Update(&treeComputeConfig, sizeof(treeComputeConfig));
 	shouldComputeTrees = true;
+}
+
+void UpdateTreeShaderData()
+{
+	treeShaderConfigBuffer.Update(&treeShaderConfig, sizeof(treeShaderConfig));
 }
 
 void Start()
@@ -1055,6 +1075,9 @@ void Start()
 		{"grassy_rocks_diff", ImageType::Jpg},
 		{"grassy_rocks_norm", ImageType::Jpg},
 		{"grassy_rocks_arm", ImageType::Jpg},
+		{"bark_diff", ImageType::Jpg},
+		{"bark_norm", ImageType::Jpg},
+		{"bark_arm", ImageType::Jpg},
 	});
 
 	double startTime = Time::GetCurrentTime();
@@ -1062,6 +1085,9 @@ void Start()
 	rock_diff.Create(*loaders[0], imageConfig);
 	rock_norm.Create(*loaders[1], imageNormalConfig);
 	rock_arm.Create(*loaders[2], imageArmConfig);
+	bark_diff.Create(*loaders[9], imageConfig);
+	bark_norm.Create(*loaders[10], imageNormalConfig);
+	bark_arm.Create(*loaders[11], imageArmConfig);
 	imageNormalConfig.samplerConfig.maxAnisotropy = 2;
 	imageArmConfig.samplerConfig.maxAnisotropy = 2;
 	grass_diff.Create(*loaders[3], imageConfig);
@@ -1070,6 +1096,7 @@ void Start()
 	dry_diff.Create(*loaders[6], imageConfig);
 	dry_norm.Create(*loaders[7], imageNormalConfig);
 	dry_arm.Create(*loaders[8], imageArmConfig);
+	
 
 	for (size_t i = 0; i < loaders.size(); i++) {delete (loaders[i]);}
 	loaders.clear();
@@ -1240,10 +1267,15 @@ void Start()
 	//	treeDataBuffers[i].Create(treeDataBufferConfig);
 	//}
 
-	BufferConfig treeConfigBufferConfig{};
-	treeConfigBufferConfig.mapped = true;
-	treeConfigBufferConfig.size = sizeof(TreeComputeConfig);
-	treeConfigBuffer.Create(treeConfigBufferConfig, &treeComputeConfig);
+	BufferConfig treeComputeConfigBufferConfig{};
+	treeComputeConfigBufferConfig.mapped = true;
+	treeComputeConfigBufferConfig.size = sizeof(TreeComputeConfig);
+	treeComputeConfigBuffer.Create(treeComputeConfigBufferConfig, &treeComputeConfig);
+
+	BufferConfig treeShaderConfigBufferConfig{};
+	treeShaderConfigBufferConfig.mapped = true;
+	treeShaderConfigBufferConfig.size = sizeof(TreeShaderConfig);
+	treeShaderConfigBuffer.Create(treeShaderConfigBufferConfig, &treeShaderConfig);
 
 	//treeDrawBuffers.resize(Renderer::GetFrameCount());
 
@@ -1281,15 +1313,22 @@ void Start()
 	treeComputeDescriptor.Update(0, 0, treeSetupDataBuffer);
 	treeComputeDescriptor.Update(0, 1, treeRenderDataBuffer);
 	treeComputeDescriptor.Update(0, 2, treeDrawBuffer);
-	treeComputeDescriptor.Update(0, 3, treeConfigBuffer);
+	treeComputeDescriptor.Update(0, 3, treeComputeConfigBuffer);
 
-	std::vector<DescriptorConfig> treeDescriptorConfigs(1);
+	std::vector<DescriptorConfig> treeDescriptorConfigs(3);
 	treeDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
 	treeDescriptorConfigs[0].stages = VK_SHADER_STAGE_VERTEX_BIT;
+	treeDescriptorConfigs[1].type = DescriptorType::CombinedSampler;
+	treeDescriptorConfigs[1].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+	treeDescriptorConfigs[1].count = 3;
+	treeDescriptorConfigs[2].type = DescriptorType::UniformBuffer;
+	treeDescriptorConfigs[2].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 	treeDescriptor.Create(1, treeDescriptorConfigs);
 
 	treeDescriptor.GetNewSet();
 	treeDescriptor.Update(0, 0, treeRenderDataBuffer);
+	treeDescriptor.Update(0, 1, {&bark_diff, &bark_norm, &bark_arm});
+	treeDescriptor.Update(0, 2, treeShaderConfigBuffer);
 
 	std::vector<DescriptorConfig> retrieveDescriptorConfigs(1);
 	retrieveDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
@@ -1597,13 +1636,15 @@ void Start()
 	//Manager::GetCamera().Move(point3D(-24.9147, -904.676, 5320.23));
 	//Manager::GetCamera().Move(point3D(3884.26, -1783.41, 11323.2));
 	//Manager::GetCamera().Move(point3D(0, 0, 0));
-	Manager::GetCamera().Move(point3D(1242.74, -1730.73, 5410.96));
+	//Manager::GetCamera().Move(point3D(1242.74, -1730.73, 5410.96));
+	Manager::GetCamera().Move(point3D(4692.71, -2418.12, 9021.92));
 	//Manager::GetCamera().Move(point3D(10379.6, 362.507, 824.909));
 	//Manager::GetCamera().Rotate(point3D(12.8998, -149.9, 0.0));
 	//Manager::GetCamera().Rotate(point3D(26.0998, -151.9, 0.0));
 	//Manager::GetCamera().Rotate(point3D(4.89981, 306.799, 0.0));
 	//Manager::GetCamera().Rotate(point3D(-3.40032, 292.801, 0.0));
-	Manager::GetCamera().Rotate(point3D(6.39966, 343.702, 0.0));
+	//Manager::GetCamera().Rotate(point3D(6.39966, 343.702, 0.0));
+	Manager::GetCamera().Rotate(point3D(3.49968, 781.528, 0.0));
 	//Manager::GetCamera().Rotate(point3D(31.1995, 454.71, 0.0));
 	//Manager::GetCamera().Move(point3D(7523.26, 643.268, 518.602));
 	//Manager::GetCamera().Move(point3D(0, 10, 0));
@@ -1738,6 +1779,13 @@ void Start()
 	treeMenu.AddSlider("cull iterations", treeComputeConfig.cullIterations, 1, 25);
 	treeMenu.AddDropdown("cull exponent", treeComputeConfig.cullExponent, {"none", "in out quad", "in out cubic", "quad"});
 	treeMenu.TriggerNode("Compute");
+	treeMenu.TriggerNode("Shader", UpdateTreeShaderData);
+	treeMenu.AddSlider("weight power", treeShaderConfig.weightPower, 0, 72);
+	treeMenu.AddSlider("uv scale", treeShaderConfig.uvScale, 0.0, 1.0);
+	treeMenu.AddSlider("glill normal mix", treeShaderConfig.glillNormalMix, 0.0, 1.0);
+	treeMenu.AddSlider("normal strength", treeShaderConfig.normalStrength, 0.0, 4.0);
+	treeMenu.AddSlider("texture lod", treeShaderConfig.textureLod, 0, 4);
+	treeMenu.TriggerNode("Shader");
 
 	UI::CreateContext(pass.GetRenderpass(), 1);
 
@@ -2059,7 +2107,8 @@ void End()
 	treeSetupDataBuffer.Destroy();
 	treeRenderDataBuffer.Destroy();
 	treeDrawBuffer.Destroy();
-	treeConfigBuffer.Destroy();
+	treeComputeConfigBuffer.Destroy();
+	treeShaderConfigBuffer.Destroy();
 
 	luminanceBuffer.Destroy();
 	luminanceVariablesBuffer.Destroy();
@@ -2103,6 +2152,9 @@ void End()
 	dry_diff.Destroy();
 	dry_norm.Destroy();
 	dry_arm.Destroy();
+	bark_diff.Destroy();
+	bark_norm.Destroy();
+	bark_arm.Destroy();
 
 	pass.Destroy();
 	postPass.Destroy();
@@ -2158,7 +2210,8 @@ int main(int argc, char** argv)
 	CameraConfig cameraConfig = Manager::GetCamera().GetConfig();
 	cameraConfig.near = 0.1;
 	cameraConfig.far = 50000.0;
-	cameraConfig.fov = 60;
+	//cameraConfig.fov = 60;
+	cameraConfig.fov = 75;
 	Manager::GetCamera().SetConfig(cameraConfig);
 
 	Manager::RegisterStartCall(Start);
