@@ -147,7 +147,8 @@ void main()
 	textureData.arm = vec3(1, 1, 0);
 	textureData.uv = triplanarUV;
 	textureData.baseNormal = _worldNormal;
-	textureData.weights = GetWeights(_worldNormal, 4.0);
+	//textureData.weights = GetWeights(_worldNormal, 4.0);
+	textureData.weights = GetWeights(_worldNormal, 72);
 
 	//if (steepness <= rockSteepness + steepnessHalfTransition)
 	float viewInter = clamp(viewDistance / 10000.0, 0.0, 1.0);
@@ -162,6 +163,15 @@ void main()
 	float snowHeightBlend = 1500.0;
 
 	float snow = pow(clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + snowHeight, 0.0, snowHeightBlend) / snowHeightBlend, 0.75);
+	//float coverSteepness = 0;
+	//float diff = 0;
+
+	//if (variables.terrainOffset.w > 0 && snow > 0.0)
+	//{
+	//	coverSteepness = mix(0.0, snowSteepness, snow);
+	//	diff = coverSteepness - steepness;
+	//}
+
 	float blendSteepness = rockSteepness;
 	
 	//if (steepness <= drySteepness)
@@ -293,6 +303,8 @@ void main()
 	{
 		float coverSteepness = mix(0.0, snowSteepness, snow);
 		float diff = coverSteepness - steepness;
+		//coverSteepness = mix(0.0, snowSteepness, snow);
+		//diff = coverSteepness - steepness;
 		if (diff > 0.05)
 		{
 			textureData.color = ToLinear(vec3(1.0));

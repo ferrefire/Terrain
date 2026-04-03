@@ -1598,11 +1598,13 @@ void Start()
 	//Manager::GetCamera().Move(point3D(3884.26, -1783.41, 11323.2));
 	//Manager::GetCamera().Move(point3D(0, 0, 0));
 	Manager::GetCamera().Move(point3D(1242.74, -1730.73, 5410.96));
+	//Manager::GetCamera().Move(point3D(10379.6, 362.507, 824.909));
 	//Manager::GetCamera().Rotate(point3D(12.8998, -149.9, 0.0));
 	//Manager::GetCamera().Rotate(point3D(26.0998, -151.9, 0.0));
 	//Manager::GetCamera().Rotate(point3D(4.89981, 306.799, 0.0));
 	//Manager::GetCamera().Rotate(point3D(-3.40032, 292.801, 0.0));
 	Manager::GetCamera().Rotate(point3D(6.39966, 343.702, 0.0));
+	//Manager::GetCamera().Rotate(point3D(31.1995, 454.71, 0.0));
 	//Manager::GetCamera().Move(point3D(7523.26, 643.268, 518.602));
 	//Manager::GetCamera().Move(point3D(0, 10, 0));
 
