@@ -59,14 +59,14 @@ struct TreeConfig
 class Tree
 {
 	private:
-		static shape32 GenerateBranch(TreeConfig config);
+		static shapePN32 GenerateBranch(TreeConfig config);
 
 	public:
 		static uint32_t regenerateOnChange;
 		static uint32_t randomOnRegenerate;
 
-		static shape32 GenerateTree(TreeConfig config);
+		static shapePN32 GenerateTree(TreeConfig config);
 
-		static void CreateTreeMenu(TreeConfig &config, mesh32 &treeMesh);
+		static void CreateTreeMenu(TreeConfig &config, meshPN32 &treeMesh);
 		
 };

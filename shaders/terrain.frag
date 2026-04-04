@@ -4,12 +4,22 @@
 
 #include "variables.glsl"
 
+struct TerrainShaderData
+{
+	uint debugMode;
+};
+
 layout(set = 1, binding = 0) uniform sampler2D rockTextures[3];
 layout(set = 1, binding = 1) uniform sampler2D grassTextures[3];
 layout(set = 1, binding = 2) uniform sampler2D dryTextures[3];
+layout(set = 1, binding = 3, std140) uniform terrainShaderData
+{
+	TerrainShaderData config;
+};
 
 layout(location = 0) in vec3 worldPosition;
 layout(location = 1) flat in int chunkLod;
+layout(location = 2) flat in int chunkId;
 //layout(location = 1) in vec3 worldNormal;
 
 layout(location = 0) out vec4 pixelColor;
@@ -317,13 +327,16 @@ void main()
 		//textureData.color = mix(textureData.color, vec3(1.0), snow);
 	}
 
-	if (variables.terrainOffset.w > 0)
+	if (config.debugMode == 3 || config.debugMode == 4)
 	{
 		float cascadeDebug = TerrainCascadeLod(worldPosition.xz);
-		if (variables.terrainOffset.w == 1 && mod(cascadeDebug, 1.0) > 0.99) {textureData.color = RandomColor(int(floor(cascadeDebug)));}
-		else if (variables.terrainOffset.w == 2) {textureData.color = RandomColor(int(floor(cascadeDebug)));}
+		if (config.debugMode == 3 && mod(cascadeDebug, 1.0) > 0.99) {textureData.color = RandomColor(int(floor(cascadeDebug)));}
+		else if (config.debugMode == 4) {textureData.color = RandomColor(int(floor(cascadeDebug)));}
 		//color = RandomColor(chunkLod);
 	}
+
+	if (config.debugMode == 5) {textureData.color = RandomColor(chunkLod);}
+	if (config.debugMode == 6) {textureData.color = RandomColor(chunkId);}
 
 	float roughness = textureData.arm.g;
 	float metallic = textureData.arm.b;
@@ -343,6 +356,7 @@ void main()
 	//vec3 ambient = ambientDiffuse * ao;
 	
 	float shadow = TerrainShadow(vec3(worldPosition.x, -maxHeight * 0.5, worldPosition.z));
+	if (shadow > 0.0) {shadow = min(shadow, SampleShadows(worldPosition));}
 	diffuse *= shadow;
 
 	vec3 illumination = TerrainIllumination(worldPosition, _worldNormal);
@@ -446,7 +460,8 @@ void main()
 	//if (snow > 0.999) finalColor = vec3(1.0);
 
 	pixelColor = vec4(finalColor, 1.0);
-	//pixelColor = vec4(normal * 0.5 + 0.5, 1.0);
+	if (config.debugMode == 1) {pixelColor = vec4(_worldNormal * 0.5 + 0.5, 1.0);}
+	if (config.debugMode == 2) {pixelColor = vec4(data.N * 0.5 + 0.5, 1.0);}
 	//pixelColor = vec4((texture(textures[1], worldPosition.xz * vec2(0.25, 0.25)).rgb ), 1.0);
 
 	//if (worldPosition.z > 0 && abs(worldPosition.x) < 100) pixelColor = vec4(0, 0, 1, 1);

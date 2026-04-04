@@ -14,9 +14,11 @@
 layout(triangles, fractional_odd_spacing, cw) in;
 //layout(triangles, fractional_even_spacing, cw) in;
 layout(location = 0) patch in int patchLod;
+layout(location = 1) patch in int patchId;
 
 layout(location = 0) out vec3 worldPosition;
 layout(location = 1) flat out int chunkLod;
+layout(location = 2) flat out int chunkId;
 //layout(location = 1) out vec3 worldNormal;
 
 #include "noise.glsl"
@@ -33,8 +35,8 @@ void main()
 
 	worldPosition = sampledPosition;
 
-
 	chunkLod = patchLod;
+	chunkId = patchId;
 
 	gl_Position = variables.projection * variables.view * vec4(worldPosition, 1.0);
 }

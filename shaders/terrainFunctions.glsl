@@ -11,6 +11,7 @@ layout(set = 0, binding = 1) uniform sampler2D heightmaps[cascadeCount];
 layout(set = 0, binding = 2) uniform sampler2D shadowmaps[3];
 layout(set = 0, binding = 3) uniform sampler2D glillMaps[3];
 layout(set = 0, binding = 4) uniform sampler2D skyMap;
+layout(set = 0, binding = 6) uniform sampler2DShadow shadowMap;
 
 #include "packing.glsl"
 #include "sampling.glsl"
@@ -353,7 +354,7 @@ float TerrainOcclusion(vec2 worldPosition)
 vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 {
 	vec3 skyWorldPosition = ((worldPosition + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale) + vec3(0.0, bottomRadius, 0.0);
-	//vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0), 0.0)) * cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	//vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale) + vec3(0.0, bottomRadius, 0.0);
 	vec3 up = normalize(skyWorldPosition);
 	float viewAngle = acos(dot(worldDirection, up));
 	float viewHeight = length(skyWorldPosition);
@@ -369,6 +370,34 @@ vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 	vec3 skyColor = texture(skyMap, skyUV).rgb * atmosphereData.defaultSkyPower * mix(atmosphereData.skyPower, 1.0, disInter);
 
 	return (skyColor);
+}
+
+float SampleShadows(vec3 worldPosition)
+{
+	vec4 lightClip = variables.shadowMatrix * vec4(worldPosition, 1.0);
+	vec3 ndc = lightClip.xyz / lightClip.w;
+
+	vec2 uv = ndc.xy * 0.5 + 0.5;
+	//float refDepth = ndc.z - bias;
+	float refDepth = ndc.z;
+
+	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || ndc.z < 0.0 || ndc.z > 1.0) {return (1.0);}
+
+	vec2 texelSize = 1.0 / vec2(textureSize(shadowMap, 0).xy);
+	float result = 0.0;
+
+	for (int x = 0; x <= 1; x++)
+	{
+		for (int y = 0; y <= 1; y++)
+		{
+			vec2 coords = uv + (vec2(x, y) - 0.5) * texelSize;
+			if (abs(coords.x - 0.5) > 0.5 || abs(coords.y - 0.5) > 0.5) continue;
+			result += texture(shadowMap, vec3(coords.xy, refDepth));
+		}
+	}
+	
+	return (result * 0.25);
+	//return (texture(shadowMap, vec3(uv, refDepth)));
 }
 
 #endif

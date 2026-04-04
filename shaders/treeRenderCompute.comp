@@ -43,6 +43,7 @@ struct TreeComputeConfig
 	int occlusionCulling;
 	int cullIterations;
 	uint cullExponent;
+	float cullStartDistance;
 };
 
 layout(set = 1, binding = 0, std430) buffer TreeSetupBuffer
@@ -127,12 +128,13 @@ void main()
 	float px = ix * config.treeSpacing;
 	float pz = iz * config.treeSpacing;
 
-	float dis = max(abs(px), abs(pz));
+	//float dis = max(abs(px), abs(pz));
+	float dis = SquaredDistance(currentTree.position.xyz, variables.viewPosition.xyz);
 	float cullOffset = 25.0;
 	if (lod == 2) {cullOffset = 15.0;}
 	else if (lod == 3) {cullOffset = 0.0;}
 
-	if (dis > 100.0)
+	if (dis > config.cullStartDistance * config.cullStartDistance)
 	{
 		if (InView(currentTree.position.xyz + vec3(0.0, 10.0, 0.0), vec3(0.0)) == 0) {return;}
 		else if (config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, cullOffset, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}

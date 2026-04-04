@@ -13,6 +13,7 @@ struct TreeShaderConfig
 	float glillNormalMix;
 	float normalStrength;
 	int textureLod;
+	float ambientStrength;
 };
 
 layout(set = 1, binding = 1) uniform sampler2D barkTextures[3];
@@ -70,6 +71,7 @@ void main()
 	//if (lod > 1) {shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z), 0, false);}
 	//else {shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z));}
 	float shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z));
+	if (shadow > 0.0) {shadow = min(shadow, SampleShadows(worldPosition));}
 	diffuse *= shadow;
 
 	//vec3 illumination = TerrainIllumination(worldPosition, normalize(mix(terrainValues.yzw, data.N, 0.5)));
@@ -79,7 +81,8 @@ void main()
 	//float occlusion = TerrainOcclusion(worldPosition.xz);
 	float occlusion = 1.0;
 
-	vec3 ambientDiffuse = 0.25 * (data.albedo * illumination.rgb);
+	//vec3 ambientDiffuse = 0.25 * (data.albedo * illumination.rgb);
+	vec3 ambientDiffuse = config.ambientStrength * (data.albedo * illumination.rgb);
 	vec3 ambient = ambientDiffuse * ao;
 
 	//float aoMult = pow(occlusion, 0.5);

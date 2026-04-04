@@ -16,9 +16,11 @@
 layout(location = 0) flat in int lod[];
 layout(location = 1) in float lodInter[];
 layout(location = 2) in vec4 vertTerrainValues[];
+layout(location = 3) flat in int id[];
 
 layout(vertices = 3) out;
 layout(location = 0) patch out int patchLod;
+layout(location = 1) patch out int patchId;
 
 #include "noise.glsl"
 #include "sampling.glsl"
@@ -162,7 +164,11 @@ void main()
     gl_TessLevelOuter[2] = tessLevel3;
     gl_TessLevelInner[0] = (tessLevel1 + tessLevel2 + tessLevel3) * (1.0 / 3.0);*/
 
-	if (gl_InvocationID == 0) patchLod = lod[0];
+	if (gl_InvocationID == 0)
+	{
+		patchLod = lod[0];
+		patchId = id[0];
+	}
 
 	gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
 }

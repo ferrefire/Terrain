@@ -28,6 +28,8 @@ layout(set = 1, binding = 7, std140) uniform PostData
 	uint aerialBlendMode;
 } postData;
 
+//layout(set = 1, binding = 8) uniform sampler2D screenTexture;
+
 
 layout(location = 0) in vec2 worldCoordinates;
 
@@ -275,6 +277,7 @@ void main()
 	vec3 mappedColor = acesTonemap(exposedColor);
 	
 	pixelColor = vec4(mappedColor, 1.0);
+	//if (postData.useLinearDepth == 1) {pixelColor = vec4(vec3(GetDepth(texture(screenTexture, worldCoordinates).r)), 1.0);}
 	//pixelColor = vec4(vec3(test), 1.0);
 	//pixelColor = vec4(texture(skyTexture, worldCoordinates).rgb, 1.0);
 }

@@ -5,7 +5,7 @@
 #include <random>
 #include <string>
 
-shape32 Tree::GenerateBranch(TreeConfig config)
+shapePN32 Tree::GenerateBranch(TreeConfig config)
 {
 	if (config.start)
 	{
@@ -35,7 +35,7 @@ shape32 Tree::GenerateBranch(TreeConfig config)
 
 	ShapeSettings shapeSettings{};
 	shapeSettings.resolution = resolution;
-	shape32 branch(ShapeType::Cylinder, shapeSettings);
+	shapePN32 branch(ShapeType::Cylinder, shapeSettings);
 
 	branch.SetColor(point3D(0.0));
 
@@ -75,7 +75,7 @@ shape32 Tree::GenerateBranch(TreeConfig config)
 		branchConfig.previousHorizontalAngle = branchConfig.horizontalAngle;
 		branchConfig.previousVerticalAngle = branchConfig.verticalAngle;
 		branchConfig.seed = intDistribution(generator);
-		shape32 segmentBranch = GenerateBranch(branchConfig);
+		shapePN32 segmentBranch = GenerateBranch(branchConfig);
 		point3D offset = point3D(0.0, config.length * 0.5, 0.0);
 		offset.Rotate(config.verticalAngle, Axis::x);
 		offset.Rotate(config.horizontalAngle, Axis::y);
@@ -126,7 +126,7 @@ shape32 Tree::GenerateBranch(TreeConfig config)
 			branchConfig.previousVerticalAngle = std::lerp(branchConfig.previousVerticalAngle, branchConfig.verticalAngle, config.verticalSplitStartAngle);
 		
 			branchConfig.seed = intDistribution(generator);
-			shape32 segmentBranch = GenerateBranch(branchConfig);
+			shapePN32 segmentBranch = GenerateBranch(branchConfig);
 			point3D offset = point3D(0.0, config.length * 0.5, 0.0);
 			offset.Rotate(config.verticalAngle, Axis::x);
 			offset.Rotate(config.horizontalAngle, Axis::y);
@@ -134,53 +134,18 @@ shape32 Tree::GenerateBranch(TreeConfig config)
 			branch.Join(segmentBranch);
 		}
 	}
-	else if (config.generateLeaves)
-	{
-		shape32 leaf1 = shape32(ShapeType::Quad);
-		shape32 leaf2 = shape32(ShapeType::Quad);
-		shape32 leaf3 = shape32(ShapeType::Quad);
-		leaf1.Scale(point3D(std::lerp(0.75, 1.25, floatDistribution(generator)), std::lerp(0.75, 1.25, floatDistribution(generator)), std::lerp(0.75, 1.25, floatDistribution(generator))));
-		leaf2.Scale(point3D(std::lerp(0.75, 1.25, floatDistribution(generator)), std::lerp(0.75, 1.25, floatDistribution(generator)), std::lerp(0.75, 1.25, floatDistribution(generator))));
-		leaf3.Scale(point3D(std::lerp(0.75, 1.25, floatDistribution(generator)), std::lerp(0.75, 1.25, floatDistribution(generator)), std::lerp(0.75, 1.25, floatDistribution(generator))));
-		leaf2.Rotate(-90.0, Axis::x);
-		leaf3.Rotate(-90.0, Axis::x);
-		leaf3.Rotate(90.0, Axis::z);
-		leaf1.CalculateNormal();
-		leaf2.CalculateNormal();
-		leaf3.CalculateNormal();
-		float xRotation = std::lerp(-180.0, 180.0, floatDistribution(generator));
-		float yRotation = std::lerp(-180.0, 180.0, floatDistribution(generator));
-		leaf1.Rotate(xRotation, Axis::x);
-		leaf1.Rotate(yRotation, Axis::y);
-		leaf1.SetColor(point3D(1.0));
-		leaf2.Rotate(xRotation, Axis::x);
-		leaf2.Rotate(yRotation, Axis::y);
-		leaf2.SetColor(point3D(1.0));
-		leaf3.Rotate(xRotation, Axis::x);
-		leaf3.Rotate(yRotation, Axis::y);
-		leaf3.SetColor(point3D(1.0));
-		point3D offset = point3D(0.0, config.length * 0.5, 0.0);
-		offset.Rotate(config.verticalAngle, Axis::x);
-		offset.Rotate(config.horizontalAngle, Axis::y);
-		leaf1.Move(offset);
-		leaf2.Move(offset);
-		leaf3.Move(offset);
-		branch.Join(leaf1);
-		branch.Join(leaf2);
-		branch.Join(leaf3);
-	}
 
 	return (branch);
 }
 
-shape32 Tree::GenerateTree(TreeConfig config)
+shapePN32 Tree::GenerateTree(TreeConfig config)
 {
-	shape32 result = GenerateBranch(config);
+	shapePN32 result = GenerateBranch(config);
 
 	return (result);
 }
 
-static mesh32 *mesh = nullptr;
+static meshPN32 *mesh = nullptr;
 static TreeConfig *treeConfig = nullptr;
 static std::string verticesCount = "0";
 static std::string indicesCount = "0";
@@ -192,7 +157,7 @@ void RegenerateMesh()
 	if (Tree::randomOnRegenerate) {treeConfig->seed = std::random_device{}();}
 
 	mesh->Destroy();
-	shape32 treeShape = Tree::GenerateTree(*treeConfig);
+	shapePN32 treeShape = Tree::GenerateTree(*treeConfig);
 	mesh->Create(treeShape);
 
 	verticesCount = std::to_string(mesh->GetVertices().size());
@@ -204,7 +169,7 @@ void OnValueChanged()
 	if (Tree::regenerateOnChange == 1) {RegenerateMesh();}
 }
 
-void Tree::CreateTreeMenu(TreeConfig &config, mesh32 &treeMesh)
+void Tree::CreateTreeMenu(TreeConfig &config, meshPN32 &treeMesh)
 {
 	treeConfig = &config;
 	mesh = &treeMesh;

@@ -14,6 +14,7 @@ layout(location = 0) in vec3 localPosition;
 layout(location = 0) flat out int lod;
 layout(location = 1) out float lodInter;
 layout(location = 2) out vec4 vertTerrainValues;
+layout(location = 3) flat out int id;
 
 #include "noise.glsl"
 #include "sampling.glsl"
@@ -42,6 +43,8 @@ void main()
 	//lod = gl_InstanceIndex;
 	lod = 0;
 	lodInter = 0.0;
+
+	id = gl_InstanceIndex;
 
 	int chunkLod = 0;
 	if (gl_InstanceIndex > 0)
