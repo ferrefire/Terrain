@@ -26,7 +26,7 @@ struct alignas(16) UniformData
 {
 	mat4 view;
 	mat4 projection;
-	mat4 shadowMatrix;
+	mat4 shadowMatrices[2];
 	point4D viewPosition;
 	point4D viewDirection;
 	point4D lightDirection;
@@ -170,7 +170,11 @@ struct alignas(16) TreeComputeConfig
 	uint32_t cullExponent = 2;
 	float cullStartDistance = 100.0;
 
-	//uint32_t padding[1];
+	int32_t lod0ShadowRadius = 6;
+	int32_t lod1ShadowRadius = 15;
+	int32_t lod2ShadowRadius = 38;
+
+	uint32_t padding[1];
 };
 
 struct alignas(16) TreeShaderConfig
@@ -266,7 +270,9 @@ Pipeline treeRenderComputePipeline;
 Descriptor treeComputeDescriptor;
 Buffer treeSetupDataBuffer;
 Buffer treeRenderDataBuffer;
+Buffer treeShadowRenderDataBuffer;
 Buffer treeDrawBuffer;
+Buffer treeShadowDrawBuffer;
 Buffer treeComputeConfigBuffer;
 
 TreeShaderConfig treeShaderConfig{};
@@ -337,10 +343,14 @@ Point<int, 3> aerialRes = Point<int, 3>(64, 64, 32);
 int treeComputeBase = 512;
 int treeCount = treeComputeBase * treeComputeBase;
 
-uint32_t terrainEnabled = true;
+uint32_t terrainEnabled = 1;
 
-uint32_t treesEnabled = true;
+uint32_t treesEnabled = 1;
 TreeConfig treeMeshConfig{};
+
+uint32_t shadowsEnabled = 1;
+float shadowDistance = 35.0;
+float shadowDepthMultiplier = 16.0;
 
 static bool allMapsComputed = false;
 
@@ -667,13 +677,29 @@ void RenderPre(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 
 void RenderShadows(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
-	if (treesEnabled)
+	if (shadowsEnabled && treesEnabled)
 	{
 		frameDescriptor.BindDynamic(0, commandBuffer, treeShadowPipeline);
 		treeDescriptor.Bind(0, commandBuffer, treeShadowPipeline);
 		treeShadowPipeline.Bind(commandBuffer);
 		treeMesh.Bind(commandBuffer);
-		vkCmdDrawIndexedIndirect(commandBuffer, treeDrawBuffer.GetBuffer(), 0, 2, sizeof(VkDrawIndexedIndirectCommand));
+		uint32_t pc = 0;
+		vkCmdPushConstants(commandBuffer, treeShadowPipeline.GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
+		vkCmdDrawIndexedIndirect(commandBuffer, treeShadowDrawBuffer.GetBuffer(), 0 * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+	}
+}
+
+void RenderShadows2(VkCommandBuffer commandBuffer, uint32_t frameIndex)
+{
+	if (shadowsEnabled && treesEnabled)
+	{
+		frameDescriptor.BindDynamic(0, commandBuffer, treeShadowPipeline);
+		treeDescriptor.Bind(0, commandBuffer, treeShadowPipeline);
+		treeShadowPipeline.Bind(commandBuffer);
+		treeMesh.Bind(commandBuffer);
+		uint32_t pc = 1;
+		vkCmdPushConstants(commandBuffer, treeShadowPipeline.GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
+		vkCmdDrawIndexedIndirect(commandBuffer, treeShadowDrawBuffer.GetBuffer(), 1 * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
 	}
 }
 
@@ -830,7 +856,7 @@ void Start()
 	SubpassConfig shadowSubpass0{};
 	shadowSubpass0.AddDepthReference(0);
 
-	VkSubpassDependency shadowDependency = 
+	VkSubpassDependency shadowDependency0 = 
 	{
     	.srcSubpass = 0,
     	.dstSubpass = VK_SUBPASS_EXTERNAL,
@@ -840,27 +866,32 @@ void Start()
     	.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
 		.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
 	};
-	shadowSubpass0.AddDependency(shadowDependency);
+
+	shadowSubpass0.AddDependency(shadowDependency0);
 
 	shadowPass.AddSubpass(shadowSubpass0);
 
-	shadowPass.Create({4096, 4096});
+	shadowPass.Create({2048, 2048}, 2);
 
-	PassInfo shadowPassInfo{};
-	shadowPassInfo.pass = &shadowPass;
-	//shadowPassInfo.useWindowExtent = true;
-	shadowPassInfo.useWindowExtent = false;
-	shadowPassInfo.viewport.x = 0.0f;
-	shadowPassInfo.viewport.y = 0.0f;
-	shadowPassInfo.viewport.width = 4096;
-	shadowPassInfo.viewport.height = 4096;
-	shadowPassInfo.viewport.minDepth = 0.0f;
-	shadowPassInfo.viewport.maxDepth = 1.0f;
-	shadowPassInfo.scissor.offset = {0, 0};
-	shadowPassInfo.scissor.extent.width = 4096;
-	shadowPassInfo.scissor.extent.height = 4096;
+	PassInfo shadowPass0Info{};
+	shadowPass0Info.pass = &shadowPass;
+	shadowPass0Info.useWindowExtent = false;
+	shadowPass0Info.viewport.x = 0.0f;
+	shadowPass0Info.viewport.y = 0.0f;
+	shadowPass0Info.viewport.width = 2048;
+	shadowPass0Info.viewport.height = 2048;
+	shadowPass0Info.viewport.minDepth = 0.0f;
+	shadowPass0Info.viewport.maxDepth = 1.0f;
+	shadowPass0Info.scissor.offset = {0, 0};
+	shadowPass0Info.scissor.extent.width = 2048;
+	shadowPass0Info.scissor.extent.height = 2048;
+	shadowPass0Info.renderIndex = 0;
 
-	Renderer::AddPass(shadowPassInfo);
+	PassInfo shadowPass1Info = shadowPass0Info;
+	shadowPass1Info.renderIndex = 1;
+
+	Renderer::AddPass(shadowPass0Info);
+	Renderer::AddPass(shadowPass1Info);
 
 	Renderer::AddPass(passInfo);
 
@@ -1196,6 +1227,7 @@ void Start()
 		VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 	frameDescriptorConfigs[6].type = DescriptorType::CombinedSampler;
 	frameDescriptorConfigs[6].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+	frameDescriptorConfigs[6].count = 2;
 	frameDescriptor.Create(0, frameDescriptorConfigs);
 
 	std::vector<DescriptorConfig> materialDescriptorConfigs(4);
@@ -1226,7 +1258,7 @@ void Start()
 		frameDescriptor.Update(i, 3, Utilities::Pointerize(glillImages));
 		frameDescriptor.Update(i, 4, skyImage);
 		frameDescriptor.Update(i, 5, atmosphereBuffer);
-		frameDescriptor.Update(i, 6, *shadowPass.GetAttachmentImage(0, i));
+		frameDescriptor.Update(i, 6, {shadowPass.GetAttachmentImage(0, 0), shadowPass.GetAttachmentImage(0, 1)});
 	}
 
 	materialDescriptor.GetNewSet();
@@ -1295,10 +1327,9 @@ void Start()
 	treeRenderDataBufferConfig.size = sizeof(TreeData) * treeCount;
 	treeRenderDataBuffer.Create(treeRenderDataBufferConfig);
 
-	//for (int i = 0; i < Renderer::GetFrameCount(); i++)
-	//{
-	//	treeDataBuffers[i].Create(treeDataBufferConfig);
-	//}
+	BufferConfig treeShadowRenderDataBufferConfig = Buffer::StorageConfig();
+	treeShadowRenderDataBufferConfig.size = sizeof(TreeData) * treeCount;
+	treeShadowRenderDataBuffer.Create(treeShadowRenderDataBufferConfig);
 
 	BufferConfig treeComputeConfigBufferConfig{};
 	treeComputeConfigBufferConfig.mapped = true;
@@ -1310,32 +1341,27 @@ void Start()
 	treeShaderConfigBufferConfig.size = sizeof(TreeShaderConfig);
 	treeShaderConfigBuffer.Create(treeShaderConfigBufferConfig, &treeShaderConfig);
 
-	//treeDrawBuffers.resize(Renderer::GetFrameCount());
-
-	//VkDrawIndexedIndirectCommand drawCommand{};
-	//drawCommand.indexCount = treeMeshLod0.GetIndices().size();
-	//drawCommand.instanceCount = 0;
-	//drawCommand.firstIndex = 0;
-	//drawCommand.vertexOffset = 0;
-	//drawCommand.firstInstance = 0;
-
 	BufferConfig treeDrawBufferConfig = Buffer::DrawCommandConfig();
 	treeDrawBufferConfig.size = sizeof(VkDrawIndexedIndirectCommand) * drawCommands.size();
 	treeDrawBuffer.Create(treeDrawBufferConfig, drawCommands.data());
-	//for (int i = 0; i < Renderer::GetFrameCount(); i++)
-	//{
-	//	treeDrawBuffers[i].Create(treeDrawBufferConfig, &drawCommand);
-	//}
 
-	std::vector<DescriptorConfig> treeComputeDescriptorConfigs(4);
+	BufferConfig treeShadowDrawBufferConfig = Buffer::DrawCommandConfig();
+	treeShadowDrawBufferConfig.size = sizeof(VkDrawIndexedIndirectCommand) * drawCommands.size();
+	treeShadowDrawBuffer.Create(treeShadowDrawBufferConfig, drawCommands.data());
+
+	std::vector<DescriptorConfig> treeComputeDescriptorConfigs(6);
 	treeComputeDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
 	treeComputeDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	treeComputeDescriptorConfigs[1].type = DescriptorType::StorageBuffer;
 	treeComputeDescriptorConfigs[1].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	treeComputeDescriptorConfigs[2].type = DescriptorType::StorageBuffer;
 	treeComputeDescriptorConfigs[2].stages = VK_SHADER_STAGE_COMPUTE_BIT;
-	treeComputeDescriptorConfigs[3].type = DescriptorType::UniformBuffer;
+	treeComputeDescriptorConfigs[3].type = DescriptorType::StorageBuffer;
 	treeComputeDescriptorConfigs[3].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	treeComputeDescriptorConfigs[4].type = DescriptorType::StorageBuffer;
+	treeComputeDescriptorConfigs[4].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	treeComputeDescriptorConfigs[5].type = DescriptorType::UniformBuffer;
+	treeComputeDescriptorConfigs[5].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	treeComputeDescriptor.Create(1, treeComputeDescriptorConfigs);
 
 	//treeComputeDescriptor.GetNewSetDynamic();
@@ -1345,23 +1371,28 @@ void Start()
 	treeComputeDescriptor.GetNewSet();
 	treeComputeDescriptor.Update(0, 0, treeSetupDataBuffer);
 	treeComputeDescriptor.Update(0, 1, treeRenderDataBuffer);
-	treeComputeDescriptor.Update(0, 2, treeDrawBuffer);
-	treeComputeDescriptor.Update(0, 3, treeComputeConfigBuffer);
+	treeComputeDescriptor.Update(0, 2, treeShadowRenderDataBuffer);
+	treeComputeDescriptor.Update(0, 3, treeDrawBuffer);
+	treeComputeDescriptor.Update(0, 4, treeShadowDrawBuffer);
+	treeComputeDescriptor.Update(0, 5, treeComputeConfigBuffer);
 
-	std::vector<DescriptorConfig> treeDescriptorConfigs(3);
+	std::vector<DescriptorConfig> treeDescriptorConfigs(4);
 	treeDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
 	treeDescriptorConfigs[0].stages = VK_SHADER_STAGE_VERTEX_BIT;
-	treeDescriptorConfigs[1].type = DescriptorType::CombinedSampler;
-	treeDescriptorConfigs[1].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
-	treeDescriptorConfigs[1].count = 3;
-	treeDescriptorConfigs[2].type = DescriptorType::UniformBuffer;
+	treeDescriptorConfigs[1].type = DescriptorType::StorageBuffer;
+	treeDescriptorConfigs[1].stages = VK_SHADER_STAGE_VERTEX_BIT;
+	treeDescriptorConfigs[2].type = DescriptorType::CombinedSampler;
 	treeDescriptorConfigs[2].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+	treeDescriptorConfigs[2].count = 3;
+	treeDescriptorConfigs[3].type = DescriptorType::UniformBuffer;
+	treeDescriptorConfigs[3].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 	treeDescriptor.Create(1, treeDescriptorConfigs);
 
 	treeDescriptor.GetNewSet();
 	treeDescriptor.Update(0, 0, treeRenderDataBuffer);
-	treeDescriptor.Update(0, 1, {&bark_diff, &bark_norm, &bark_arm});
-	treeDescriptor.Update(0, 2, treeShaderConfigBuffer);
+	treeDescriptor.Update(0, 1, treeShadowRenderDataBuffer);
+	treeDescriptor.Update(0, 2, {&bark_diff, &bark_norm, &bark_arm});
+	treeDescriptor.Update(0, 3, treeShaderConfigBuffer);
 
 	std::vector<DescriptorConfig> retrieveDescriptorConfigs(1);
 	retrieveDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
@@ -1404,7 +1435,7 @@ void Start()
 	postBuffer.Create(postBufferConfig, &postData);
 
 	int j = 0;
-	std::vector<DescriptorConfig> postDescriptorConfigs(8);
+	std::vector<DescriptorConfig> postDescriptorConfigs(9);
 	//postDescriptorConfigs[j].type = DescriptorType::CombinedSampler;
 	//postDescriptorConfigs[j++].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 	postDescriptorConfigs[j].type = DescriptorType::InputAttatchment;
@@ -1423,8 +1454,8 @@ void Start()
 	postDescriptorConfigs[j++].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 	postDescriptorConfigs[j].type = DescriptorType::UniformBuffer;
 	postDescriptorConfigs[j++].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
-	//postDescriptorConfigs[j].type = DescriptorType::CombinedSampler;
-	//postDescriptorConfigs[j++].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+	postDescriptorConfigs[j].type = DescriptorType::CombinedSampler;
+	postDescriptorConfigs[j++].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 	postDescriptor.Create(1, postDescriptorConfigs);
 
 	for (int i = 0; i < Renderer::GetFrameCount(); i++)
@@ -1441,7 +1472,7 @@ void Start()
 		postDescriptor.Update(i, k++, aerialImage);
 		postDescriptor.Update(i, k++, luminanceBuffer);
 		postDescriptor.Update(i, k++, postBuffer);
-		//postDescriptor.Update(i, k++, *shadowPass.GetAttachmentImage(0, i));
+		postDescriptor.Update(i, k++, *shadowPass.GetAttachmentImage(0, i));
 	}
 
 	std::vector<DescriptorConfig> atmosphereDescriptorConfigs(4);
@@ -1665,18 +1696,24 @@ void Start()
 	treePipelineConfig.subpass = 0;
 	treePipeline.Create(treePipelineConfig);
 
+	VkPushConstantRange pc{};
+	pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	pc.offset = 0;
+	pc.size = sizeof(uint32_t);
+
 	PipelineConfig treeShadowPipelineConfig = Pipeline::DefaultConfig();
 	treeShadowPipelineConfig.shader = "treeShadow";
 	treeShadowPipelineConfig.vertexInfo = treeMesh.GetVertexInfo();
 	treeShadowPipelineConfig.renderpass = shadowPass.GetRenderpass();
 	treeShadowPipelineConfig.type = PipelineType::Graphics;
 	treeShadowPipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), treeDescriptor.GetLayout() };
+	treeShadowPipelineConfig.pushConstants = { pc };
 	treeShadowPipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
 	treeShadowPipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 	treeShadowPipelineConfig.subpass = 0;
 	treeShadowPipelineConfig.rasterization.depthBiasEnable = VK_TRUE;
-	treeShadowPipelineConfig.rasterization.depthBiasConstantFactor = 3.0;
-	treeShadowPipelineConfig.rasterization.depthBiasSlopeFactor = 2.0;
+	treeShadowPipelineConfig.rasterization.depthBiasConstantFactor = 4.0;
+	treeShadowPipelineConfig.rasterization.depthBiasSlopeFactor = 3.0;
 	treeShadowPipeline.Create(treeShadowPipelineConfig);
 
 	//Manager::GetCamera().Move(point3D(-5000, 2500, 5000));
@@ -1846,6 +1883,11 @@ void Start()
 	treeMenu.AddSlider("ambient strength", treeShaderConfig.ambientStrength, 0.0, 1.0);
 	treeMenu.TriggerNode("Shader");
 
+	Menu& shadowMenu = UI::NewMenu("Shadows");
+	shadowMenu.AddCheckbox("shadows enabled", shadowsEnabled);
+	shadowMenu.AddSlider("distance", shadowDistance, 0.0, 250.0);
+	shadowMenu.AddSlider("depth multiplier", shadowDepthMultiplier, 0.0, 16.0);
+
 	UI::CreateContext(pass.GetRenderpass(), 1);
 
 	Manager::RegisterResizeCall(Resize);
@@ -1853,8 +1895,8 @@ void Start()
 	//Improve renderer to allow call registering for specific subpasses!
 
 	//Renderer::RegisterCall(0, RenderPre);
-	Renderer::RegisterCall(1, Render);
-	Renderer::RegisterCall(1, UI::Render);
+	Renderer::RegisterCall(2, Render);
+	Renderer::RegisterCall(2, UI::Render);
 	//Renderer::RegisterCall(1, RenderPost);
 	//Renderer::RegisterCall(0, BlitFrameBuffer, true);
 	Renderer::RegisterCall(0, ComputeLuminance, true);
@@ -1863,8 +1905,14 @@ void Start()
 	Renderer::RegisterCall(0, ComputeTrees, true);
 
 	Renderer::RegisterCall(0, RenderShadows);
+	Renderer::RegisterCall(1, RenderShadows2);
 
-	//std::cout << "rfc: " << Manager::GetSwapchain().GetFrameCount() << std::endl;
+	std::cout << "rfc: " << Manager::GetSwapchain().GetFrameCount() << std::endl;
+
+	//mat4 test = mat4::Translation(point3D(10, 5, 20));
+	//std:: cout << "test: " << test << std::endl << std::endl;
+	//mat4 testi = test.Inversed();
+	//std:: cout << "testi: " << testi << std::endl;
 }
 
 void Compute(int lod)
@@ -1900,6 +1948,134 @@ void Compute(int lod)
 	computeCommands[Renderer::GetCurrentFrame()].Submit();
 }
 
+float minF(float a, float b)
+{
+	if (a < b) {return (a);}
+	return (b);
+}
+
+float maxF(float a, float b)
+{
+	if (a > b) {return (a);}
+	return (b);
+}
+
+mat4 ComputeShadowMatrix(float near, float far)
+{
+	//float distance = 75.0;
+
+	CameraConfig cc = Manager::GetCamera().GetConfig();
+	point3D pos = Manager::GetCamera().GetPosition();
+	mat4 proj = mat4::Projection(cc.fov, Manager::GetCamera().GetAspect(), near, far);
+	//mat4 view = mat4::Look(point3D(0.0), Manager::GetCamera().GetDirection(), point3D(0, 1, 0));
+	mat4 invPV = (proj * Manager::GetCamera().GetView()).Inversed();
+
+	std::vector<point4D> corners;
+	corners.resize(8);
+	corners[0] = invPV * point4D(-1.0, -1.0, 0.0, 1.0);
+	corners[1] = invPV * point4D(1.0, -1.0, 0.0, 1.0);
+	corners[2] = invPV * point4D(1.0, 1.0, 0.0, 1.0);
+	corners[3] = invPV * point4D(-1.0, 1.0, 0.0, 1.0);
+	corners[4] = invPV * point4D(-1.0, -1.0, 1.0, 1.0);
+	corners[5] = invPV * point4D(1.0, -1.0, 1.0, 1.0);
+	corners[6] = invPV * point4D(1.0, 1.0, 1.0, 1.0);
+	corners[7] = invPV * point4D(-1.0, 1.0, 1.0, 1.0);
+
+	point3D center = point3D(0.0);
+	for (int i = 0; i < 8; i++)
+	{
+		corners[i] /= corners[i].w();
+		//corners[i].x() = floor(corners[i].x() * 0.1) * 10.0;
+		//corners[i].y() = floor(corners[i].y() * 0.1) * 10.0;
+		//corners[i].z() = floor(corners[i].z() * 0.1) * 10.0;
+		center += corners[i];
+	}
+	center *= 0.125;
+
+	float radius = 0.0;
+	for (int i = 0; i < 8; i++) {radius = maxF(radius, (corners[i] - center).Length());}
+
+	radius = std::ceil(radius * 16.0) / 16.0;
+
+	float extent = radius * 2.0;
+	float texelSize = extent / 4096.0;
+
+	//float step = (distance / 4096.0);
+	//center.x() = floor(center.x() * 0.1) * 10.0;
+	//center.y() = floor(center.y() * 0.1) * 10.0;
+	//center.z() = floor(center.z() * 0.1) * 10.0;
+
+	//center += pos;
+
+	//center += pos;
+
+	//point3D front = point3D(data.lightDirection.Unitized() * -1).Unitized();
+	//point3D side = point3D::Cross(front, point3D(0.0, 1.0, 0.0)).Unitized();
+	//point3D up = point3D::Cross(side, front).Unitized();
+
+	point3D eye = center + (point3D(data.lightDirection).Unitized() * far * (0.5 * shadowDepthMultiplier));
+
+	mat4 shadowView = mat4::Look(eye, center, point3D(0.0, 1.0, 0.0));
+	//mat4 shadowView = mat4::Look(eye, eye + front, up);
+
+	point3D centerSV = shadowView * point4D(center, 1.0);
+
+	centerSV.x() = std::floor(centerSV.x() / texelSize) * texelSize;
+	centerSV.y() = std::floor(centerSV.y() / texelSize) * texelSize;
+
+	float left = centerSV.x() - radius;
+	float right = centerSV.x() + radius;
+	float bottom = centerSV.y() - radius;
+	float top = centerSV.y() + radius;
+
+	for (int i = 0; i < 8; i++) {corners[i] = shadowView * corners[i];}
+
+	float minX = corners[0].x();
+	float maxX = corners[0].x();
+	float minY = corners[0].y();
+	float maxY = corners[0].y();
+	float minZ = corners[0].z();
+	float maxZ = corners[0].z();
+
+	for (int i = 1; i < 8; i++)
+	{
+		minX = minF(minX, corners[i].x());
+		maxX = maxF(maxX, corners[i].x());
+		minY = minF(minY, corners[i].y());
+		maxY = maxF(maxY, corners[i].y());
+		minZ = minF(minZ, corners[i].z());
+		maxZ = maxF(maxZ, corners[i].z());
+	}
+
+	/*if (Time::newSecond)
+	{
+		//std::cout << "mid: " << (invPV * point4D(0.0, 0.0, 0.0, 1.0)) << std::endl;
+		std::cout << "cen: " << center << std::endl;
+		std::cout << "diff: " << center - pos << std::endl;
+		std::cout << "minX: " << minX << std::endl;
+		std::cout << "maxX: " << maxX << std::endl;
+		std::cout << "minY: " << minY << std::endl;
+		std::cout << "maxY: " << maxY << std::endl;
+		std::cout << "minZ: " << minZ << std::endl;
+		std::cout << "maxZ: " << maxZ << std::endl << std::endl;
+	}*/
+
+	float xb = maxX - minX;
+	float yb = maxY - minY;
+	float zb = maxZ - minZ;
+
+	//mat4 shadowOrtho = mat4::Orthographic(minX, maxX, minY, maxY, minZ, maxZ);
+	mat4 shadowOrtho = mat4::Orthographic(-xb * 0.5, xb * 0.5, -yb * 0.5, yb * 0.5, 0.0, zb * shadowDepthMultiplier);
+	//mat4 shadowOrtho = mat4::Orthographic(centerSV.x() + minX, centerSV.x() + maxX, centerSV.y() + minY, centerSV.y() + maxY, centerSV.z() + minZ, centerSV.z() + maxZ);
+	//mat4 shadowOrtho = mat4::Orthographic(-radius, radius, -radius, radius, 0.0, zb * 2.0);
+	//mat4 shadowOrtho = mat4::Orthographic(left, right, bottom, top, 0.0, zb * 2.0);
+	//mat4 shadowOrtho = mat4::Orthographic(minX, maxX, minY, maxY, 0.0, maxZ);
+
+	mat4 result = (shadowOrtho * shadowView);
+
+	return (result);
+}
+
 static bool flying = true;
 
 void Frame()
@@ -1931,7 +2107,8 @@ void Frame()
 		//cameraConfig.speed = 4000.0f;
 		//Manager::GetCamera().SetConfig(cameraConfig);
 
-		std::cout << "Camera position: " << Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0 << std::endl;
+		//std::cout << "Camera position: " << Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0 << std::endl;
+		std::cout << "Camera position: " << Manager::GetCamera().GetPosition() << std::endl;
 		std::cout << "Camera Rotation: " << Manager::GetCamera().GetAngles() << std::endl;
 		std::cout << "Camera Direction: " << Manager::GetCamera().GetDirection() << std::endl;
 		std::cout << "Light direction: " << data.lightDirection << std::endl;
@@ -2000,7 +2177,7 @@ void Frame()
 
 	Manager::GetCamera().UpdateView();
 
-	point3D pos = Manager::GetCamera().GetPosition() + data.lightDirection.Unitized() * 250.0;
+	/*point3D pos = Manager::GetCamera().GetPosition() + data.lightDirection.Unitized() * 250.0;
 	//float step = (300.0 / 2048.0);
 	//pos.x() = floor(pos.x() / step) * step;
 	//pos.y() = floor(pos.y() / step) * step;
@@ -2018,13 +2195,16 @@ void Frame()
 	
 	mat4 shadowView = mat4::Look(pos, pos + front, up);
 
-	mat4 shadowOrtho = mat4::Orthographic(-250.0, 250.0, -250.0, 250.0, 0.0, 500.0);
+	mat4 shadowOrtho = mat4::Orthographic(-250.0, 250.0, -250.0, 250.0, 0.0, 500.0);*/
 
 	data.view = Manager::GetCamera().GetView();
 	data.projection = Manager::GetCamera().GetProjection();
-	data.shadowMatrix = shadowOrtho * shadowView;
+	//data.shadowMatrix = shadowOrtho * shadowView;
 	data.viewPosition = Manager::GetCamera().GetPosition();
 	data.viewDirection = Manager::GetCamera().GetDirection();
+
+	data.shadowMatrices[0] = ComputeShadowMatrix(0.1, shadowDistance);
+	data.shadowMatrices[1] = ComputeShadowMatrix(shadowDistance, shadowDistance * 5.0);
 
 	data.resolution.x() = Manager::GetCamera().GetConfig().width;
 	data.resolution.y() = Manager::GetCamera().GetConfig().height;
@@ -2191,7 +2371,9 @@ void End()
 	retrieveBuffer.Destroy();
 	treeSetupDataBuffer.Destroy();
 	treeRenderDataBuffer.Destroy();
+	treeShadowRenderDataBuffer.Destroy();
 	treeDrawBuffer.Destroy();
+	treeShadowDrawBuffer.Destroy();
 	treeComputeConfigBuffer.Destroy();
 	treeShaderConfigBuffer.Destroy();
 

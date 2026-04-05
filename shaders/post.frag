@@ -28,7 +28,7 @@ layout(set = 1, binding = 7, std140) uniform PostData
 	uint aerialBlendMode;
 } postData;
 
-//layout(set = 1, binding = 8) uniform sampler2D screenTexture;
+layout(set = 1, binding = 8) uniform sampler2DShadow screenTexture;
 
 
 layout(location = 0) in vec2 worldCoordinates;
@@ -120,7 +120,7 @@ vec4 GetAerial(float depth, vec3 pixelWorldPos)
 
 	float realDepth = length(pixelWorldPos - variables.viewPosition.xyz);
 
-	if (postData.useLinearDepth == 1) {realDepth = LinearizeDepth(depth);}
+	//if (postData.useLinearDepth == 1) {realDepth = LinearizeDepth(depth);}
 	float slice = realDepth * atmosphereData.cameraScale * (1.0 / 4.0); // Maybe use 0.1 as cameraScale
     float weight = 1.0;
 
@@ -277,7 +277,7 @@ void main()
 	vec3 mappedColor = acesTonemap(exposedColor);
 	
 	pixelColor = vec4(mappedColor, 1.0);
-	//if (postData.useLinearDepth == 1) {pixelColor = vec4(vec3(GetDepth(texture(screenTexture, worldCoordinates).r)), 1.0);}
+	if (postData.useLinearDepth == 1) {pixelColor = vec4(vec3(texture(screenTexture, vec3(worldCoordinates, 1.0)).r), 1.0);}
 	//pixelColor = vec4(vec3(test), 1.0);
 	//pixelColor = vec4(texture(skyTexture, worldCoordinates).rgb, 1.0);
 }

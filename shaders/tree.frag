@@ -16,9 +16,9 @@ struct TreeShaderConfig
 	float ambientStrength;
 };
 
-layout(set = 1, binding = 1) uniform sampler2D barkTextures[3];
+layout(set = 1, binding = 2) uniform sampler2D barkTextures[3];
 
-layout(set = 1, binding = 2, std140) uniform treeShaderConfig
+layout(set = 1, binding = 3, std140) uniform treeShaderConfig
 {
 	TreeShaderConfig config;
 };

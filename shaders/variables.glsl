@@ -8,7 +8,7 @@ layout(set = 0, binding = 0, std140) uniform Variables
 {
 	mat4 view;
 	mat4 projection;
-	mat4 shadowMatrix;
+	mat4 shadowMatrices[2];
 	vec4 viewPosition;
 	vec4 viewDirection;
 	vec4 lightDirection;

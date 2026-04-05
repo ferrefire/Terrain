@@ -42,6 +42,10 @@ struct TreeComputeConfig
 	int occlusionCulling;
 	int cullIterations;
 	uint cullExponent;
+
+	int lod0ShadowRadius;
+	int lod1ShadowRadius;
+	int lod2ShadowRadius;
 };
 
 layout(set = 1, binding = 0, std430) buffer TreeSetupBuffer
@@ -54,12 +58,12 @@ layout(set = 1, binding = 1, std430) buffer TreeRenderBuffer
 	TreeData renderData[];
 };
 
-layout(set = 1, binding = 2, std430) buffer DrawBuffer
+layout(set = 1, binding = 3, std430) buffer DrawBuffer
 {
 	DrawCommand drawCommands[];
 };
 
-layout(set = 1, binding = 3, std140) uniform ComputeConfig
+layout(set = 1, binding = 5, std140) uniform ComputeConfig
 {
 	TreeComputeConfig config;
 };

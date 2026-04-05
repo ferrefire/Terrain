@@ -8,10 +8,10 @@ const float shadowResolution = 256.0;
 const float shadowTexelSize = 1.0 / shadowResolution;
 
 layout(set = 0, binding = 1) uniform sampler2D heightmaps[cascadeCount];
-layout(set = 0, binding = 2) uniform sampler2D shadowmaps[3];
+layout(set = 0, binding = 2) uniform sampler2D terrainShadowMaps[3];
 layout(set = 0, binding = 3) uniform sampler2D glillMaps[3];
 layout(set = 0, binding = 4) uniform sampler2D skyMap;
-layout(set = 0, binding = 6) uniform sampler2DShadow shadowMap;
+layout(set = 0, binding = 6) uniform sampler2DShadow shadowMaps[2];
 
 #include "packing.glsl"
 #include "sampling.glsl"
@@ -142,7 +142,7 @@ float TerrainShadow(vec3 worldPosition)
 		if (abs(uv.x) < 0.5 && abs(uv.y) < 0.5)
 		{
 			vec3 sampleUV = vec3(uv.x, heightUV, uv.y) + 0.5;
-			float value = 1.0 - BlendSample(shadowmaps[nonuniformEXT(i)], sampleUV, shadowTexelSize);
+			float value = 1.0 - BlendSample(terrainShadowMaps[nonuniformEXT(i)], sampleUV, shadowTexelSize);
 			
 			if (i < 2)
 			{
@@ -186,11 +186,11 @@ float TerrainShadow(vec3 worldPosition, int lod, bool blended)
 
 			if (blended)
 			{
-				value = 1.0 - BlendSample(shadowmaps[nonuniformEXT(i)], sampleUV, shadowTexelSize);
+				value = 1.0 - BlendSample(terrainShadowMaps[nonuniformEXT(i)], sampleUV, shadowTexelSize);
 			}
 			else
 			{
-				vec2 s0 = textureLod(shadowmaps[nonuniformEXT(i)], sampleUV.xz, 0.0).rg;
+				vec2 s0 = textureLod(terrainShadowMaps[nonuniformEXT(i)], sampleUV.xz, 0.0).rg;
 				float d0 = clamp((uv.y - s0.g) * 5000.0, 0.0, 10.0) * 0.1;
 				float v0 = mix(s0.r, 1.0, d0);
 				value = 1.0 - v0;
@@ -232,7 +232,7 @@ vec2 TerrainShadowValue(vec3 worldPosition, int lod)
 	if (abs(uv.x) < 0.5 && abs(uv.y) < 0.5)
 	{
 		vec3 sampleUV = vec3(uv.x, heightUV, uv.y) + 0.5;
-		vec2 s0 = textureLod(shadowmaps[nonuniformEXT(i)], sampleUV.xz, 0.0).rg;
+		vec2 s0 = textureLod(terrainShadowMaps[nonuniformEXT(i)], sampleUV.xz, 0.0).rg;
 		return (s0);
 		//value = 1.0 - (sampleUV.y <= s0.g ? s0.r : 1.0);
 
@@ -372,31 +372,80 @@ vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 	return (skyColor);
 }
 
+float BlendShadows(int i, vec2 uv, float refDepth, int mode)
+{
+	if (mode == 0)
+	{
+		return (texture(shadowMaps[nonuniformEXT(i)], vec3(uv, refDepth)));
+	}
+	else if (mode == 1)
+	{
+		vec2 texelSize = 1.0 / vec2(textureSize(shadowMaps[nonuniformEXT(i)], 0).xy);
+		float result = 0.0;
+
+		for (int x = 0; x <= 1; x++)
+		{
+			for (int y = 0; y <= 1; y++)
+			{
+				vec2 coords = uv + (vec2(x, y) - 0.5) * texelSize;
+				if (abs(coords.x - 0.5) > 0.5 || abs(coords.y - 0.5) > 0.5) continue;
+				result += texture(shadowMaps[nonuniformEXT(i)], vec3(coords.xy, refDepth));
+			}
+		}
+		return (result * 0.25);
+	}
+	else if (mode == 2)
+	{
+		vec2 texelSize = 1.0 / vec2(textureSize(shadowMaps[nonuniformEXT(i)], 0).xy);
+		float result = 0.0;
+
+		for (int x = -1; x <= 1; x++)
+		{
+			for (int y = -1; y <= 1; y++)
+			{
+				vec2 coords = uv + (vec2(x, y)) * texelSize;
+				if (abs(coords.x - 0.5) > 0.5 || abs(coords.y - 0.5) > 0.5) continue;
+				result += texture(shadowMaps[nonuniformEXT(i)], vec3(coords.xy, refDepth));
+			}
+		}
+		return (result / 9.0);
+	}
+
+	return (1.0);
+}
+
 float SampleShadows(vec3 worldPosition)
 {
-	vec4 lightClip = variables.shadowMatrix * vec4(worldPosition, 1.0);
-	vec3 ndc = lightClip.xyz / lightClip.w;
-
-	vec2 uv = ndc.xy * 0.5 + 0.5;
-	//float refDepth = ndc.z - bias;
-	float refDepth = ndc.z;
-
-	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || ndc.z < 0.0 || ndc.z > 1.0) {return (1.0);}
-
-	vec2 texelSize = 1.0 / vec2(textureSize(shadowMap, 0).xy);
-	float result = 0.0;
-
-	for (int x = 0; x <= 1; x++)
+	for (int i = 0; i < 2; i++)
 	{
-		for (int y = 0; y <= 1; y++)
-		{
-			vec2 coords = uv + (vec2(x, y) - 0.5) * texelSize;
-			if (abs(coords.x - 0.5) > 0.5 || abs(coords.y - 0.5) > 0.5) continue;
-			result += texture(shadowMap, vec3(coords.xy, refDepth));
-		}
+		vec4 lightClip = variables.shadowMatrices[i] * vec4(worldPosition, 1.0);
+		vec3 ndc = lightClip.xyz / lightClip.w;
+		vec2 uv = ndc.xy * 0.5 + 0.5;
+		//float refDepth = ndc.z - bias;
+		float refDepth = ndc.z;
+
+		if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || ndc.z < 0.0 || ndc.z > 1.0) {continue;}
+
+		float inter = clamp(SquaredDistance(worldPosition, variables.viewPosition.xyz) / (1000.0 * 1000.0), 0.0, 1.0);
+
+		int mode = 0;
+		if (inter < 0.1) {mode = 1;}
+		if (inter < 0.001) {mode = 2;}
+
+		return (BlendShadows(i, uv, refDepth, mode));
 	}
+
+	return (1.0);
+
 	
-	return (result * 0.25);
+
+	
+
+	
+
+
+	
+
 	//return (texture(shadowMap, vec3(uv, refDepth)));
 }
 

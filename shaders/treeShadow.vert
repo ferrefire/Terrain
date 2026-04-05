@@ -12,7 +12,12 @@ struct TreeData
 	vec4 terrainValues;
 };
 
-layout(set = 1, binding = 0, std430) readonly buffer TreeRenderBuffer
+layout(push_constant, std430) uniform pc
+{
+    uint cascade;
+};
+
+layout(set = 1, binding = 1, std430) readonly buffer TreeRenderBuffer
 {
 	TreeData renderData[];
 };
@@ -46,5 +51,5 @@ void main()
 
 	//lod = int(currentTree.position.w);
 
-	gl_Position = variables.shadowMatrix * vec4(worldPosition, 1.0);
+	gl_Position = variables.shadowMatrices[cascade] * vec4(worldPosition, 1.0);
 }
