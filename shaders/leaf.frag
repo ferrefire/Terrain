@@ -54,7 +54,7 @@ void main()
 
 	vec3 leafNormal = localNormal;
 	if (!gl_FrontFacing) {leafNormal *= -1;}
-	if (dot(leafNormal, worldNormal) < 0.0) {leafNormal *= -1;}
+	//if (dot(leafNormal, worldNormal) < 0.0) {leafNormal *= -1;}
 
 	//vec3 mixedNormal = normalize(mix(_worldNormal, _localNormal, 0.5));
 	vec3 mixedNormal = normalize(mix(worldNormal, leafNormal, shaderConfig.localNormalBlend));
@@ -96,7 +96,7 @@ void main()
 	vec3 illumination = TerrainIllumination(worldPosition, normalize(terrainValues.yzw));
 	float occlusion = 1.0;
 
-	vec3 ambientDiffuse = 0.25 * (data.albedo * illumination.rgb);
+	vec3 ambientDiffuse = 0.25 * (data.albedo * (illumination.rgb * (1.0 - ((dot(leafNormal, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5) * 0.25))));
 	//vec3 ambientDiffuse = config.ambientStrength * (data.albedo * illumination.rgb);
 	vec3 ambient = ambientDiffuse * ao;
 

@@ -191,8 +191,20 @@ uint BehindTrees(vec3 worldPosition, int iterations, uint amount)
 			//if (currentTree.position.w >= 0.0)
 			if (currentTree.position.w >= 0.0)
 			{
-				if (config.overdrawCullingHeightOnly == 1 && abs(rayPosition.y - currentTree.position.y) < 25.0) {counter += 1;}
-				else if (config.overdrawCullingHeightOnly == 0 && SquaredDistance(rayPosition, currentTree.position.xyz) < (50.0 * 50.0)) {counter += 1;}
+				if (config.overdrawCullingHeightOnly == 1 && abs(rayPosition.y - currentTree.position.y) < 25.0)
+				{
+					counter += 1;
+					misses = 0;
+				}
+				else if (config.overdrawCullingHeightOnly == 0 && SquaredDistance(rayPosition, currentTree.position.xyz) < (50.0 * 50.0))
+				{
+					counter += 1;
+					misses = 0;
+				}
+				else
+				{
+					misses += 1;
+				}
 				//counter += 1;
 				//misses = 0;
 			}
@@ -203,7 +215,7 @@ uint BehindTrees(vec3 worldPosition, int iterations, uint amount)
 			//if (currentTree.position.w >= 0.0 && SquaredDistance(rayPosition, (currentTree.position.xyz + vec3(0.0, 12.5, 0.0))) < 15.0 * 15.0) {counter += 1;}
 
 			if (counter >= amount) {return (1);}
-			//if (misses >= amount) {return (0);}
+			if (config.overdrawMisses == 1 && misses >= amount) {return (0);}
 		}
 		
 		inter = i * iterationsMult;
@@ -365,6 +377,9 @@ void main()
 	//int viewCull = 0;
 	//int terrainCull = 0;
 
+	if (config.overdrawCulling == 1 && config.overdrawLodCull == 1 && BehindTrees(currentTree.position.xyz, config.overdrawLodCullMaximum, config.overdrawLodCullMinimum) == 1) {lod += 1;}
+
+	if (lod > 3) {return;}
 	currentTree.position.w = float(lod) + interLod;
 
 	//if (dis > config.cullStartDistance * config.cullStartDistance)
@@ -373,9 +388,9 @@ void main()
 	//	if (InsideFrustum(lod, currentTree.position.xyz) == 0) {viewCull = 1;}
 	//	else if (config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, cullOffset, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}
 	//}
-
+	
 	if (lod >= 3 && InsideFrustum(lod, currentTree.position.xyz) == 0) {return;}
-	else if (config.overdrawCulling == 1 && BehindTrees(currentTree.position.xyz, config.overdrawCullingMaximum, config.overdrawCullingMinimum) == 1) {return;}
+	else if (config.overdrawCulling == 1 && config.overdrawLodCull == 0 && BehindTrees(currentTree.position.xyz, config.overdrawCullingMaximum, config.overdrawCullingMinimum) == 1) {return;}
 	else if (config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, cullOffset, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}
 
 	if (lod <= 3)

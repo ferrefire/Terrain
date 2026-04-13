@@ -183,8 +183,13 @@ struct alignas(16) TreeComputeConfig
 
 	int32_t overdrawCullMinimum = 15;
 	int32_t overdrawCullMaximum = 100;
-	float overdrawCullHeightOffset = 10.0;
+	//float overdrawCullHeightOffset = 10.0;
+	float overdrawCullHeightOffset = 0.0;
 	uint32_t overdrawCullHeightOnly = 1;
+	uint32_t overdrawLodCull = 1;
+	int32_t overdrawLodCullMinimum = 10;
+	int32_t overdrawLodCullMaximum = 100;
+	uint32_t overdrawMisses = 1;
 
 	//uint32_t padding[1];
 };
@@ -2000,7 +2005,8 @@ void Start()
 	//Manager::GetCamera().Move(point3D(1242.74, -1730.73, 5410.96));
 	//Manager::GetCamera().Move(point3D(4641.78, -2376.92, 8547.5));
 	//Manager::GetCamera().Move(point3D(4603.41, -2411.25, 8862.13));
-	Manager::GetCamera().Move(point3D(428.953, -2005.17, 2031.84));
+	Manager::GetCamera().Move(point3D(4638.89, -2356.18, 8880.5));
+	//Manager::GetCamera().Move(point3D(428.953, -2005.17, 2031.84));
 	//Manager::GetCamera().Move(point3D(1249.58, -1968.5, 6361.08));
 	//Manager::GetCamera().Move(point3D(4692.71, -2418.12, 9021.92));
 	//Manager::GetCamera().Move(point3D(10379.6, 362.507, 824.909));
@@ -2011,7 +2017,8 @@ void Start()
 	//Manager::GetCamera().Rotate(point3D(6.39966, 343.702, 0.0));
 	//Manager::GetCamera().Rotate(point3D(24.7997, 338.802, 0.0));
 	//Manager::GetCamera().Rotate(point3D(12.1997, 669.309, 0.0));
-	Manager::GetCamera().Rotate(point3D(-3.80028, 1728.39, 0.0));
+	Manager::GetCamera().Rotate(point3D(-5.8003, 1071.71, 0.0));
+	//Manager::GetCamera().Rotate(point3D(-3.80028, 1728.39, 0.0));
 	//Manager::GetCamera().Rotate(point3D(-46.101, 1074.21, 0.0));
 	//Manager::GetCamera().Rotate(point3D(3.49968, 781.528, 0.0));
 	//Manager::GetCamera().Rotate(point3D(31.1995, 454.71, 0.0));
@@ -2159,6 +2166,10 @@ void Start()
 	treeMenu.AddSlider("overdraw culling maximum", treeComputeConfig.overdrawCullMaximum, 0, 100);
 	treeMenu.AddSlider("overdraw culling height offset", treeComputeConfig.overdrawCullHeightOffset, 0.0, 50.0);
 	treeMenu.AddCheckbox("overdraw culling height only", treeComputeConfig.overdrawCullHeightOnly);
+	treeMenu.AddCheckbox("overdraw lod cull", treeComputeConfig.overdrawLodCull);
+	treeMenu.AddCheckbox("overdraw misses", treeComputeConfig.overdrawMisses);
+	treeMenu.AddSlider("overdraw lod cull minimum", treeComputeConfig.overdrawLodCullMinimum, 0, 25);
+	treeMenu.AddSlider("overdraw lod cull maximum", treeComputeConfig.overdrawLodCullMaximum, 0, 100);
 	treeMenu.TriggerNode("Compute");
 	treeMenu.TriggerNode("Shader", UpdateTreeShaderData);
 	treeMenu.AddSlider("weight power", treeShaderConfig.weightPower, 0, 72);

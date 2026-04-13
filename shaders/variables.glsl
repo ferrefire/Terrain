@@ -38,6 +38,10 @@ struct TreeComputeConfig
 	int overdrawCullingMaximum;
 	float overdrawCullingHeightOffset;
 	uint overdrawCullingHeightOnly;
+	uint overdrawLodCull;
+	int overdrawLodCullMinimum;
+	int overdrawLodCullMaximum;
+	uint overdrawMisses;
 };
 
 struct LeafData

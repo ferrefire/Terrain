@@ -82,7 +82,7 @@ void main()
 	float occlusion = 1.0;
 
 	//vec3 ambientDiffuse = 0.25 * (data.albedo * illumination.rgb);
-	vec3 ambientDiffuse = config.ambientStrength * (data.albedo * illumination.rgb);
+	vec3 ambientDiffuse = config.ambientStrength * (data.albedo * (illumination.rgb * (1.0 - ((dot(worldNormal, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5) * 0.25))));
 	vec3 ambient = ambientDiffuse * ao;
 
 	//float aoMult = pow(occlusion, 0.5);
