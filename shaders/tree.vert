@@ -44,7 +44,7 @@ void main()
 
 	terrainValues = currentTree.terrainValues;
 
-	lod = int(currentTree.position.w);
+	lod = int(floor(currentTree.position.w));
 
 	gl_Position = variables.projection * variables.view * vec4(worldPosition, 1.0);
 }

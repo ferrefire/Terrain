@@ -68,6 +68,10 @@ shapePN32 Tree::GenerateBranch(TreeConfig config)
 
 	if (config.currentSegments > 0 && targetScale > config.minimumThickness)
 	{
+		point3D offset = point3D(0.0, config.length * 0.5, 0.0);
+		offset.Rotate(config.verticalAngle, Axis::x);
+		offset.Rotate(config.horizontalAngle, Axis::y);
+
 		TreeConfig branchConfig = config;
 		branchConfig.currentSegments -= 1;
 		branchConfig.length *= config.segmentLengthDecrease;
@@ -75,10 +79,9 @@ shapePN32 Tree::GenerateBranch(TreeConfig config)
 		branchConfig.previousHorizontalAngle = branchConfig.horizontalAngle;
 		branchConfig.previousVerticalAngle = branchConfig.verticalAngle;
 		branchConfig.seed = intDistribution(generator);
+		branchConfig.totalOffset += offset;
 		shapePN32 segmentBranch = GenerateBranch(branchConfig);
-		point3D offset = point3D(0.0, config.length * 0.5, 0.0);
-		offset.Rotate(config.verticalAngle, Axis::x);
-		offset.Rotate(config.horizontalAngle, Axis::y);
+		
 		segmentBranch.Move(offset);
 		branch.Join(segmentBranch);
 	}
@@ -126,13 +129,49 @@ shapePN32 Tree::GenerateBranch(TreeConfig config)
 			branchConfig.previousVerticalAngle = std::lerp(branchConfig.previousVerticalAngle, branchConfig.verticalAngle, config.verticalSplitStartAngle);
 		
 			branchConfig.seed = intDistribution(generator);
-			shapePN32 segmentBranch = GenerateBranch(branchConfig);
+
 			point3D offset = point3D(0.0, config.length * 0.5, 0.0);
 			offset.Rotate(config.verticalAngle, Axis::x);
 			offset.Rotate(config.horizontalAngle, Axis::y);
+			branchConfig.totalOffset += offset;
+
+			shapePN32 segmentBranch = GenerateBranch(branchConfig);
+			
 			segmentBranch.Move(offset);
 			branch.Join(segmentBranch);
 		}
+	}
+	else
+	{
+		for (int i = 0; i < 18; i++)
+		{
+			point3D offset = point3D(0.0, config.length * 0.5, 0.0);
+			offset.Rotate(config.verticalAngle, Axis::x);
+			offset.Rotate(config.horizontalAngle, Axis::y);
+			offset += point3D(std::lerp(-1.0, 1.0, floatDistribution(generator)), std::lerp(-1.0, 1.0, floatDistribution(generator)), std::lerp(-1.0, 1.0, floatDistribution(generator))) * 0.375;
+	
+			LeafData leafData{};
+			leafData.leafPosition = config.totalOffset + offset;
+			float yRot = std::lerp(0.0, 1.0, floatDistribution(generator));
+			float xRot = std::lerp(0.0, 1.0, floatDistribution(generator));
+			float zRot = std::lerp(0.0, 1.0, floatDistribution(generator));
+			float xr = (xRot * 360.0) * 0.0174532925;
+			float xc = cos(xr);
+			float xs = sin(xr);
+			float yr = (yRot * 360.0) * 0.0174532925;
+			float yc = cos(yr);
+			float ys = sin(yr);
+			float zr = (zRot * 360.0) * 0.0174532925;
+			float zc = cos(zr);
+			float zs = sin(zr);
+			leafData.leafRotationXY = point4D(xc, xs, yc, ys);
+			leafData.leafRotationZ = point4D(zc, zs, 0.0, 0.0);
+	
+			leafPositions.push_back(leafData);
+		}
+
+
+		//leafIDs.push_back(branch.GetVertices().size());
 	}
 
 	return (branch);
@@ -140,9 +179,17 @@ shapePN32 Tree::GenerateBranch(TreeConfig config)
 
 shapePN32 Tree::GenerateTree(TreeConfig config)
 {
+	leafPositions.clear();
+	leafIDs.clear();
+
 	shapePN32 result = GenerateBranch(config);
 
 	return (result);
+}
+
+std::vector<LeafData> Tree::GetLeafPositions()
+{
+	return (leafPositions);
 }
 
 static meshPN32 *mesh = nullptr;
@@ -227,5 +274,7 @@ void Tree::CreateTreeMenu(TreeConfig &config, meshPN32 &treeMesh)
 	menu.AddButton("Regenerate", RegenerateMesh);
 }
 
+std::vector<int> Tree::leafIDs;
+std::vector<LeafData> Tree::leafPositions;
 uint32_t Tree::regenerateOnChange = 1;
 uint32_t Tree::randomOnRegenerate = 0;

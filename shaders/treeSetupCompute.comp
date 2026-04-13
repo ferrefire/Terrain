@@ -24,30 +24,6 @@ struct DrawCommand
     uint firstInstance;
 };
 
-struct TreeComputeConfig
-{
-	float treeSpacing;
-	float treeOffset;
-
-	//float noiseSeed;
-	//float noiseScale;
-	float noiseCutoff;
-	float noiseCutoffRandomness;
-
-	int lod0Radius;
-	int lod1Radius;
-	int lod2Radius;
-	int renderRadius;
-
-	int occlusionCulling;
-	int cullIterations;
-	uint cullExponent;
-
-	int lod0ShadowRadius;
-	int lod1ShadowRadius;
-	int lod2ShadowRadius;
-};
-
 layout(set = 1, binding = 0, std430) buffer TreeSetupBuffer
 {
 	TreeData setupData[];
@@ -63,7 +39,7 @@ layout(set = 1, binding = 3, std430) buffer DrawBuffer
 	DrawCommand drawCommands[];
 };
 
-layout(set = 1, binding = 5, std140) uniform ComputeConfig
+layout(set = 1, binding = 7, std430) buffer ComputeConfig
 {
 	TreeComputeConfig config;
 };
@@ -89,6 +65,11 @@ void main()
 	float vx = floor((variables.viewPosition.x + variables.terrainOffset.x * 10000.0) / config.treeSpacing) * config.treeSpacing - variables.terrainOffset.x * 10000.0;
 	float vz = floor((variables.viewPosition.z + variables.terrainOffset.z * 10000.0) / config.treeSpacing) * config.treeSpacing - variables.terrainOffset.z * 10000.0;
 
+	if (index == 0)
+	{
+		config.treesCenter = vec4(vx, vz, 0.0, 0.0);
+	}
+
 	vec4 treePosition = vec4(px + vx, 0.0, pz + vz, 1.0);
 	vec2 treeUV = vec2(treePosition.x + variables.terrainOffset.x * 10000.0, treePosition.z + variables.terrainOffset.z * 10000.0);
 
@@ -100,7 +81,7 @@ void main()
 	treePosition.x += offsetX;
 	treePosition.z += offsetZ;
 
-	float n = SimpleFractalNoise(treeUV * 0.001, 0.165923, 2);
+	float n = SimpleFractalNoise(treeUV * config.noiseScale, 0.165923, config.noiseOctaves);
 	treeSeed = uint(ceil(abs((treeUV.x) * 0.5) + abs((treeUV.y) * 2.0)));
 	if (n + rand11(treeSeed) * config.noiseCutoffRandomness > config.noiseCutoff) {return;}
 
@@ -108,7 +89,7 @@ void main()
 
 	float steepness = 1.0 - (dot(normalize(terrainValues.yzw), vec3(0, 1, 0)) * 0.5 + 0.5);
 
-	if (steepness > 0.075) {return;}
+	if (steepness > config.maxSteepness) {return;}
 
 	float treeHeight = terrainValues.x * maxHeight - variables.terrainOffset.y * 10000.0;
 

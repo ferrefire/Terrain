@@ -4,11 +4,69 @@
 const int cascadeCount = 8;
 const float maxHeight = 5000.0;
 
+struct TreeComputeConfig
+{
+	float treeSpacing;
+	float treeOffset;
+	float maxSteepness;
+	uint overdrawCulling;
+
+	//float noiseSeed;
+	float noiseScale;
+	int noiseOctaves;
+	float noiseCutoff;
+	float noiseCutoffRandomness;
+
+	uint occlusionCulling;
+	int cullIterations;
+	uint cullExponent;
+	float cullStartDistance;
+
+	int radiuses[4];
+	int shadowRadiuses[4];
+
+	int squaredLengths[4];
+	int squaredShadowLengths[4];
+
+	float squaredDistances[4];
+
+	int leafCounts[4];
+
+	vec4 treesCenter;
+
+	int overdrawCullingMinimum;
+	int overdrawCullingMaximum;
+	float overdrawCullingHeightOffset;
+	uint overdrawCullingHeightOnly;
+};
+
+struct LeafData
+{
+	vec4 position;
+	vec4 rotationXY;
+	vec4 rotationZ;
+};
+
+struct LeafShaderConfig
+{
+	float localNormalBlend;
+	float worldNormalHeight;
+	float translucencyBlend;
+	float shadowTranslucencyDim;
+	float translucencyBias;
+	float translucencyRange;
+
+	float lod0Size;
+	float lod1Size;
+	float lod2Size;
+	float lod3Size;
+};
+
 layout(set = 0, binding = 0, std140) uniform Variables
 {
 	mat4 view;
 	mat4 projection;
-	mat4 shadowMatrices[2];
+	mat4 shadowMatrices[3];
 	vec4 viewPosition;
 	vec4 viewDirection;
 	vec4 lightDirection;

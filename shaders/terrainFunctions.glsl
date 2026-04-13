@@ -11,7 +11,14 @@ layout(set = 0, binding = 1) uniform sampler2D heightmaps[cascadeCount];
 layout(set = 0, binding = 2) uniform sampler2D terrainShadowMaps[3];
 layout(set = 0, binding = 3) uniform sampler2D glillMaps[3];
 layout(set = 0, binding = 4) uniform sampler2D skyMap;
-layout(set = 0, binding = 6) uniform sampler2DShadow shadowMaps[2];
+layout(set = 0, binding = 6) uniform sampler2DShadow shadowMaps[3];
+layout(set = 0, binding = 7, std140) uniform ShadowData
+{
+	uint enabled;
+	float blend0Dis;
+	float blend1Dis;
+	uint test;
+} shadowData;
 
 #include "packing.glsl"
 #include "sampling.glsl"
@@ -372,6 +379,10 @@ vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 	return (skyColor);
 }
 
+const float dif9 = 1.0 / 9.0;
+const float dif3 = 1.0 / 3.0;
+const float dif12 = 1.0 / 12.0;
+
 float BlendShadows(int i, vec2 uv, float refDepth, int mode)
 {
 	if (mode == 0)
@@ -403,12 +414,13 @@ float BlendShadows(int i, vec2 uv, float refDepth, int mode)
 		{
 			for (int y = -1; y <= 1; y++)
 			{
-				vec2 coords = uv + (vec2(x, y)) * texelSize;
+				vec2 coords = uv + vec2(x, y) * texelSize;
 				if (abs(coords.x - 0.5) > 0.5 || abs(coords.y - 0.5) > 0.5) continue;
 				result += texture(shadowMaps[nonuniformEXT(i)], vec3(coords.xy, refDepth));
 			}
 		}
-		return (result / 9.0);
+		return (result * dif9);
+		//return (1.0 - clamp(result, 0.0, 1.0));
 	}
 
 	return (1.0);
@@ -416,7 +428,12 @@ float BlendShadows(int i, vec2 uv, float refDepth, int mode)
 
 float SampleShadows(vec3 worldPosition)
 {
-	for (int i = 0; i < 2; i++)
+	if (shadowData.enabled == 0) {return (1.0);}
+
+	//float result = 0.0;
+	//float blend = 1.0;
+
+	for (int i = 0; i < 3; i++)
 	{
 		vec4 lightClip = variables.shadowMatrices[i] * vec4(worldPosition, 1.0);
 		vec3 ndc = lightClip.xyz / lightClip.w;
@@ -426,27 +443,35 @@ float SampleShadows(vec3 worldPosition)
 
 		if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || ndc.z < 0.0 || ndc.z > 1.0) {continue;}
 
+		if (i == 0 && SquaredDistance(worldPosition, variables.viewPosition.xyz) > (100 * 100)) {continue;}
+		if (i == 1 && SquaredDistance(worldPosition, variables.viewPosition.xyz) > (500 * 500)) {continue;}
+
+		float fade = 0.0;
+		if (i == 2)
+		{
+			float border = 0.0;
+			border = max(border, abs(uv.x - 0.5));
+			border = max(border, abs(uv.y - 0.5));
+			border = max(border, abs(ndc.z - 0.5));
+			if (border > 0.4) {fade = clamp((border - 0.4) * 10.0, 0.0, 1.0);}
+		}
+
 		float inter = clamp(SquaredDistance(worldPosition, variables.viewPosition.xyz) / (1000.0 * 1000.0), 0.0, 1.0);
 
 		int mode = 0;
-		if (inter < 0.1) {mode = 1;}
-		if (inter < 0.001) {mode = 2;}
+		if (inter < shadowData.blend1Dis) {mode = 1;}
+		if (inter < shadowData.blend0Dis) {mode = 2;}
 
-		return (BlendShadows(i, uv, refDepth, mode));
+		if (fade >= 1.0) {return (1.0);}
+		return (BlendShadows(i, uv, refDepth, mode) + fade);
+
+		//result += (1.0 - BlendShadows(i, uv, refDepth, mode)) * (1.0 - fade) * (blend);
+		//if (fade == 0.0) {break;}
+		//blend = fade;
 	}
 
 	return (1.0);
-
-	
-
-	
-
-	
-
-
-	
-
-	//return (texture(shadowMap, vec3(uv, refDepth)));
+	//return (1.0 - clamp(result, 0.0, 1.0));
 }
 
 #endif

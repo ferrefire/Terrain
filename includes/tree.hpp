@@ -3,6 +3,7 @@
 #include "point.hpp"
 #include "shape.hpp"
 #include "mesh.hpp"
+#include <vector>
 
 struct TreeConfig
 {
@@ -54,11 +55,23 @@ struct TreeConfig
 	//float minimumThickness = 0.03;
 	//float minimumThickness = 0.014;
 	float minimumThickness = 0.003;
+
+	point3D totalOffset;
+};
+
+struct LeafData
+{
+	point4D leafPosition;
+	point4D leafRotationXY;
+	point4D leafRotationZ;
 };
 
 class Tree
 {
 	private:
+		static std::vector<int> leafIDs;
+		static std::vector<LeafData> leafPositions;
+
 		static shapePN32 GenerateBranch(TreeConfig config);
 
 	public:
@@ -66,6 +79,7 @@ class Tree
 		static uint32_t randomOnRegenerate;
 
 		static shapePN32 GenerateTree(TreeConfig config);
+		static std::vector<LeafData> GetLeafPositions();
 
 		static void CreateTreeMenu(TreeConfig &config, meshPN32 &treeMesh);
 		

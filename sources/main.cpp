@@ -26,7 +26,7 @@ struct alignas(16) UniformData
 {
 	mat4 view;
 	mat4 projection;
-	mat4 shadowMatrices[2];
+	mat4 shadowMatrices[3];
 	point4D viewPosition;
 	point4D viewDirection;
 	point4D lightDirection;
@@ -81,7 +81,8 @@ struct alignas(16) TerrainComputeData
 {
 	float seed = 0.303586;
 	float erodeFactor = 1.0;
-	float steepness = 2.0;
+	//float steepness = 2.0;
+	float steepness = 1.75;
 	uint32_t padding[1];
 };
 
@@ -152,40 +153,79 @@ struct alignas(16) TreeData
 
 struct alignas(16) TreeComputeConfig
 {
-	//float treeSpacing = 50.0;
 	float treeSpacing = 30.0;
+	//float treeOffset = 50.0;
 	float treeOffset = 15.0;
+	float maxSteepness = 0.015;
+	uint32_t overdrawCulling = 1;
 
+	float noiseScale = 0.0013;
+	int32_t noiseOctaves = 2;
 	float noiseCutoff = 0.5;
 	float noiseCutoffRandomness = 0.1;
-
-	int32_t lod0Radius = 4;
-	//int32_t lod1Radius = 25;
-	int32_t lod1Radius = 10;
-	int32_t lod2Radius = 25;
-	int32_t renderRadius = 128;
 
 	uint32_t occlusionCulling = 1;
 	int32_t cullIterations = 10;
 	uint32_t cullExponent = 2;
 	float cullStartDistance = 100.0;
 
-	int32_t lod0ShadowRadius = 6;
-	int32_t lod1ShadowRadius = 15;
-	int32_t lod2ShadowRadius = 38;
+	int32_t radiuses[4] = {4, 10, 25, 256};
+	int32_t shadowRadiuses[4] = {6, 15, 38, 256};
 
-	uint32_t padding[1];
+	int32_t squaredLengths[4] = {0, 0, 0, 0};
+	int32_t squaredShadowLengths[4] = {0, 0, 0, 0};
+
+	float squaredDistances[4] = {0, 0, 0, 0};
+
+	int32_t leafCounts[4] = {0, 0, 0, 0};
+
+	point4D treesCenter;
+
+	int32_t overdrawCullMinimum = 15;
+	int32_t overdrawCullMaximum = 100;
+	float overdrawCullHeightOffset = 10.0;
+	uint32_t overdrawCullHeightOnly = 1;
+
+	//uint32_t padding[1];
 };
 
 struct alignas(16) TreeShaderConfig
 {
 	int32_t weightPower = 72;
 	float uvScale = 0.25;
-	float glillNormalMix = 0.45;
+	//float glillNormalMix = 0.45;
+	float glillNormalMix = 0.0;
 	float normalStrength = 1.0;
 	
 	int32_t textureLod = 2;
 	float ambientStrength = 0.25;
+	
+	uint32_t padding[2];
+};
+
+struct alignas(16) ShadowData
+{
+	uint32_t enabled = 1;
+	float blend0Dis = 0.0001;
+	float blend1Dis = 0.01;
+	uint32_t test = 0;
+
+	//uint32_t padding[1];
+};
+
+struct alignas(16) LeafShaderConfig
+{
+	float localNormalBlend = 0.1;
+	float worldNormalHeight = 15.0;
+	float translucencyBlend = 0.0;
+	float shadowTranslucencyDim = 0.99;
+	float translucencyBias = 0.5;
+	float translucencyRange = 0.425;
+
+	float lod0Size = 1.0;
+	float lod1Size = 1.75;
+	float lod2Size = 5.0;
+	float lod3Size = 12.0;
 	
 	uint32_t padding[2];
 };
@@ -218,6 +258,8 @@ Buffer luminanceBuffer;
 Buffer luminanceVariablesBuffer;
 LuminanceData luminanceData{};
 
+ShadowData shadowData{};
+Buffer shadowDataBuffer;
 Pass shadowPass;
 //Image shadowMap;
 
@@ -285,6 +327,16 @@ Image bark_diff;
 Image bark_norm;
 Image bark_arm;
 
+LeafShaderConfig leafShaderConfig{};
+meshP16 leafMesh;
+Descriptor leafDescriptor;
+Pipeline leafPipeline;
+Pipeline leafShadowPipeline;
+Buffer leafDrawBuffer;
+Buffer leafShadowDrawBuffer;
+Buffer leafPositionsBuffer;
+Buffer leafShaderConfigBuffer;
+
 std::vector<Image> computeImages(computeCascade);
 std::vector<Image> temporaryComputeImages(2);
 
@@ -348,7 +400,9 @@ uint32_t terrainEnabled = 1;
 uint32_t treesEnabled = 1;
 TreeConfig treeMeshConfig{};
 
-uint32_t shadowsEnabled = 1;
+uint32_t leavesEnabled = 1;
+
+//uint32_t shadowsEnabled = 1;
 float shadowDistance = 35.0;
 float shadowDepthMultiplier = 16.0;
 
@@ -633,6 +687,14 @@ void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 
 	//uint32_t treeRenderCount = (*reinterpret_cast<uint32_t*>(treeCountBuffer.GetAddress()));
 
+	if (leavesEnabled)
+	{
+		leafDescriptor.Bind(0, commandBuffer, leafPipeline);
+		leafPipeline.Bind(commandBuffer);
+		leafMesh.Bind(commandBuffer);
+		vkCmdDrawIndexedIndirect(commandBuffer, leafDrawBuffer.GetBuffer(), 0, 4, sizeof(VkDrawIndexedIndirectCommand));
+	}
+
 	if (treesEnabled)
 	{
 		treeDescriptor.Bind(0, commandBuffer, treePipeline);
@@ -677,7 +739,18 @@ void RenderPre(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 
 void RenderShadows(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
-	if (shadowsEnabled && treesEnabled)
+	if (shadowData.enabled && leavesEnabled)
+	{
+		frameDescriptor.BindDynamic(0, commandBuffer, leafShadowPipeline);
+		leafDescriptor.Bind(0, commandBuffer, leafShadowPipeline);
+		leafShadowPipeline.Bind(commandBuffer);
+		leafMesh.Bind(commandBuffer);
+		uint32_t pc = 0;
+		vkCmdPushConstants(commandBuffer, leafShadowPipeline.GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
+		vkCmdDrawIndexedIndirect(commandBuffer, leafShadowDrawBuffer.GetBuffer(), 0 * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+	}
+
+	if (shadowData.enabled && treesEnabled)
 	{
 		frameDescriptor.BindDynamic(0, commandBuffer, treeShadowPipeline);
 		treeDescriptor.Bind(0, commandBuffer, treeShadowPipeline);
@@ -691,7 +764,18 @@ void RenderShadows(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 
 void RenderShadows2(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
-	if (shadowsEnabled && treesEnabled)
+	if (shadowData.enabled && leavesEnabled)
+	{
+		frameDescriptor.BindDynamic(0, commandBuffer, leafShadowPipeline);
+		leafDescriptor.Bind(0, commandBuffer, leafShadowPipeline);
+		leafShadowPipeline.Bind(commandBuffer);
+		leafMesh.Bind(commandBuffer);
+		uint32_t pc = 1;
+		vkCmdPushConstants(commandBuffer, leafShadowPipeline.GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
+		vkCmdDrawIndexedIndirect(commandBuffer, leafShadowDrawBuffer.GetBuffer(), 1 * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+	}
+
+	if (shadowData.enabled && treesEnabled)
 	{
 		frameDescriptor.BindDynamic(0, commandBuffer, treeShadowPipeline);
 		treeDescriptor.Bind(0, commandBuffer, treeShadowPipeline);
@@ -700,6 +784,31 @@ void RenderShadows2(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 		uint32_t pc = 1;
 		vkCmdPushConstants(commandBuffer, treeShadowPipeline.GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
 		vkCmdDrawIndexedIndirect(commandBuffer, treeShadowDrawBuffer.GetBuffer(), 1 * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+	}
+}
+
+void RenderShadows3(VkCommandBuffer commandBuffer, uint32_t frameIndex)
+{
+	if (shadowData.enabled && leavesEnabled)
+	{
+		frameDescriptor.BindDynamic(0, commandBuffer, leafShadowPipeline);
+		leafDescriptor.Bind(0, commandBuffer, leafShadowPipeline);
+		leafShadowPipeline.Bind(commandBuffer);
+		leafMesh.Bind(commandBuffer);
+		uint32_t pc = 2;
+		vkCmdPushConstants(commandBuffer, leafShadowPipeline.GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
+		vkCmdDrawIndexedIndirect(commandBuffer, leafShadowDrawBuffer.GetBuffer(), 2 * sizeof(VkDrawIndexedIndirectCommand), 2, sizeof(VkDrawIndexedIndirectCommand));
+	}
+
+	if (shadowData.enabled && treesEnabled)
+	{
+		frameDescriptor.BindDynamic(0, commandBuffer, treeShadowPipeline);
+		treeDescriptor.Bind(0, commandBuffer, treeShadowPipeline);
+		treeShadowPipeline.Bind(commandBuffer);
+		treeMesh.Bind(commandBuffer);
+		uint32_t pc = 2;
+		vkCmdPushConstants(commandBuffer, treeShadowPipeline.GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
+		vkCmdDrawIndexedIndirect(commandBuffer, treeShadowDrawBuffer.GetBuffer(), 2 * sizeof(VkDrawIndexedIndirectCommand), 2, sizeof(VkDrawIndexedIndirectCommand));
 	}
 }
 
@@ -773,6 +882,11 @@ void UpdateTerrainShaderData()
 	terrainShaderBuffer.Update(&terrainShaderData, sizeof(terrainShaderData));
 }
 
+void UpdateLeafShaderData()
+{
+	leafShaderConfigBuffer.Update(&leafShaderConfig, sizeof(leafShaderConfig));
+}
+
 float cameraSensitivity = 0.1;
 
 void UpdateCameraSensitivity()
@@ -787,9 +901,25 @@ void UpdatePostData()
 	postBuffer.Update(&postData, sizeof(postData));
 }
 
+void RecaluclateTreeComputeConfig()
+{
+	for (int i = 0; i < 4; i++)
+	{
+		treeComputeConfig.squaredLengths[i] = (treeComputeConfig.radiuses[i] * 2 + 1) * (treeComputeConfig.radiuses[i] * 2 + 1);
+		treeComputeConfig.squaredShadowLengths[i] = (treeComputeConfig.shadowRadiuses[i] * 2 + 1) * (treeComputeConfig.shadowRadiuses[i] * 2 + 1);
+		treeComputeConfig.squaredDistances[i] = (treeComputeConfig.radiuses[i] * treeComputeConfig.treeSpacing) * (treeComputeConfig.radiuses[i] * treeComputeConfig.treeSpacing);
+
+		//std::cout << "sl" << i << ": " << treeComputeConfig.squaredLengths[i] << std::endl;
+		//std::cout << "ssl" << i << ": " << treeComputeConfig.squaredShadowLengths[i] << std::endl;
+		//std::cout << "sd" << i << ": " << treeComputeConfig.squaredDistances[i] << std::endl << std::endl;
+	}
+}
+
 void UpdateTreeComputeData()
 {
-	treeComputeConfigBuffer.Update(&treeComputeConfig, sizeof(treeComputeConfig));
+	RecaluclateTreeComputeConfig();
+
+	treeComputeConfigBuffer.Update(&treeComputeConfig, sizeof(TreeComputeConfig));
 	shouldComputeTrees = true;
 }
 
@@ -797,6 +927,12 @@ void UpdateTreeShaderData()
 {
 	treeShaderConfigBuffer.Update(&treeShaderConfig, sizeof(treeShaderConfig));
 }
+
+void UpdateShadowData()
+{
+	shadowDataBuffer.Update(&shadowData, sizeof(shadowData));
+}
+
 
 void Start()
 {
@@ -871,7 +1007,7 @@ void Start()
 
 	shadowPass.AddSubpass(shadowSubpass0);
 
-	shadowPass.Create({2048, 2048}, 2);
+	shadowPass.Create({2048, 2048}, 3);
 
 	PassInfo shadowPass0Info{};
 	shadowPass0Info.pass = &shadowPass;
@@ -890,8 +1026,12 @@ void Start()
 	PassInfo shadowPass1Info = shadowPass0Info;
 	shadowPass1Info.renderIndex = 1;
 
+	PassInfo shadowPass2Info = shadowPass0Info;
+	shadowPass2Info.renderIndex = 2;
+
 	Renderer::AddPass(shadowPass0Info);
 	Renderer::AddPass(shadowPass1Info);
+	Renderer::AddPass(shadowPass2Info);
 
 	Renderer::AddPass(passInfo);
 
@@ -913,14 +1053,14 @@ void Start()
 	std::vector<VkDrawIndexedIndirectCommand> drawCommands;
 	drawCommands.resize(4);
 
+	std::vector<VkDrawIndexedIndirectCommand> leafDrawCommands;
+	leafDrawCommands.resize(4);
+
 	//shapePN16 cubeShape0(ShapeType::Cube);
 	treeMeshConfig.seed = 6282;
+	//treeMeshConfig.seed = 1563;
 	shapePN32 treeShape = Tree::GenerateTree(treeMeshConfig);
 	treeShape.Scale(point3D(4.0));
-
-	//shapePN32 treeShape(ShapeType::Cube);
-	//treeShape.Scale(point3D(0.5, 2.0, 0.5));
-	//treeShape.Move(point3D(0.0, 1.0, 0.0));
 
 	drawCommands[0].indexCount = treeShape.GetIndices().size();
 	drawCommands[0].instanceCount = 0;
@@ -928,9 +1068,59 @@ void Start()
 	drawCommands[0].vertexOffset = 0;
 	drawCommands[0].firstInstance = 0;
 
-	//shapePN32 cubeShape1(ShapeType::Cube);
-	//cubeShape1.Scale(point3D(3.0, 20.0, 3.0));
-	//cubeShape1.Move(point3D(0.0, 10.0, 0.0));
+	/*shapeP16 leafShape(ShapeType::Quad);
+	leafShape.Rotate(45.0, Axis::z);
+	leafShape.Scale(point3D(0.375, 1.0, 1.0));
+	leafShape.Move(point3D(0.0, 0.6, 0.0));
+
+	shapeP16 temp = leafShape;
+	temp.Rotate(45.0, Axis::z);
+	leafShape.Join(temp);
+	temp.Rotate(-90.0, Axis::z);
+	leafShape.Join(temp);
+	leafShape.Scale(0.8);*/
+
+	shapeP16 leafShape(ShapeType::Leaf);
+	leafShape.Scale(2.0);
+	
+	std::vector<LeafData> leafPositions = Tree::GetLeafPositions();
+	treeComputeConfig.leafCounts[0] = leafPositions.size();
+	treeComputeConfig.leafCounts[1] = treeComputeConfig.leafCounts[0] / 3;
+	treeComputeConfig.leafCounts[2] = treeComputeConfig.leafCounts[1] / 6;
+	treeComputeConfig.leafCounts[3] = treeComputeConfig.leafCounts[2] / 9;
+	for (LeafData &p : leafPositions) {p.leafPosition *= 4.0;}
+
+	leafDrawCommands[0].indexCount = leafShape.GetIndices().size();
+	leafDrawCommands[0].instanceCount = 0;
+	leafDrawCommands[0].firstIndex = 0;
+	leafDrawCommands[0].vertexOffset = 0;
+	leafDrawCommands[0].firstInstance = 0;
+	leafDrawCommands[1].indexCount = leafShape.GetIndices().size();
+	leafDrawCommands[1].instanceCount = 0;
+	leafDrawCommands[1].firstIndex = 0;
+	leafDrawCommands[1].vertexOffset = 0;
+	leafDrawCommands[1].firstInstance = 0;
+
+	shapeP16 leafShape1(ShapeType::Quad);
+	//leafShape1.Scale(1.25);
+
+	//leafDrawCommands[2].indexCount = leafShape1.GetIndices().size();
+	//leafDrawCommands[2].firstIndex = leafShape.GetIndices().size();
+	leafDrawCommands[2].indexCount = leafShape.GetIndices().size();
+	leafDrawCommands[2].firstIndex = 0;
+	leafDrawCommands[2].vertexOffset = 0;
+	leafDrawCommands[2].instanceCount = 0;
+	leafDrawCommands[2].firstInstance = 0;
+	leafDrawCommands[3].indexCount = leafShape1.GetIndices().size();
+	leafDrawCommands[3].firstIndex = leafShape.GetIndices().size();
+	//leafDrawCommands[3].indexCount = leafShape.GetIndices().size();
+	//leafDrawCommands[3].firstIndex = 0;
+	leafDrawCommands[3].vertexOffset = 0;
+	leafDrawCommands[3].instanceCount = 0;
+	leafDrawCommands[3].firstInstance = 0;
+
+	leafShape.Join(leafShape1);
+	leafMesh.Create(leafShape);
 
 	treeMeshConfig.horizontalResolution = {3, 4};
 	treeMeshConfig.verticalResolution = {1, 4};
@@ -1203,7 +1393,12 @@ void Start()
 	terrainShaderBufferConfig.size = sizeof(TerrainShaderData);
 	terrainShaderBuffer.Create(terrainShaderBufferConfig, &terrainShaderData);
 
-	std::vector<DescriptorConfig> frameDescriptorConfigs(7);
+	BufferConfig shadowDataBufferConfig{};
+	shadowDataBufferConfig.mapped = true;
+	shadowDataBufferConfig.size = sizeof(TerrainShaderData);
+	shadowDataBuffer.Create(shadowDataBufferConfig, &shadowData);
+
+	std::vector<DescriptorConfig> frameDescriptorConfigs(8);
 	frameDescriptorConfigs[0].type = DescriptorType::UniformBuffer;
 	frameDescriptorConfigs[0].stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | 
 		VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
@@ -1227,7 +1422,9 @@ void Start()
 		VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 	frameDescriptorConfigs[6].type = DescriptorType::CombinedSampler;
 	frameDescriptorConfigs[6].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
-	frameDescriptorConfigs[6].count = 2;
+	frameDescriptorConfigs[6].count = 3;
+	frameDescriptorConfigs[7].type = DescriptorType::UniformBuffer;
+	frameDescriptorConfigs[7].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 	frameDescriptor.Create(0, frameDescriptorConfigs);
 
 	std::vector<DescriptorConfig> materialDescriptorConfigs(4);
@@ -1258,7 +1455,8 @@ void Start()
 		frameDescriptor.Update(i, 3, Utilities::Pointerize(glillImages));
 		frameDescriptor.Update(i, 4, skyImage);
 		frameDescriptor.Update(i, 5, atmosphereBuffer);
-		frameDescriptor.Update(i, 6, {shadowPass.GetAttachmentImage(0, 0), shadowPass.GetAttachmentImage(0, 1)});
+		frameDescriptor.Update(i, 6, {shadowPass.GetAttachmentImage(0, 0), shadowPass.GetAttachmentImage(0, 1), shadowPass.GetAttachmentImage(0, 2)});
+		frameDescriptor.Update(i, 7, shadowDataBuffer);
 	}
 
 	materialDescriptor.GetNewSet();
@@ -1331,8 +1529,9 @@ void Start()
 	treeShadowRenderDataBufferConfig.size = sizeof(TreeData) * treeCount;
 	treeShadowRenderDataBuffer.Create(treeShadowRenderDataBufferConfig);
 
-	BufferConfig treeComputeConfigBufferConfig{};
-	treeComputeConfigBufferConfig.mapped = true;
+	RecaluclateTreeComputeConfig();
+	BufferConfig treeComputeConfigBufferConfig = Buffer::MappedStorageConfig();
+	//treeComputeConfigBufferConfig.mapped = true;
 	treeComputeConfigBufferConfig.size = sizeof(TreeComputeConfig);
 	treeComputeConfigBuffer.Create(treeComputeConfigBufferConfig, &treeComputeConfig);
 
@@ -1349,7 +1548,25 @@ void Start()
 	treeShadowDrawBufferConfig.size = sizeof(VkDrawIndexedIndirectCommand) * drawCommands.size();
 	treeShadowDrawBuffer.Create(treeShadowDrawBufferConfig, drawCommands.data());
 
-	std::vector<DescriptorConfig> treeComputeDescriptorConfigs(6);
+	BufferConfig leafDrawBufferConfig = Buffer::DrawCommandConfig();
+	leafDrawBufferConfig.size = sizeof(VkDrawIndexedIndirectCommand) * leafDrawCommands.size();
+	leafDrawBuffer.Create(leafDrawBufferConfig, leafDrawCommands.data());
+
+	BufferConfig leafShadowDrawBufferConfig = Buffer::DrawCommandConfig();
+	leafShadowDrawBufferConfig.size = sizeof(VkDrawIndexedIndirectCommand) * leafDrawCommands.size();
+	leafShadowDrawBuffer.Create(leafShadowDrawBufferConfig, leafDrawCommands.data());
+
+	BufferConfig leafPositionsBufferConfig = Buffer::StorageConfig();
+	leafPositionsBufferConfig.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	leafPositionsBufferConfig.size = sizeof(LeafData) * leafPositions.size();
+	leafPositionsBuffer.Create(leafPositionsBufferConfig, leafPositions.data());
+
+	BufferConfig leafShaderConfigBufferConfig{};
+	leafShaderConfigBufferConfig.mapped = true;
+	leafShaderConfigBufferConfig.size = sizeof(LeafShaderConfig);
+	leafShaderConfigBuffer.Create(leafShaderConfigBufferConfig, &leafShaderConfig);
+
+	std::vector<DescriptorConfig> treeComputeDescriptorConfigs(8);
 	treeComputeDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
 	treeComputeDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	treeComputeDescriptorConfigs[1].type = DescriptorType::StorageBuffer;
@@ -1360,8 +1577,12 @@ void Start()
 	treeComputeDescriptorConfigs[3].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	treeComputeDescriptorConfigs[4].type = DescriptorType::StorageBuffer;
 	treeComputeDescriptorConfigs[4].stages = VK_SHADER_STAGE_COMPUTE_BIT;
-	treeComputeDescriptorConfigs[5].type = DescriptorType::UniformBuffer;
+	treeComputeDescriptorConfigs[5].type = DescriptorType::StorageBuffer;
 	treeComputeDescriptorConfigs[5].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	treeComputeDescriptorConfigs[6].type = DescriptorType::StorageBuffer;
+	treeComputeDescriptorConfigs[6].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	treeComputeDescriptorConfigs[7].type = DescriptorType::StorageBuffer;
+	treeComputeDescriptorConfigs[7].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	treeComputeDescriptor.Create(1, treeComputeDescriptorConfigs);
 
 	//treeComputeDescriptor.GetNewSetDynamic();
@@ -1374,7 +1595,9 @@ void Start()
 	treeComputeDescriptor.Update(0, 2, treeShadowRenderDataBuffer);
 	treeComputeDescriptor.Update(0, 3, treeDrawBuffer);
 	treeComputeDescriptor.Update(0, 4, treeShadowDrawBuffer);
-	treeComputeDescriptor.Update(0, 5, treeComputeConfigBuffer);
+	treeComputeDescriptor.Update(0, 5, leafDrawBuffer);
+	treeComputeDescriptor.Update(0, 6, leafShadowDrawBuffer);
+	treeComputeDescriptor.Update(0, 7, treeComputeConfigBuffer);
 
 	std::vector<DescriptorConfig> treeDescriptorConfigs(4);
 	treeDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
@@ -1393,6 +1616,26 @@ void Start()
 	treeDescriptor.Update(0, 1, treeShadowRenderDataBuffer);
 	treeDescriptor.Update(0, 2, {&bark_diff, &bark_norm, &bark_arm});
 	treeDescriptor.Update(0, 3, treeShaderConfigBuffer);
+
+	std::vector<DescriptorConfig> leafDescriptorConfigs(5);
+	leafDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
+	leafDescriptorConfigs[0].stages = VK_SHADER_STAGE_VERTEX_BIT;
+	leafDescriptorConfigs[1].type = DescriptorType::StorageBuffer;
+	leafDescriptorConfigs[1].stages = VK_SHADER_STAGE_VERTEX_BIT;
+	leafDescriptorConfigs[2].type = DescriptorType::StorageBuffer;
+	leafDescriptorConfigs[2].stages = VK_SHADER_STAGE_VERTEX_BIT;
+	leafDescriptorConfigs[3].type = DescriptorType::StorageBuffer;
+	leafDescriptorConfigs[3].stages = VK_SHADER_STAGE_VERTEX_BIT;
+	leafDescriptorConfigs[4].type = DescriptorType::UniformBuffer;
+	leafDescriptorConfigs[4].stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	leafDescriptor.Create(1, leafDescriptorConfigs);
+
+	leafDescriptor.GetNewSet();
+	leafDescriptor.Update(0, 0, treeRenderDataBuffer);
+	leafDescriptor.Update(0, 1, treeShadowRenderDataBuffer);
+	leafDescriptor.Update(0, 2, leafPositionsBuffer);
+	leafDescriptor.Update(0, 3, treeComputeConfigBuffer);
+	leafDescriptor.Update(0, 4, leafShaderConfigBuffer);
 
 	std::vector<DescriptorConfig> retrieveDescriptorConfigs(1);
 	retrieveDescriptorConfigs[0].type = DescriptorType::StorageBuffer;
@@ -1472,7 +1715,7 @@ void Start()
 		postDescriptor.Update(i, k++, aerialImage);
 		postDescriptor.Update(i, k++, luminanceBuffer);
 		postDescriptor.Update(i, k++, postBuffer);
-		postDescriptor.Update(i, k++, *shadowPass.GetAttachmentImage(0, i));
+		postDescriptor.Update(i, k++, *shadowPass.GetAttachmentImage(0, i)); //remoooooveeeeee!!!!
 	}
 
 	std::vector<DescriptorConfig> atmosphereDescriptorConfigs(4);
@@ -1711,10 +1954,41 @@ void Start()
 	treeShadowPipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
 	treeShadowPipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 	treeShadowPipelineConfig.subpass = 0;
+	treeShadowPipelineConfig.rasterization.cullMode = VK_CULL_MODE_FRONT_BIT;
 	treeShadowPipelineConfig.rasterization.depthBiasEnable = VK_TRUE;
-	treeShadowPipelineConfig.rasterization.depthBiasConstantFactor = 4.0;
-	treeShadowPipelineConfig.rasterization.depthBiasSlopeFactor = 3.0;
+	//treeShadowPipelineConfig.rasterization.depthBiasConstantFactor = 4.0;
+	//treeShadowPipelineConfig.rasterization.depthBiasSlopeFactor = 3.0;
+	treeShadowPipelineConfig.rasterization.depthBiasConstantFactor = -2.0;
+	treeShadowPipelineConfig.rasterization.depthBiasSlopeFactor = -2.0;
 	treeShadowPipeline.Create(treeShadowPipelineConfig);
+
+	PipelineConfig leafPipelineConfig = Pipeline::DefaultConfig();
+	leafPipelineConfig.shader = "leaf";
+	leafPipelineConfig.vertexInfo = leafMesh.GetVertexInfo();
+	leafPipelineConfig.renderpass = pass.GetRenderpass();
+	leafPipelineConfig.type = PipelineType::Graphics;
+	leafPipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), leafDescriptor.GetLayout() };
+	leafPipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+	leafPipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+	leafPipelineConfig.subpass = 0;
+	leafPipelineConfig.rasterization.cullMode = VK_CULL_MODE_NONE;
+	leafPipeline.Create(leafPipelineConfig);
+
+	PipelineConfig leafShadowPipelineConfig = Pipeline::DefaultConfig();
+	leafShadowPipelineConfig.shader = "leafShadow";
+	leafShadowPipelineConfig.vertexInfo = leafMesh.GetVertexInfo();
+	leafShadowPipelineConfig.renderpass = shadowPass.GetRenderpass();
+	leafShadowPipelineConfig.type = PipelineType::Graphics;
+	leafShadowPipelineConfig.descriptorLayouts = { frameDescriptor.GetLayout(), leafDescriptor.GetLayout() };
+	leafShadowPipelineConfig.pushConstants = { pc };
+	leafShadowPipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+	leafShadowPipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+	leafShadowPipelineConfig.subpass = 0;
+	leafShadowPipelineConfig.rasterization.depthBiasEnable = VK_TRUE;
+	leafShadowPipelineConfig.rasterization.depthBiasConstantFactor = 2.0;
+	leafShadowPipelineConfig.rasterization.depthBiasSlopeFactor = 2.0;
+	leafShadowPipelineConfig.rasterization.cullMode = VK_CULL_MODE_NONE;
+	leafShadowPipeline.Create(leafShadowPipelineConfig);
 
 	//Manager::GetCamera().Move(point3D(-5000, 2500, 5000));
 	Input::TriggerMouse();
@@ -1724,7 +1998,9 @@ void Start()
 	//Manager::GetCamera().Move(point3D(3884.26, -1783.41, 11323.2));
 	//Manager::GetCamera().Move(point3D(0, 0, 0));
 	//Manager::GetCamera().Move(point3D(1242.74, -1730.73, 5410.96));
-	Manager::GetCamera().Move(point3D(4641.78, -2376.92, 8547.5));
+	//Manager::GetCamera().Move(point3D(4641.78, -2376.92, 8547.5));
+	//Manager::GetCamera().Move(point3D(4603.41, -2411.25, 8862.13));
+	Manager::GetCamera().Move(point3D(428.953, -2005.17, 2031.84));
 	//Manager::GetCamera().Move(point3D(1249.58, -1968.5, 6361.08));
 	//Manager::GetCamera().Move(point3D(4692.71, -2418.12, 9021.92));
 	//Manager::GetCamera().Move(point3D(10379.6, 362.507, 824.909));
@@ -1733,7 +2009,9 @@ void Start()
 	//Manager::GetCamera().Rotate(point3D(4.89981, 306.799, 0.0));
 	//Manager::GetCamera().Rotate(point3D(-3.40032, 292.801, 0.0));
 	//Manager::GetCamera().Rotate(point3D(6.39966, 343.702, 0.0));
-	Manager::GetCamera().Rotate(point3D(24.7997, 338.802, 0.0));
+	//Manager::GetCamera().Rotate(point3D(24.7997, 338.802, 0.0));
+	//Manager::GetCamera().Rotate(point3D(12.1997, 669.309, 0.0));
+	Manager::GetCamera().Rotate(point3D(-3.80028, 1728.39, 0.0));
 	//Manager::GetCamera().Rotate(point3D(-46.101, 1074.21, 0.0));
 	//Manager::GetCamera().Rotate(point3D(3.49968, 781.528, 0.0));
 	//Manager::GetCamera().Rotate(point3D(31.1995, 454.71, 0.0));
@@ -1863,16 +2141,24 @@ void Start()
 	treeMenu.TriggerNode("Compute", UpdateTreeComputeData);
 	treeMenu.AddSlider("spacing", treeComputeConfig.treeSpacing, 0.1, 100.0);
 	treeMenu.AddSlider("random offset", treeComputeConfig.treeOffset, 0.0, 50.0);
+	treeMenu.AddSlider("max steepness", treeComputeConfig.maxSteepness, 0.0, 0.2);
+	treeMenu.AddSlider("noise scale", treeComputeConfig.noiseScale, 0.0, 0.004);
+	treeMenu.AddSlider("noise octaves", treeComputeConfig.noiseOctaves, 0, 4);
 	treeMenu.AddSlider("noise cutoff", treeComputeConfig.noiseCutoff, 0.0, 1.0);
 	treeMenu.AddSlider("cutoff randomness", treeComputeConfig.noiseCutoffRandomness, 0.0, 0.5);
-	treeMenu.AddSlider("lod 0 radius", treeComputeConfig.lod0Radius, 0, 10);
-	treeMenu.AddSlider("lod 1 radius", treeComputeConfig.lod1Radius, 3, 25);
-	treeMenu.AddSlider("lod 2 radius", treeComputeConfig.lod2Radius, 15, 50);
-	treeMenu.AddSlider("render radius", treeComputeConfig.renderRadius, 0, treeComputeBase);
+	treeMenu.AddSlider("lod 0 radius", treeComputeConfig.radiuses[0], 0, 10);
+	treeMenu.AddSlider("lod 1 radius", treeComputeConfig.radiuses[1], 3, 25);
+	treeMenu.AddSlider("lod 2 radius", treeComputeConfig.radiuses[2], 15, 50);
+	treeMenu.AddSlider("render radius", treeComputeConfig.radiuses[3], 0, treeComputeBase);
 	treeMenu.AddCheckbox("occlusion culling", treeComputeConfig.occlusionCulling);
 	treeMenu.AddSlider("cull iterations", treeComputeConfig.cullIterations, 1, 25);
 	treeMenu.AddDropdown("cull exponent", treeComputeConfig.cullExponent, {"none", "in out quad", "in out cubic", "quad"});
 	treeMenu.AddSlider("cull start distance", treeComputeConfig.cullStartDistance, 0.0, 250.0);
+	treeMenu.AddCheckbox("overdraw culling", treeComputeConfig.overdrawCulling);
+	treeMenu.AddSlider("overdraw culling minimum", treeComputeConfig.overdrawCullMinimum, 0, 50);
+	treeMenu.AddSlider("overdraw culling maximum", treeComputeConfig.overdrawCullMaximum, 0, 100);
+	treeMenu.AddSlider("overdraw culling height offset", treeComputeConfig.overdrawCullHeightOffset, 0.0, 50.0);
+	treeMenu.AddCheckbox("overdraw culling height only", treeComputeConfig.overdrawCullHeightOnly);
 	treeMenu.TriggerNode("Compute");
 	treeMenu.TriggerNode("Shader", UpdateTreeShaderData);
 	treeMenu.AddSlider("weight power", treeShaderConfig.weightPower, 0, 72);
@@ -1883,10 +2169,30 @@ void Start()
 	treeMenu.AddSlider("ambient strength", treeShaderConfig.ambientStrength, 0.0, 1.0);
 	treeMenu.TriggerNode("Shader");
 
+	Menu& leafMenu = UI::NewMenu("Leaves");
+	leafMenu.AddCheckbox("leaves enabled", leavesEnabled);
+	leafMenu.TriggerNode("shader", UpdateLeafShaderData);
+	leafMenu.AddSlider("local normal blend", leafShaderConfig.localNormalBlend, 0.0, 1.0);
+	leafMenu.AddSlider("world normal height", leafShaderConfig.worldNormalHeight, 0.0, 25.0);
+	leafMenu.AddSlider("translucency blend", leafShaderConfig.translucencyBlend, 0.0, 1.0);
+	leafMenu.AddSlider("shadow translucency dim", leafShaderConfig.shadowTranslucencyDim, 0.95, 1.0);
+	leafMenu.AddSlider("translucency bias", leafShaderConfig.translucencyBias, 0.0, 1.0);
+	leafMenu.AddSlider("translucency range", leafShaderConfig.translucencyRange, 0.0, 1.0);
+	leafMenu.AddSlider("lod 0 size", leafShaderConfig.lod0Size, 0.0, 2.0);
+	leafMenu.AddSlider("lod 1 size", leafShaderConfig.lod1Size, 0.0, 4.0);
+	leafMenu.AddSlider("lod 2 size", leafShaderConfig.lod2Size, 0.0, 7.0);
+	leafMenu.AddSlider("lod 3 size", leafShaderConfig.lod3Size, 0.0, 16.0);
+	leafMenu.TriggerNode("shader");
+
 	Menu& shadowMenu = UI::NewMenu("Shadows");
-	shadowMenu.AddCheckbox("shadows enabled", shadowsEnabled);
+	shadowMenu.TriggerNode("shadow settings", UpdateShadowData);
+	shadowMenu.AddCheckbox("shadows enabled", shadowData.enabled);
+	shadowMenu.AddSlider("blend distance 0", shadowData.blend0Dis, 0.0, 0.001);
+	shadowMenu.AddSlider("blend distance 1", shadowData.blend1Dis, 0.0, 0.01);
+	shadowMenu.AddCheckbox("test", shadowData.test);
 	shadowMenu.AddSlider("distance", shadowDistance, 0.0, 250.0);
 	shadowMenu.AddSlider("depth multiplier", shadowDepthMultiplier, 0.0, 16.0);
+	shadowMenu.TriggerNode("shadow settings");
 
 	UI::CreateContext(pass.GetRenderpass(), 1);
 
@@ -1895,8 +2201,8 @@ void Start()
 	//Improve renderer to allow call registering for specific subpasses!
 
 	//Renderer::RegisterCall(0, RenderPre);
-	Renderer::RegisterCall(2, Render);
-	Renderer::RegisterCall(2, UI::Render);
+	Renderer::RegisterCall(3, Render);
+	Renderer::RegisterCall(3, UI::Render);
 	//Renderer::RegisterCall(1, RenderPost);
 	//Renderer::RegisterCall(0, BlitFrameBuffer, true);
 	Renderer::RegisterCall(0, ComputeLuminance, true);
@@ -1906,6 +2212,7 @@ void Start()
 
 	Renderer::RegisterCall(0, RenderShadows);
 	Renderer::RegisterCall(1, RenderShadows2);
+	Renderer::RegisterCall(2, RenderShadows3);
 
 	std::cout << "rfc: " << Manager::GetSwapchain().GetFrameCount() << std::endl;
 
@@ -1913,6 +2220,8 @@ void Start()
 	//std:: cout << "test: " << test << std::endl << std::endl;
 	//mat4 testi = test.Inversed();
 	//std:: cout << "testi: " << testi << std::endl;
+
+	std::cout << "leaf pos count: " << leafPositions.size() << std::endl;
 }
 
 void Compute(int lod)
@@ -2013,6 +2322,7 @@ mat4 ComputeShadowMatrix(float near, float far)
 	//point3D side = point3D::Cross(front, point3D(0.0, 1.0, 0.0)).Unitized();
 	//point3D up = point3D::Cross(side, front).Unitized();
 
+	//point3D eye = center + (point3D(data.lightDirection).Unitized() * far * (0.5 * shadowDepthMultiplier));
 	point3D eye = center + (point3D(data.lightDirection).Unitized() * far * (0.5 * shadowDepthMultiplier));
 
 	mat4 shadowView = mat4::Look(eye, center, point3D(0.0, 1.0, 0.0));
@@ -2107,8 +2417,8 @@ void Frame()
 		//cameraConfig.speed = 4000.0f;
 		//Manager::GetCamera().SetConfig(cameraConfig);
 
-		//std::cout << "Camera position: " << Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0 << std::endl;
-		std::cout << "Camera position: " << Manager::GetCamera().GetPosition() << std::endl;
+		std::cout << "Camera position: " << Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0 << std::endl;
+		//std::cout << "Camera position: " << Manager::GetCamera().GetPosition() << std::endl;
 		std::cout << "Camera Rotation: " << Manager::GetCamera().GetAngles() << std::endl;
 		std::cout << "Camera Direction: " << Manager::GetCamera().GetDirection() << std::endl;
 		std::cout << "Light direction: " << data.lightDirection << std::endl;
@@ -2205,6 +2515,7 @@ void Frame()
 
 	data.shadowMatrices[0] = ComputeShadowMatrix(0.1, shadowDistance);
 	data.shadowMatrices[1] = ComputeShadowMatrix(shadowDistance, shadowDistance * 5.0);
+	data.shadowMatrices[2] = ComputeShadowMatrix(shadowDistance * 5.0, shadowDistance * 25.0);
 
 	data.resolution.x() = Manager::GetCamera().GetConfig().width;
 	data.resolution.y() = Manager::GetCamera().GetConfig().height;
@@ -2322,6 +2633,19 @@ void Frame()
 		//Manager::GetCamera().UpdateProjection();
 	}
 
+	if (Input::GetKey(GLFW_KEY_B).pressed)
+	{
+		leafShaderConfig.translucencyBias = 0.5;
+		leafShaderConfig.translucencyRange = 0.5;
+		UpdateLeafShaderData();
+	}
+	if (Input::GetKey(GLFW_KEY_N).pressed)
+	{
+		leafShaderConfig.translucencyBias = 0.25;
+		leafShaderConfig.translucencyRange = 0.325;
+		UpdateLeafShaderData();
+	}
+
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));
 
 	objectBuffers[Renderer::GetCurrentFrame()].Update(models.data(), sizeof(mat4) * models.size());
@@ -2339,6 +2663,7 @@ void End()
 	planeLod2Mesh.Destroy();
 	quadMesh.Destroy();
 	treeMesh.Destroy();
+	leafMesh.Destroy();
 
 	for (Buffer& buffer : frameBuffers) { buffer.Destroy(); }
 	frameBuffers.clear();
@@ -2374,8 +2699,13 @@ void End()
 	treeShadowRenderDataBuffer.Destroy();
 	treeDrawBuffer.Destroy();
 	treeShadowDrawBuffer.Destroy();
+	leafDrawBuffer.Destroy();
+	leafShadowDrawBuffer.Destroy();
 	treeComputeConfigBuffer.Destroy();
 	treeShaderConfigBuffer.Destroy();
+	leafShaderConfigBuffer.Destroy();
+	shadowDataBuffer.Destroy();
+	leafPositionsBuffer.Destroy();
 
 	luminanceBuffer.Destroy();
 	luminanceVariablesBuffer.Destroy();
@@ -2442,6 +2772,7 @@ void End()
 	retrieveDescriptor.Destroy();
 	treeComputeDescriptor.Destroy();
 	treeDescriptor.Destroy();
+	leafDescriptor.Destroy();
 	pipeline.Destroy();
 	prePipeline.Destroy();
 	postPipeline.Destroy();
@@ -2459,6 +2790,8 @@ void End()
 	treeRenderComputePipeline.Destroy();
 	treePipeline.Destroy();
 	treeShadowPipeline.Destroy();
+	leafPipeline.Destroy();
+	leafShadowPipeline.Destroy();
 
 	//UI::DestroyContext();
 }
