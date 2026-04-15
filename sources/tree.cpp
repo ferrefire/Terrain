@@ -152,13 +152,23 @@ shapePN32 Tree::GenerateBranch(TreeConfig config)
 	
 			LeafData leafData{};
 			leafData.leafPosition = config.totalOffset + offset;
-			float yRot = std::lerp(0.0, 1.0, floatDistribution(generator));
-			float xRot = std::lerp(0.0, 1.0, floatDistribution(generator));
-			float zRot = std::lerp(0.0, 1.0, floatDistribution(generator));
-			float xr = (xRot * 360.0) * 0.0174532925;
+			point2D leafNormal = point2D(leafData.leafPosition.z(), leafData.leafPosition.x());
+			//leafNormal.y() = 0;
+			leafNormal = leafNormal.Unitized();
+
+			//float yRot = std::lerp(0.0, 1.0, floatDistribution(generator));
+			//float xRot = std::lerp(0.0, 1.0, floatDistribution(generator));
+			//float zRot = std::lerp(0.0, 1.0, floatDistribution(generator));
+			float yRot = leafNormal.Angle();
+			//float xRot = leafNormal.Angles().x();
+			float xRot = (point3D(leafData.leafPosition).Unitized().y()) * 0.25 + std::lerp(-0.1, 0.05, floatDistribution(generator));
+			float zRot = std::lerp(-0.15, 0.15, floatDistribution(generator));
+			float xr = (-xRot * 360.0) * 0.0174532925;
+			//float xr = 0;
 			float xc = cos(xr);
 			float xs = sin(xr);
-			float yr = (yRot * 360.0) * 0.0174532925;
+			float yr = yRot + ((0.25 + std::lerp(-0.1, 0.1, floatDistribution(generator))) * 360.0 * 0.0174532925);
+			//float yr = yRot;
 			float yc = cos(yr);
 			float ys = sin(yr);
 			float zr = (zRot * 360.0) * 0.0174532925;
@@ -166,6 +176,16 @@ shapePN32 Tree::GenerateBranch(TreeConfig config)
 			float zs = sin(zr);
 			leafData.leafRotationXY = point4D(xc, xs, yc, ys);
 			leafData.leafRotationZ = point4D(zc, zs, 0.0, 0.0);
+
+			//point3D leafRotation = (0.0);
+			//leafRotation.x() = ((point3D(leafData.leafPosition).Unitized().y()) * 0.25 + std::lerp(-0.1, 0.05, floatDistribution(generator))) * 360.0;
+			//leafRotation.y() = (leafNormal.Angle() / 0.0174532925) + ((0.25 + std::lerp(-0.1, 0.1, floatDistribution(generator))) * 360.0);
+			//leafRotation.z() = std::lerp(-0.15, 0.15, floatDistribution(generator)) * 360.0;
+
+			//leafData.leafMatrix = mat4::Identity();
+			//leafData.leafMatrix.Rotate(leafRotation);
+			//leafData.leafMatrix = leafMatrix;
+			//mat3 test = leafData.leafMatrix;
 	
 			leafPositions.push_back(leafData);
 		}

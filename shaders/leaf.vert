@@ -78,7 +78,7 @@ void main()
 
 	int iLod = int(floor(currentTree.position.w));
 	float lodInter = currentTree.position.w - float(iLod);
-	//lodInter = pow(lodInter, 2);
+	if (shaderConfig.lodInterMod == 1) {lodInter = pow(lodInter, shaderConfig.lodInterPow);}
 
 	//if (lodInter > 0.75) {lodInter = (lodInter - 0.75) * 4.0;}
 	//else {lodInter = 0;}
@@ -101,18 +101,26 @@ void main()
 	//Improve this by rotating with one matrix for all rotations instead of one for each axis!!!
 
 	vec3 leafPosition = localPosition * scalar;
-	leafPosition = RotateY(leafPosition, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w);
+
 	leafPosition = RotateX(leafPosition, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y);
+	leafPosition = RotateY(leafPosition, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w);
 	leafPosition = RotateZ(leafPosition, currentLeaf.rotationZ.x, currentLeaf.rotationZ.y);
+
+	//leafPosition = (currentLeaf.rotation * vec4(leafPosition, 1.0)).xyz;
+
 	leafPosition += currentLeaf.position.xyz;
 	leafPosition = RotateY(leafPosition, currentTree.rotation.z, currentTree.rotation.w);
 	leafPosition.y -= 0.5;
 
 	worldNormal = normalize(leafPosition - vec3(0.0, shaderConfig.worldNormalHeight, 0.0));
 	localNormal = vec3(0, 0, 1);
-	localNormal = normalize(RotateY(localNormal, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w));
+	
 	localNormal = normalize(RotateX(localNormal, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y));
+	localNormal = normalize(RotateY(localNormal, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w));
 	localNormal = normalize(RotateZ(localNormal, currentLeaf.rotationZ.x, currentLeaf.rotationZ.y));
+
+	//localNormal = normalize((currentLeaf.rotation * vec4(localNormal, 0.0)).xyz);
+
 	localNormal = normalize(RotateY(localNormal, currentTree.rotation.z, currentTree.rotation.w));
 	//worldNormal = localNormal;
 

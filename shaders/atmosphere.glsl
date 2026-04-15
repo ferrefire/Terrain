@@ -1,7 +1,7 @@
 #ifndef ATMOSPHERE_INCLUDED
 #define ATMOSPHERE_INCLUDED
 
-layout(set = 0, binding = 5, std140) uniform AtmosphereData
+layout(set = 0, binding = 5, std430) buffer AtmosphereData
 {
 	float miePhaseFunction;
 	float offsetRadius;
@@ -23,6 +23,7 @@ layout(set = 0, binding = 5, std140) uniform AtmosphereData
 	float skyPower;
 	float defaultSkyPower;
 	float skyDilute;
+	vec4 skyColor;
 } atmosphereData;
 
 #define PI 3.1415926535897932384626433832795

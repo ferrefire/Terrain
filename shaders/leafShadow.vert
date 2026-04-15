@@ -71,7 +71,7 @@ void main()
 
 	int lod = int(floor(currentTree.position.w));
 	float lodInter = currentTree.position.w - float(lod);
-	//lodInter = pow(lodInter, 2);
+	lodInter = pow(lodInter, 2);
 
 	//if (lodInter > 0.75) {lodInter = (lodInter - 0.75) * 4.0;}
 	//else {lodInter = 0;}
@@ -108,9 +108,10 @@ void main()
 	//if (dot(localNormal, variables.lightDirection.xyz) < 0.0) {leafPosition.x *= -1.0;}
 
 	leafPosition *= scalar;
-	leafPosition = RotateY(leafPosition, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w);
 	leafPosition = RotateX(leafPosition, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y);
+	leafPosition = RotateY(leafPosition, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w);
 	leafPosition = RotateZ(leafPosition, currentLeaf.rotationZ.x, currentLeaf.rotationZ.y);
+	//leafPosition = (currentLeaf.rotation * vec4(leafPosition, 1.0)).xyz;
 	leafPosition += currentLeaf.position.xyz;
 	leafPosition = RotateY(leafPosition, currentTree.rotation.z, currentTree.rotation.w);
 	leafPosition.y -= 0.5;

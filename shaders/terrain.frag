@@ -364,6 +364,9 @@ void main()
 	//float occlusion = illumination.w;
 	float occlusion = TerrainOcclusion(worldPosition.xz);
 
+	//float upDot = dot(data.N, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5;
+	//float illuminationExposure = mix(0.5, 1.0, upDot);
+	//vec3 ambientDiffuse = 0.25 * (textureData.color * illumination.rgb * illuminationExposure);
 	vec3 ambientDiffuse = 0.25 * (textureData.color * illumination.rgb);
 	vec3 ambient = ambientDiffuse * ao;
 

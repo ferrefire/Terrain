@@ -144,20 +144,8 @@ uint BehindTrees(vec3 worldPosition, int iterations, uint amount)
 	int result = 0;
 	int i = 0;
 
-	//worldPosition -= vec3(config.treesCenter.x, 0.0, config.treesCenter.y);
-
-	//if (abs(rayPosition.y - worldPosition.y) > 500.0) {return (0);}
-
 	float dis = SquaredDistance(worldPosition, origin);
 	vec3 direction = normalize(worldPosition - origin);
-
-	//float vx = floor((variables.viewPosition.x + variables.terrainOffset.x * 10000.0) / config.treeSpacing) * config.treeSpacing - variables.terrainOffset.x * 10000.0;
-	//float vz = floor((variables.viewPosition.z + variables.terrainOffset.z * 10000.0) / config.treeSpacing) * config.treeSpacing - variables.terrainOffset.z * 10000.0;
-
-	//int ix = int(trunc((worldPosition.position.x - variables.viewPosition.x) / config.treeSpacing));
-	//int iz = int(trunc((worldPosition.position.z - variables.viewPosition.z) / config.treeSpacing));
-	//vec2 ixz = vec2(ix, iz);
-	//float maxDis = SquaredMagnitude(ixz);
 
 	uint prevIndex = 0;
 	uint counter = 0;
@@ -165,24 +153,14 @@ uint BehindTrees(vec3 worldPosition, int iterations, uint amount)
 
 	while (i <= iterations)
 	{
-		//float easeInter = inter;
-		//if (ease == 1) {easeInter = easeInOutQuad(inter);}
-		//else if (ease == 2) {easeInter = easeInOutCubic(inter);}
-		//else if (ease == 3) {easeInter = pow(inter, 2);}
-		//rayPosition = mix(origin, worldPosition, easeInter);
 		rayPosition += direction * config.treeSpacing;
 
 		if (SquaredDistance(rayPosition, origin) > dis) {return (0);}
 
-		//int ix = int(floor((rayPosition.x - vx) / config.treeSpacing)) + int(treeBase * 0.5);
-		//int iz = int(floor((rayPosition.z - vz) / config.treeSpacing)) + int(treeBase * 0.5);
 		int ix = int(floor((rayPosition.x - config.treesCenter.x) / config.treeSpacing)) + int(treeBase * 0.5);
 		int iz = int(floor((rayPosition.z - config.treesCenter.y) / config.treeSpacing)) + int(treeBase * 0.5);
 
 		uint setupIndex = ix * treeBase + iz;
-		//vec2 ixz = vec2(ix, iz);
-
-		//uint setupIndex = (iz * treeBase + ix) + ((treeBase * treeBase) / 2);
 
 		if (setupIndex != prevIndex)
 		{
@@ -248,62 +226,12 @@ void main()
 				leafShadowDrawCommands[i].firstInstance = config.squaredShadowLengths[i - 1] * config.leafCounts[0];
 			}
 		}
-
-		/*atomicExchange(drawCommands[0].instanceCount, 0);
-		atomicExchange(drawCommands[1].instanceCount, 0);
-		atomicExchange(drawCommands[2].instanceCount, 0);
-		atomicExchange(drawCommands[3].instanceCount, 0);
-
-		atomicExchange(shadowDrawCommands[0].instanceCount, 0);
-		atomicExchange(shadowDrawCommands[1].instanceCount, 0);
-		atomicExchange(shadowDrawCommands[2].instanceCount, 0);
-		atomicExchange(shadowDrawCommands[3].instanceCount, 0);
-
-		atomicExchange(leafDrawCommands[0].instanceCount, 0);
-		atomicExchange(leafDrawCommands[1].instanceCount, 0);
-		atomicExchange(leafDrawCommands[2].instanceCount, 0);
-		atomicExchange(leafDrawCommands[3].instanceCount, 0);
-
-		atomicExchange(leafShadowDrawCommands[0].instanceCount, 0);
-		atomicExchange(leafShadowDrawCommands[1].instanceCount, 0);
-		atomicExchange(leafShadowDrawCommands[2].instanceCount, 0);
-		atomicExchange(leafShadowDrawCommands[3].instanceCount, 0);
-
-		int lod0Length = config.lod0Radius * 2 + 1;
-		drawCommands[1].firstInstance = lod0Length * lod0Length;
-		leafDrawCommands[1].firstInstance = (lod0Length * lod0Length) * leafCount;
-		int lod0ShadowLength = config.lod0ShadowRadius * 2 + 1;
-		shadowDrawCommands[1].firstInstance = lod0ShadowLength * lod0ShadowLength;
-		leafShadowDrawCommands[1].firstInstance = (lod0ShadowLength * lod0ShadowLength) * leafCount;
-
-		int lod1Length = config.lod1Radius * 2 + 1;
-		drawCommands[2].firstInstance = lod1Length * lod1Length;
-		leafDrawCommands[2].firstInstance = (lod1Length * lod1Length) * leafCount;
-		int lod1ShadowLength = config.lod1ShadowRadius * 2 + 1;
-		shadowDrawCommands[2].firstInstance = lod1ShadowLength * lod1ShadowLength;
-		leafShadowDrawCommands[2].firstInstance = (lod1ShadowLength * lod1ShadowLength) * leafCount;
-
-		int lod2Length = config.lod2Radius * 2 + 1;
-		drawCommands[3].firstInstance = lod2Length * lod2Length;
-		leafDrawCommands[3].firstInstance = (lod2Length * lod2Length) * leafCount;
-		int lod2ShadowLength = config.lod2ShadowRadius * 2 + 1;
-		shadowDrawCommands[3].firstInstance = lod2ShadowLength * lod2ShadowLength;
-		leafShadowDrawCommands[3].firstInstance = (lod2ShadowLength * lod2ShadowLength) * leafCount;*/
 	}
 
 	TreeData currentTree = setupData[setupIndex];
 
 	if (currentTree.position.w < 0.0) {return;}
 
-	//int ix = int(gl_GlobalInvocationID.x) - int(treeBase * 0.5);
-	//int iz = int(gl_GlobalInvocationID.y) - int(treeBase * 0.5);
-	//int vx = int(floor(variables.viewPosition.x / config.treeSpacing));
-	//int vz = int(floor(variables.viewPosition.z / config.treeSpacing));
-	//ix -= vx;
-	//iz -= vz;
-
-	//int ix = int(InvTrunc((currentTree.position.x - variables.viewPosition.x) / config.treeSpacing));
-	//int iz = int(InvTrunc((currentTree.position.z - variables.viewPosition.z) / config.treeSpacing));
 	int ix = int(trunc((currentTree.position.x - variables.viewPosition.x) / config.treeSpacing));
 	int iz = int(trunc((currentTree.position.z - variables.viewPosition.z) / config.treeSpacing));
 	vec2 ixz = vec2(ix, iz);
@@ -311,19 +239,9 @@ void main()
 	uint lod = 0;
 	uint shadowLod = 0;
 
-	//if (max(abs(ix), abs(iz)) > config.renderRadius) {return;}
-	//else if (max(abs(ix), abs(iz)) > config.lod2Radius) {lod = 3;}
-	//else if (max(abs(ix), abs(iz)) > config.lod1Radius) {lod = 2;}
-	//else if (max(abs(ix), abs(iz)) > config.lod0Radius) {lod = 1;}
-
 	//float idis = SquaredMagnitude(ixz);
 	float idis = SquaredDistance(variables.viewPosition.xyz, currentTree.position.xyz);
 	float interLod = 0.0;
-
-	//float renDis = (config.renderRadius * config.treeSpacing) * (config.renderRadius * config.treeSpacing);
-	//float lod2Dis = (config.lod2Radius * config.treeSpacing) * (config.lod2Radius * config.treeSpacing);
-	//float lod1Dis = (config.lod1Radius * config.treeSpacing) * (config.lod1Radius * config.treeSpacing);
-	//float lod0Dis = (config.lod0Radius * config.treeSpacing) * (config.lod0Radius * config.treeSpacing);
 
 	if (idis > config.squaredDistances[3]) {return;}
 
@@ -339,66 +257,27 @@ void main()
 
 	if (lod == 0) {interLod = idis / config.squaredDistances[0];}
 
-	/*else if (idis > lod2Dis)
-	{
-		interLod = (idis - lod2Dis) / (renDis - lod2Dis);
-		lod = 3;
-	}
-	else if (idis > lod1Dis)
-	{
-		interLod = (idis - lod1Dis) / (lod2Dis - lod1Dis);
-		lod = 2;
-	}
-	else if (idis > lod0Dis)
-	{
-		interLod = (idis - lod0Dis) / (lod1Dis - lod0Dis);
-		lod = 1;
-	}
-	else
-	{
-		interLod = idis / (lod0Dis);
-	}*/
-
-	//if (idis > config.lod2ShadowRadius * config.lod2ShadowRadius) {shadowLod = 3;}
-	//else if (idis > config.lod1ShadowRadius * config.lod1ShadowRadius) {shadowLod = 2;}
-	//else if (idis > config.lod0ShadowRadius * config.lod0ShadowRadius) {shadowLod = 1;}
-
-	//float lodInter = float(lod) * (1.0 / 3.0);
-
 	float px = ix * config.treeSpacing;
 	float pz = iz * config.treeSpacing;
-
-	//float dis = max(abs(px), abs(pz));
-	//float dis = SquaredDistance(currentTree.position.xyz, variables.viewPosition.xyz);
-	float cullOffset = 25.0;
-	//if (lod == 2) {cullOffset = 15.0;}
-	//else if (lod == 3) {cullOffset = 5.0;}
-
-	//int viewCull = 0;
-	//int terrainCull = 0;
 
 	if (config.overdrawCulling == 1 && config.overdrawLodCull == 1 && BehindTrees(currentTree.position.xyz, config.overdrawLodCullMaximum, config.overdrawLodCullMinimum) == 1) {lod += 1;}
 
 	if (lod > 3) {return;}
 	currentTree.position.w = float(lod) + interLod;
-
-	//if (dis > config.cullStartDistance * config.cullStartDistance)
-	//{
-	//	//if (InView(currentTree.position.xyz + vec3(0.0, 10.0, 0.0), vec3(0.0)) == 0) {viewCull = 1;}
-	//	if (InsideFrustum(lod, currentTree.position.xyz) == 0) {viewCull = 1;}
-	//	else if (config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, cullOffset, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}
-	//}
 	
 	if (lod >= 3 && InsideFrustum(lod, currentTree.position.xyz) == 0) {return;}
 	else if (config.overdrawCulling == 1 && config.overdrawLodCull == 0 && BehindTrees(currentTree.position.xyz, config.overdrawCullingMaximum, config.overdrawCullingMinimum) == 1) {return;}
-	else if (config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, cullOffset, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}
+	else if (config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, config.cullingHeight, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}
 
 	if (lod <= 3)
 	{
 		for (uint i = 0; i < 3; i++)
 		{
 			//if (i > 1 && lod == 0) {continue;}
-			//if (i == 0 && lod > 1) {continue;}
+			if (lod > i + 2) {continue;}
+
+			//if (i == 0 && SquaredDistance(currentTree.position.xyz, variables.viewPosition.xyz) > (200 * 200)) {continue;}
+			//if (i == 1 && SquaredDistance(currentTree.position.xyz, variables.viewPosition.xyz) > (750 * 750)) {continue;}
 
 			if (InsideCascade(i, currentTree.position.xyz) == 1)
 			{
@@ -409,73 +288,15 @@ void main()
 				shadowRenderData[shadowIndex] = currentTree;
 
 				atomicAdd(leafShadowDrawCommands[si].instanceCount, config.leafCounts[si]);
-
-				//if (si == 0) {atomicAdd(leafShadowDrawCommands[si].instanceCount, leafCount);}
-				//else if (si == 1) {atomicAdd(leafShadowDrawCommands[si].instanceCount, leafCount1);}
-				//else if (si == 2) {atomicAdd(leafShadowDrawCommands[si].instanceCount, leafCount2);}
-				//else if (si == 3) {atomicAdd(leafShadowDrawCommands[si].instanceCount, leafCount3);}
 			}
 		}
 	}
 
-	//if (lod <= 1 && InsideCascade(lod, currentTree.position.xyz) == 1)
-	//{
-	//	uint shadowIndex = atomicAdd(shadowDrawCommands[lod].instanceCount, 1) + shadowDrawCommands[lod].firstInstance;
-	//	shadowRenderData[shadowIndex] = currentTree;
-	//}
-
 	if (InsideFrustum(lod, currentTree.position.xyz) == 0) {return;}
 	//else if (config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, cullOffset, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}
-
-	
 
 	uint index = atomicAdd(drawCommands[lod].instanceCount, 1) + drawCommands[lod].firstInstance;
 	renderData[index] = currentTree;
 
 	atomicAdd(leafDrawCommands[lod].instanceCount, config.leafCounts[lod]);
-
-	//if (lod == 0) {atomicAdd(leafDrawCommands[lod].instanceCount, leafCount);}
-	//else if (lod == 1) {atomicAdd(leafDrawCommands[lod].instanceCount, leafCount1);}
-	//else if (lod == 2) {atomicAdd(leafDrawCommands[lod].instanceCount, leafCount2);}
-	//else if (lod == 3) {atomicAdd(leafDrawCommands[lod].instanceCount, leafCount3);}
-
-	//if (lod == 1)
-	//{
-	//	uint shadowIndex = atomicAdd(shadowDrawCommands[2].instanceCount, 1) + shadowDrawCommands[2].firstInstance;
-	//	shadowRenderData[shadowIndex] = currentTree;
-	//}
-
-	//int endLod = 1;
-
-	//if (viewCull == 0)
-	//{
-	//	//endLod = 2;
-	//	uint index = atomicAdd(drawCommands[lod].instanceCount, 1) + drawCommands[lod].firstInstance;
-	//	renderData[index] = currentTree;
-	//}
-
-	//int terrainCullTested = 0;
-
-	//bool inside = false;
-	//for (int i = 0; i < 2; i++)
-	/*for (int i = 0; i < 1; i++)
-	{
-		if (InsideCascade(i, currentTree.position.xyz) == 0) {continue;}
-
-		//if (terrainCullTested == 0 && config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, cullOffset, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}
-		//terrainCullTested = 1;
-
-		uint shadowIndex = atomicAdd(shadowDrawCommands[i].instanceCount, 1) + shadowDrawCommands[i].firstInstance;
-		shadowRenderData[shadowIndex] = currentTree;
-	}*/
-
-	//if (inside)
-	//{
-	//	uint shadowIndex = atomicAdd(shadowDrawCommands[lod].instanceCount, 1) + shadowDrawCommands[lod].firstInstance;
-	//	shadowRenderData[shadowIndex] = currentTree;
-	//}
-
-	//data[index].position = treePosition;
-	//data[index].rotation = treeRotation;
-	//data[index].terrainValues = terrainValues;
 }

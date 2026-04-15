@@ -73,7 +73,7 @@ void main()
 	vec4 treePosition = vec4(px + vx, 0.0, pz + vz, 1.0);
 	vec2 treeUV = vec2(treePosition.x + variables.terrainOffset.x * 10000.0, treePosition.z + variables.terrainOffset.z * 10000.0);
 
-	uint treeSeed = uint(ceil((abs(treeUV.x) * 0.75) + (abs(treeUV.y) * 1.5)));
+	uint treeSeed = uint(ceil((abs(treeUV.x) * 0.5) + (abs(treeUV.y) * 2.0)));
 	float offsetX = rand11(treeSeed) * config.treeOffset;
 	treeSeed = uint(ceil(abs((treeUV.x) * 2.0) + abs((treeUV.y) * 0.5)));
 	float offsetZ = rand11(treeSeed) * config.treeOffset;
@@ -82,14 +82,17 @@ void main()
 	treePosition.z += offsetZ;
 
 	float n = SimpleFractalNoise(treeUV * config.noiseScale, 0.165923, config.noiseOctaves);
-	treeSeed = uint(ceil(abs((treeUV.x) * 0.5) + abs((treeUV.y) * 2.0)));
+	treeSeed = uint(ceil(abs((treeUV.x) * 0.57) + abs((treeUV.y) * 1.5)));
 	if (n + rand11(treeSeed) * config.noiseCutoffRandomness > config.noiseCutoff) {return;}
 
-	vec4 terrainValues = TerrainValues(treePosition.xz);
+	//vec4 terrainValues = TerrainValues(treePosition.xz);
+	vec4 terrainValues = TerrainValues(treePosition.xz, 6);
 
 	float steepness = 1.0 - (dot(normalize(terrainValues.yzw), vec3(0, 1, 0)) * 0.5 + 0.5);
 
 	if (steepness > config.maxSteepness) {return;}
+
+	terrainValues = TerrainValues(treePosition.xz);
 
 	float treeHeight = terrainValues.x * maxHeight - variables.terrainOffset.y * 10000.0;
 

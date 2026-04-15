@@ -30,6 +30,8 @@ vec4 TerrainValues(vec2 worldPosition, int startLod)
 	vec2 uv;
 	vec4 heightData;
 
+	if (startLod >= cascadeCount - 1) {startLod = cascadeCount - 1;}
+
 	for (int i = startLod; i < cascadeCount; i++)
 	{
 		uv = worldPosition * 0.0001 - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz);
@@ -358,8 +360,38 @@ float TerrainOcclusion(vec2 worldPosition)
 //	return (TerrainOcclusion(worldPosition, 0));
 //}
 
+void SetTerrainIllumination()
+{
+	vec3 worldDirection = vec3(0.0, 1.0, 0.0);
+	vec3 skyWorldPosition = ((vec3(0.0, 0.0, 0.0) + vec3(0.0, maxHeight * 0.5, 0.0)) * atmosphereData.cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	//vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale) + vec3(0.0, bottomRadius, 0.0);
+	vec3 up = normalize(skyWorldPosition);
+	float viewAngle = acos(dot(worldDirection, up));
+	float viewHeight = length(skyWorldPosition);
+
+	//float lightAngle = acos(dot(normalize(vec3(variables.lightDirection.x, 0.0, variables.lightDirection.z)), normalize(vec3(worldDirection.x, 0.0, worldDirection.z))));
+	float lightAngle = acos(dot(variables.lightDirection.xyz, worldDirection));
+	bool groundIntersect = IntersectSphere(skyWorldPosition, worldDirection, vec3(0.0), bottomRadius) >= 0.0;
+
+	vec2 skyUV = SkyToUV(groundIntersect, vec2(viewAngle, lightAngle), viewHeight);
+
+	//float disInter = 1.0 - pow(1.0 - clamp(SquaredDistance(worldPosition, variables.viewPosition.xyz) / (variables.resolution.w * variables.resolution.w), 0.0, 1.0), atmosphereData.skyDilute);
+
+	//vec3 skyColor = texture(skyMap, skyUV).rgb * atmosphereData.defaultSkyPower * mix(atmosphereData.skyPower, 1.0, disInter);
+	vec3 skyColor = texture(skyMap, skyUV).rgb;
+
+	atmosphereData.skyColor = vec4(skyColor, 0.0);
+
+	//return (skyColor);
+}
+
 vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 {
+	float disInter = 1.0 - pow(1.0 - clamp(SquaredDistance(worldPosition, variables.viewPosition.xyz) / (variables.resolution.w * variables.resolution.w), 0.0, 1.0), atmosphereData.skyDilute);
+
+	return (atmosphereData.skyColor.rgb * atmosphereData.defaultSkyPower * mix(atmosphereData.skyPower, 1.0, disInter));
+
+	/*if (variables.terrainOffset.w > 0) {worldDirection = vec3(0.0, 1.0, 0.0);}
 	vec3 skyWorldPosition = ((worldPosition + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale) + vec3(0.0, bottomRadius, 0.0);
 	//vec3 skyWorldPosition = ((variables.viewPosition.xyz + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale) + vec3(0.0, bottomRadius, 0.0);
 	vec3 up = normalize(skyWorldPosition);
@@ -376,7 +408,7 @@ vec3 TerrainIllumination(vec3 worldPosition, vec3 worldDirection)
 
 	vec3 skyColor = texture(skyMap, skyUV).rgb * atmosphereData.defaultSkyPower * mix(atmosphereData.skyPower, 1.0, disInter);
 
-	return (skyColor);
+	return (skyColor);*/
 }
 
 const float dif9 = 1.0 / 9.0;

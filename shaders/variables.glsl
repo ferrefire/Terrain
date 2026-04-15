@@ -42,6 +42,7 @@ struct TreeComputeConfig
 	int overdrawLodCullMinimum;
 	int overdrawLodCullMaximum;
 	uint overdrawMisses;
+	float cullingHeight;
 };
 
 struct LeafData
@@ -49,6 +50,7 @@ struct LeafData
 	vec4 position;
 	vec4 rotationXY;
 	vec4 rotationZ;
+	//mat4 rotation;
 };
 
 struct LeafShaderConfig
@@ -64,6 +66,9 @@ struct LeafShaderConfig
 	float lod1Size;
 	float lod2Size;
 	float lod3Size;
+
+	uint lodInterMod;
+	float lodInterPow;
 };
 
 layout(set = 0, binding = 0, std140) uniform Variables

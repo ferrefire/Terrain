@@ -187,6 +187,8 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 
 void main()
 {
+	if (gl_GlobalInvocationID.x + gl_GlobalInvocationID.y + gl_GlobalInvocationID.z == 0) {SetTerrainIllumination();}
+
 	mat4 invViewProjMat = inverse(variables.projection * variables.view);
     vec2 pixPos = vec2(gl_GlobalInvocationID.xy + vec2(0.5, 0.5)) / aerialDimensions.xy;
     vec3 ClipSpace = vec3(pixPos * vec2(2.0, 2.0) - vec2(1.0, 1.0), 0.5);

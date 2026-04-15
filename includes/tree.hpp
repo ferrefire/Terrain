@@ -1,6 +1,7 @@
 #pragma once
 
 #include "point.hpp"
+#include "matrix.hpp"
 #include "shape.hpp"
 #include "mesh.hpp"
 #include <vector>
@@ -64,6 +65,8 @@ struct LeafData
 	point4D leafPosition;
 	point4D leafRotationXY;
 	point4D leafRotationZ;
+	//point4D leafPosition;
+	//mat4 leafMatrix;
 };
 
 class Tree
