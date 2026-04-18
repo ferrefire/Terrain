@@ -462,8 +462,8 @@ float SampleShadows(vec3 worldPosition)
 {
 	if (shadowData.enabled == 0) {return (1.0);}
 
-	//float result = 0.0;
-	//float blend = 1.0;
+	float result = 0.0;
+	float blend = 0.0;
 
 	for (int i = 0; i < 3; i++)
 	{
@@ -479,7 +479,7 @@ float SampleShadows(vec3 worldPosition)
 		if (i == 1 && SquaredDistance(worldPosition, variables.viewPosition.xyz) > (500 * 500)) {continue;}
 
 		float fade = 0.0;
-		if (i == 2)
+		if (i== 0 || i == 2)
 		{
 			float border = 0.0;
 			border = max(border, abs(uv.x - 0.5));
@@ -495,14 +495,30 @@ float SampleShadows(vec3 worldPosition)
 		if (inter < shadowData.blend0Dis) {mode = 2;}
 
 		if (fade >= 1.0) {return (1.0);}
-		return (BlendShadows(i, uv, refDepth, mode) + fade);
+
+		if (i == 1 && blend > 0.0)
+		{
+			fade = 1.0 - blend;
+		}
+
+		result += (1.0 - BlendShadows(i, uv, refDepth, mode)) * (1.0 - fade);
+
+		if (i == 0 && fade > 0.0)
+		{
+			blend = fade;
+			continue;
+		}
+		
+		//return (result);
+
+		break;
 
 		//result += (1.0 - BlendShadows(i, uv, refDepth, mode)) * (1.0 - fade) * (blend);
 		//if (fade == 0.0) {break;}
 		//blend = fade;
 	}
 
-	return (1.0);
+	return (1.0 - clamp(result, 0.0, 1.0));
 	//return (1.0 - clamp(result, 0.0, 1.0));
 }
 

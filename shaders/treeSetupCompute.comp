@@ -8,22 +8,6 @@
 #include "random.glsl"
 #include "noise.glsl"
 
-struct TreeData
-{
-	vec4 position;
-	vec4 rotation;
-	vec4 terrainValues;
-};
-
-struct DrawCommand
-{
-    uint indexCount;
-    uint instanceCount;
-    uint firstIndex;
-    int vertexOffset;
-    uint firstInstance;
-};
-
 layout(set = 1, binding = 0, std430) buffer TreeSetupBuffer
 {
 	TreeData setupData[];
@@ -46,7 +30,6 @@ layout(set = 1, binding = 7, std430) buffer ComputeConfig
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-const int treeBase = 512;
 //const float treeSpacing = 50;
 //const float treeRandomOffset = 20;
 //const int lod0Radius = 3;
@@ -101,10 +84,14 @@ void main()
 	treeSeed = uint(ceil(abs(treeUV.x) + abs(treeUV.y) + abs(terrainValues.x * maxHeight)));
 	float deg = rand11(treeSeed) * 180.0;
 
+	treeSeed = (uint(ceil((abs(treeUV.x * 4.0)))) % 46038) + ((uint(ceil(abs(treeUV.y))) % 1937));
+	//float scale = mix(0.8, 1.25, rand01(treeSeed));
+	float scale = mix(0.8, 1.75, rand01(treeSeed));
+
 	float r = radians(deg);
 	float c = cos(r);
 	float s = sin(r);
-	vec4 treeRotation = vec4(treePosition.w, r, c, s);
+	vec4 treeRotation = vec4(scale, r, c, s);
 
 	setupData[index].position = treePosition;
 	setupData[index].rotation = treeRotation;

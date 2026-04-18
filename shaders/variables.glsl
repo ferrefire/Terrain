@@ -4,6 +4,8 @@
 const int cascadeCount = 8;
 const float maxHeight = 5000.0;
 
+const int treeBase = 512;
+
 struct TreeComputeConfig
 {
 	float treeSpacing;
@@ -45,6 +47,22 @@ struct TreeComputeConfig
 	float cullingHeight;
 };
 
+struct DrawCommand
+{
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+};
+
+struct TreeData
+{
+	vec4 position;
+	vec4 rotation;
+	vec4 terrainValues;
+};
+
 struct LeafData
 {
 	vec4 position;
@@ -69,6 +87,11 @@ struct LeafShaderConfig
 
 	uint lodInterMod;
 	float lodInterPow;
+
+	uint scaleWithTree;
+	uint sampleOcclusion;
+	uint flipLocalNormal;
+	float defaultOcclusion;
 };
 
 layout(set = 0, binding = 0, std140) uniform Variables

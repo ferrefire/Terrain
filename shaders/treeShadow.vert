@@ -5,13 +5,6 @@
 #include "variables.glsl"
 #include "transformation.glsl"
 
-struct TreeData
-{
-	vec4 position;
-	vec4 rotation;
-	vec4 terrainValues;
-};
-
 layout(push_constant, std430) uniform pc
 {
     uint cascade;
@@ -40,7 +33,7 @@ void main()
 
 	//worldNormal = normalize(RotateY(localNormal, currentTree.rotation.z, currentTree.rotation.w));
 
-	vec3 treePosition = RotateY(localPosition, currentTree.rotation.z, currentTree.rotation.w);
+	vec3 treePosition = RotateY(localPosition * currentTree.rotation.x, currentTree.rotation.z, currentTree.rotation.w);
 	//treePosition.y += 0.5;
 	//treePosition.y *= 20.0;
 	treePosition.y -= 0.5;

@@ -6,13 +6,6 @@
 #include "transformation.glsl"
 #include "random.glsl"
 
-struct TreeData
-{
-	vec4 position;
-	vec4 rotation;
-	vec4 terrainValues;
-};
-
 layout(push_constant, std430) uniform pc
 {
     uint cascade;
@@ -99,6 +92,8 @@ void main()
 	scalar *= 0.75;
 
 	vec3 leafPosition = localPosition;
+	if (shaderConfig.scaleWithTree == 1) {leafPosition *= clamp(currentTree.rotation.x, 0.0, 1.0);}
+	//if (shaderConfig.scaleWithTree == 1) {leafPosition *= mix(currentTree.rotation.x, 1.0, 0.75);}
 
 	//vec3 localNormal = vec3(0, 0, 1);
 	//localNormal = normalize(RotateY(localNormal, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w));
@@ -112,7 +107,7 @@ void main()
 	leafPosition = RotateY(leafPosition, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w);
 	leafPosition = RotateZ(leafPosition, currentLeaf.rotationZ.x, currentLeaf.rotationZ.y);
 	//leafPosition = (currentLeaf.rotation * vec4(leafPosition, 1.0)).xyz;
-	leafPosition += currentLeaf.position.xyz;
+	leafPosition += currentLeaf.position.xyz * currentTree.rotation.x;
 	leafPosition = RotateY(leafPosition, currentTree.rotation.z, currentTree.rotation.w);
 	leafPosition.y -= 0.5;
 

@@ -53,7 +53,7 @@ void main()
 	//if (!gl_FrontFacing) {_localNormal *= -1;}
 
 	vec3 leafNormal = localNormal;
-	if (!gl_FrontFacing) {leafNormal *= -1;}
+	if (shaderConfig.flipLocalNormal == 1 && !gl_FrontFacing) {leafNormal *= -1;}
 	//if (dot(leafNormal, worldNormal) < 0.0) {leafNormal *= -1;}
 
 	//vec3 mixedNormal = normalize(mix(_worldNormal, _localNormal, 0.5));
@@ -94,10 +94,12 @@ void main()
 	//vec3 illumination = TerrainIllumination(worldPosition, normalize(mix(terrainValues.yzw, _localNormal, 0.45)));
 	//vec3 illumination = TerrainIllumination(worldPosition, normalize(mix(terrainValues.yzw, mixedNormal, 0.45)));
 	vec3 illumination = TerrainIllumination(worldPosition, normalize(terrainValues.yzw));
-	float occlusion = 1.0;
+	float occlusion = shaderConfig.defaultOcclusion;
+	//if (shaderConfig.sampleOcclusion == 1) {occlusion = TerrainOcclusion(worldPosition.xz);}
+	//float occlusion = TerrainOcclusion(worldPosition.xz);
 
 	float upDot = dot(mixedNormal, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5;
-	float illuminationExposure = mix(0.5, 1.25, upDot);
+	float illuminationExposure = mix(0.25 * occlusion, 1.5, upDot);
 	vec3 ambientDiffuse = 0.25 * (data.albedo * (illumination.rgb * illuminationExposure));
 	//vec3 ambientDiffuse = config.ambientStrength * (data.albedo * illumination.rgb);
 	vec3 ambient = ambientDiffuse * ao;
@@ -105,7 +107,8 @@ void main()
 	//float aoMult = pow(occlusion, 0.5);
 
 	//diffuse *= ao * aoMult;
-	diffuse += ambient * occlusion;
+	//diffuse += ambient * occlusion;
+	diffuse += ambient;
 
 	if (lod < 3.0)
 	{

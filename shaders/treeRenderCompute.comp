@@ -9,22 +9,6 @@
 #include "noise.glsl"
 #include "functions.glsl"
 
-struct TreeData
-{
-	vec4 position;
-	vec4 rotation;
-	vec4 terrainValues;
-};
-
-struct DrawCommand
-{
-    uint indexCount;
-    uint instanceCount;
-    uint firstIndex;
-    int vertexOffset;
-    uint firstInstance;
-};
-
 layout(set = 1, binding = 0, std430) buffer TreeSetupBuffer
 {
 	TreeData setupData[];
@@ -67,7 +51,6 @@ layout(set = 1, binding = 7, std430) readonly buffer ComputeConfig
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-const int treeBase = 512;
 //const float treeSpacing = 50;
 //const float treeRandomOffset = 20;
 //const int lod0Radius = 3;
@@ -90,12 +73,12 @@ int InsideBounds(uint lod, vec3 worldPosition)
 	return (1);
 }
 
-int InsideCascade(uint lod, vec3 worldPosition)
+int InsideCascade(uint lod, vec3 worldPosition, float mult)
 {
 	//if (lod == 0 && SquaredDistance(worldPosition, variables.viewPosition.xyz) > (250 * 250)) {return (0);}
 	//if (lod == 1 && SquaredDistance(worldPosition, variables.viewPosition.xyz) > (1250 * 1250)) {return (0);}
 
-	if (InsideBounds(lod, worldPosition + vec3(0.0, 30.0, 0.0)) == 1) {return (1);}
+	if (InsideBounds(lod, worldPosition + vec3(0.0, 30.0 * mult, 0.0)) == 1) {return (1);}
 
 	if (lod > 1) {return (0);}
 
@@ -105,7 +88,7 @@ int InsideCascade(uint lod, vec3 worldPosition)
 		{
 			for (int z = -1; z <= 1; z++)
 			{
-				if (InsideBounds(lod, worldPosition + vec3(10.0 * x, 5.0 + 15.0 * y, 10.0 * z)) == 1) {return (1);}
+				if (InsideBounds(lod, worldPosition + vec3(10.0 * x, 5.0 + 15.0 * y, 10.0 * z) * mult) == 1) {return (1);}
 			}
 		}
 	}
@@ -113,9 +96,9 @@ int InsideCascade(uint lod, vec3 worldPosition)
 	return (0);
 }
 
-int InsideFrustum(uint lod, vec3 worldPosition)
+int InsideFrustum(uint lod, vec3 worldPosition, float mult)
 {
-	if (InView(worldPosition + vec3(0.0, 20.0, 0.0), vec3(0.0)) == 1) {return (1);}
+	if (InView(worldPosition + vec3(0.0, 20.0, 0.0) * mult, vec3(0.0)) == 1) {return (1);}
 
 	if (lod > 1) {return (0);}
 
@@ -125,7 +108,7 @@ int InsideFrustum(uint lod, vec3 worldPosition)
 		{
 			for (int z = -1; z <= 1; z++)
 			{
-				if (InView(worldPosition + vec3(15.0 * x, 15.0 * y, 15.0 * z), vec3(0.0)) == 1) {return (1);}
+				if (InView(worldPosition + vec3(15.0 * x, 15.0 * y, 15.0 * z) * mult, vec3(0.0)) == 1) {return (1);}
 			}
 		}
 	}
@@ -159,17 +142,14 @@ uint BehindTrees(vec3 worldPosition, int iterations, uint amount)
 
 		int ix = int(floor((rayPosition.x - config.treesCenter.x) / config.treeSpacing)) + int(treeBase * 0.5);
 		int iz = int(floor((rayPosition.z - config.treesCenter.y) / config.treeSpacing)) + int(treeBase * 0.5);
-
 		uint setupIndex = ix * treeBase + iz;
 
 		if (setupIndex != prevIndex)
 		{
 			TreeData currentTree = setupData[setupIndex];
-			//if (currentTree.position.w >= 0.0 && abs(rayPosition.y - (currentTree.position.y + 12.5)) < 15.0)
-			//if (currentTree.position.w >= 0.0)
 			if (currentTree.position.w >= 0.0)
 			{
-				if (config.overdrawCullingHeightOnly == 1 && abs(rayPosition.y - currentTree.position.y) < 25.0)
+				if (config.overdrawCullingHeightOnly == 1 && abs(rayPosition.y - currentTree.position.y) < 25.0 * currentTree.rotation.x)
 				{
 					counter += 1;
 					misses = 0;
@@ -265,9 +245,9 @@ void main()
 	if (lod > 3) {return;}
 	currentTree.position.w = float(lod) + interLod;
 	
-	if (lod >= 3 && InsideFrustum(lod, currentTree.position.xyz) == 0) {return;}
+	if (lod >= 3 && InsideFrustum(lod, currentTree.position.xyz, currentTree.rotation.x) == 0) {return;}
 	else if (config.overdrawCulling == 1 && config.overdrawLodCull == 0 && BehindTrees(currentTree.position.xyz, config.overdrawCullingMaximum, config.overdrawCullingMinimum) == 1) {return;}
-	else if (config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, config.cullingHeight, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}
+	else if (config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, config.cullingHeight * currentTree.rotation.x, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}
 
 	if (lod <= 3)
 	{
@@ -279,7 +259,7 @@ void main()
 			//if (i == 0 && SquaredDistance(currentTree.position.xyz, variables.viewPosition.xyz) > (200 * 200)) {continue;}
 			//if (i == 1 && SquaredDistance(currentTree.position.xyz, variables.viewPosition.xyz) > (750 * 750)) {continue;}
 
-			if (InsideCascade(i, currentTree.position.xyz) == 1)
+			if (InsideCascade(i, currentTree.position.xyz, currentTree.rotation.x) == 1)
 			{
 				uint si = i;
 				if (lod == 3 && si == 2) {si += 1;}
@@ -292,7 +272,7 @@ void main()
 		}
 	}
 
-	if (InsideFrustum(lod, currentTree.position.xyz) == 0) {return;}
+	if (InsideFrustum(lod, currentTree.position.xyz, currentTree.rotation.x) == 0) {return;}
 	//else if (config.occlusionCulling == 1 && BehindTerrain(currentTree.position.xyz + vec3(0.0, cullOffset, 0.0), config.cullIterations, config.cullExponent) == 1) {return;}
 
 	uint index = atomicAdd(drawCommands[lod].instanceCount, 1) + drawCommands[lod].firstInstance;

@@ -49,7 +49,9 @@ struct alignas(16) GlillData
 	point4D settings{};
 	float interPower = 1.5;
 	float globalSamplePower = 1.0;
-	uint32_t padding[2];
+	float treeDensityStrength = 1.0;
+	float treeDensityPower = 1.0;
+	//uint32_t padding[2];
 };
 
 struct alignas(16) AtmosphereData
@@ -83,7 +85,8 @@ struct alignas(16) TerrainComputeData
 	float seed = 0.303586;
 	float erodeFactor = 1.0;
 	//float steepness = 2.0;
-	float steepness = 1.75;
+	//float steepness = 1.75;
+	float steepness = 1.5;
 	uint32_t padding[1];
 };
 
@@ -209,8 +212,11 @@ struct alignas(16) TreeShaderConfig
 	
 	int32_t textureLod = 2;
 	float ambientStrength = 0.25;
+
+	uint32_t sampleOcclusion = 0;
+	float defaultOcclusion = 0.0;
 	
-	uint32_t padding[2];
+	//uint32_t padding[1];
 };
 
 struct alignas(16) ShadowData
@@ -239,8 +245,13 @@ struct alignas(16) LeafShaderConfig
 
 	uint32_t lodInterMod = 1;
 	float lodInterPow = 2.0;
+
+	uint32_t scaleWithTree = 1;
+	uint32_t sampleOcclusion = 0;
+	uint32_t flipLocalNormal = 1;
+	float defaultOcclusion = 0.4;
 	
-	//uint32_t padding[2];
+	//uint32_t padding[1];
 };
 
 UniformData data{};
@@ -402,6 +413,8 @@ int shadowmapResolution = 256;
 int glillResolutions[3] = {512, 1024, 1024};
 
 float globalGlillSamplePower = 1.0;
+float globalTreeDensityStrength = 0.4;
+float globalTreeDensityPower = 1.0;
 
 Point<int, 3> aerialRes = Point<int, 3>(64, 64, 32);
 
@@ -946,6 +959,67 @@ void UpdateShadowData()
 	shadowDataBuffer.Update(&shadowData, sizeof(shadowData));
 }
 
+std::vector<VkDrawIndexedIndirectCommand> leafDrawCommands;
+
+void CreateLeafMesh(bool update)
+{
+	leafDrawCommands.resize(4);
+
+	leafMesh.Destroy();
+
+	ShapeSettings leafSettings{};
+	leafSettings.lod = 0;
+	shapeP16 leafShape(ShapeType::Leaf, leafSettings);
+
+	leafDrawCommands[0].indexCount = leafShape.GetIndices().size();
+	leafDrawCommands[0].instanceCount = 0;
+	leafDrawCommands[0].firstIndex = 0;
+	leafDrawCommands[0].vertexOffset = 0;
+	leafDrawCommands[0].firstInstance = 0;
+
+	leafSettings.lod = 1;
+	shapeP16 leafShape1(ShapeType::Leaf, leafSettings);
+
+	leafDrawCommands[1].indexCount = leafShape.GetIndices().size();
+	leafDrawCommands[1].firstIndex = 0;
+
+	if (update)
+	{
+		leafDrawCommands[1].indexCount = leafShape1.GetIndices().size();
+		leafDrawCommands[1].firstIndex = leafShape.GetIndices().size();
+	}
+
+	leafDrawCommands[1].instanceCount = 0;
+	leafDrawCommands[1].vertexOffset = 0;
+	leafDrawCommands[1].firstInstance = 0;
+
+	//ShapeSettings leafSettings{};
+
+	leafDrawCommands[2].indexCount = leafShape1.GetIndices().size();
+	leafDrawCommands[2].firstIndex = leafShape.GetIndices().size();
+	//leafDrawCommands[2].indexCount = leafShape.GetIndices().size();
+	//leafDrawCommands[2].firstIndex = 0;
+	leafDrawCommands[2].vertexOffset = 0;
+	leafDrawCommands[2].instanceCount = 0;
+	leafDrawCommands[2].firstInstance = 0;
+
+	leafShape.Join(leafShape1);
+	leafShape.Rotate(180.0, Axis::z);
+	leafShape.Scale(2.0);
+	
+	leafSettings.lod = 2;
+	leafSettings.scalarized = false;
+	shapeP16 leafShape2(ShapeType::Leaf, leafSettings);
+
+	leafDrawCommands[3].indexCount = leafShape2.GetIndices().size();
+	leafDrawCommands[3].firstIndex = leafShape.GetIndices().size();
+	leafDrawCommands[3].vertexOffset = 0;
+	leafDrawCommands[3].instanceCount = 0;
+	leafDrawCommands[3].firstInstance = 0;
+
+	leafShape.Join(leafShape2);
+	leafMesh.Create(leafShape);
+}
 
 void Start()
 {
@@ -1067,8 +1141,8 @@ void Start()
 	std::vector<VkDrawIndexedIndirectCommand> drawCommands;
 	drawCommands.resize(4);
 
-	std::vector<VkDrawIndexedIndirectCommand> leafDrawCommands;
-	leafDrawCommands.resize(4);
+	//std::vector<VkDrawIndexedIndirectCommand> leafDrawCommands;
+	//leafDrawCommands.resize(4);
 
 	//std::vector<VkDrawIndexedIndirectCommand> leafShadowDrawCommands;
 	//leafShadowDrawCommands.resize(4);
@@ -1087,19 +1161,7 @@ void Start()
 	drawCommands[0].vertexOffset = 0;
 	drawCommands[0].firstInstance = 0;
 
-	/*shapeP16 leafShape(ShapeType::Quad);
-	leafShape.Rotate(45.0, Axis::z);
-	leafShape.Scale(point3D(0.375, 1.0, 1.0));
-	leafShape.Move(point3D(0.0, 0.6, 0.0));
-
-	shapeP16 temp = leafShape;
-	temp.Rotate(45.0, Axis::z);
-	leafShape.Join(temp);
-	temp.Rotate(-90.0, Axis::z);
-	leafShape.Join(temp);
-	leafShape.Scale(0.8);*/
-
-	shapeP16 leafShape(ShapeType::Leaf);
+	
 	//leafShape.Rotate(180.0, Axis::z);
 	//leafShape.Scale(2.0);
 	
@@ -1110,6 +1172,9 @@ void Start()
 	treeComputeConfig.leafCounts[3] = treeComputeConfig.leafCounts[2] / 9;
 	for (LeafData &p : leafPositions) {p.leafPosition *= 4.0;}
 
+	CreateLeafMesh(false);
+
+	/*shapeP16 leafShape(ShapeType::Leaf);
 	leafDrawCommands[0].indexCount = leafShape.GetIndices().size();
 	leafDrawCommands[0].instanceCount = 0;
 	leafDrawCommands[0].firstIndex = 0;
@@ -1122,20 +1187,18 @@ void Start()
 	leafDrawCommands[1].firstInstance = 0;
 
 	ShapeSettings leafSettings{};
-	leafSettings.lod = 1;
-	shapeP16 leafShape1(ShapeType::Leaf, leafSettings);
-	//shapeP16 leafShape1(ShapeType::Quad);
-	//leafShape1.Scale(1.25);
+	//leafSettings.lod = 1;
+	//shapeP16 leafShape1(ShapeType::Leaf, leafSettings);
 
-	leafDrawCommands[2].indexCount = leafShape1.GetIndices().size();
-	leafDrawCommands[2].firstIndex = leafShape.GetIndices().size();
-	//leafDrawCommands[2].indexCount = leafShape.GetIndices().size();
-	//leafDrawCommands[2].firstIndex = 0;
+	//leafDrawCommands[2].indexCount = leafShape1.GetIndices().size();
+	//leafDrawCommands[2].firstIndex = leafShape.GetIndices().size();
+	leafDrawCommands[2].indexCount = leafShape.GetIndices().size();
+	leafDrawCommands[2].firstIndex = 0;
 	leafDrawCommands[2].vertexOffset = 0;
 	leafDrawCommands[2].instanceCount = 0;
 	leafDrawCommands[2].firstInstance = 0;
 
-	leafShape.Join(leafShape1);
+	//leafShape.Join(leafShape1);
 	leafShape.Rotate(180.0, Axis::z);
 	leafShape.Scale(2.0);
 	
@@ -1145,14 +1208,12 @@ void Start()
 
 	leafDrawCommands[3].indexCount = leafShape2.GetIndices().size();
 	leafDrawCommands[3].firstIndex = leafShape.GetIndices().size();
-	//leafDrawCommands[3].indexCount = leafShape.GetIndices().size();
-	//leafDrawCommands[3].firstIndex = 0;
 	leafDrawCommands[3].vertexOffset = 0;
 	leafDrawCommands[3].instanceCount = 0;
 	leafDrawCommands[3].firstInstance = 0;
 
 	leafShape.Join(leafShape2);
-	leafMesh.Create(leafShape);
+	leafMesh.Create(leafShape);*/
 
 	treeMeshConfig.horizontalResolution = {3, 4};
 	treeMeshConfig.verticalResolution = {1, 4};
@@ -1383,7 +1444,8 @@ void Start()
 	//data.lightDirection = point4D(point3D(0.377384, 0.0347139, -0.925406));
 	//data.lightDirection = point4D(point3D(0.529019, 0.282315, -0.800273));
 	//data.lightDirection = point4D(point3D(0.613087, 0.116438, 0.781388));
-	data.lightDirection = point4D(point3D(0.582976, 0.328745, 0.743011));
+	//data.lightDirection = point4D(point3D(0.582976, 0.328745, 0.743011));
+	data.lightDirection = point4D(point3D(0.139343, 0.53843, 0.83107));
 	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 
 		Manager::GetCamera().GetConfig().near, Manager::GetCamera().GetConfig().far);
 	data.terrainOffset = point4D(0.0);
@@ -1784,11 +1846,15 @@ void Start()
 		glillBuffers[i].Create(glillBufferConfig, &glillDatas[i]);
 	}
 
-	std::vector<DescriptorConfig> glillDescriptorConfigs(2);
+	std::vector<DescriptorConfig> glillDescriptorConfigs(4);
 	glillDescriptorConfigs[0].type = DescriptorType::StorageImage;
 	glillDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	glillDescriptorConfigs[1].type = DescriptorType::UniformBuffer;
 	glillDescriptorConfigs[1].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	glillDescriptorConfigs[2].type = DescriptorType::StorageBuffer;
+	glillDescriptorConfigs[2].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	glillDescriptorConfigs[3].type = DescriptorType::StorageBuffer;
+	glillDescriptorConfigs[3].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	glillDescriptor.Create(1, glillDescriptorConfigs);
 
 	for (int i = 0; i < glillImages.size(); i++)
@@ -1796,6 +1862,8 @@ void Start()
 		glillDescriptor.GetNewSet();
 		glillDescriptor.Update(i, 0, glillImages[i]);
 		glillDescriptor.Update(i, 1, glillBuffers[i]);
+		glillDescriptor.Update(i, 2, treeSetupDataBuffer);
+		glillDescriptor.Update(i, 3, treeComputeConfigBuffer);
 	}
 
 	BufferConfig aerialBufferConfig{};
@@ -2136,6 +2204,8 @@ void Start()
 	Menu& glillMenu = UI::NewMenu("Global illumination");
 	glillMenu.TriggerNode("global variables", UpdateGlillData);
 	glillMenu.AddSlider("global sample power", globalGlillSamplePower, 0.0, 2.0);
+	glillMenu.AddSlider("tree density strength", globalTreeDensityStrength, 0.0, 2.0);
+	glillMenu.AddSlider("tree density power", globalTreeDensityPower, 0.0, 4.0);
 	glillMenu.TriggerNode("global variables");
 	for (int i = 0; i < glillDatas.size(); i++)
 	{
@@ -2208,6 +2278,8 @@ void Start()
 	treeMenu.AddSlider("normal strength", treeShaderConfig.normalStrength, 0.0, 4.0);
 	treeMenu.AddSlider("texture lod", treeShaderConfig.textureLod, 0, 4);
 	treeMenu.AddSlider("ambient strength", treeShaderConfig.ambientStrength, 0.0, 1.0);
+	treeMenu.AddCheckbox("sample tree occlusion", treeShaderConfig.sampleOcclusion);
+	treeMenu.AddSlider("default tree occlusion", treeShaderConfig.defaultOcclusion, 0.0, 1.0);
 	treeMenu.TriggerNode("Shader");
 
 	Menu& leafMenu = UI::NewMenu("Leaves");
@@ -2225,6 +2297,10 @@ void Start()
 	leafMenu.AddSlider("lod 3 size", leafShaderConfig.lod3Size, 0.0, 16.0);
 	leafMenu.AddCheckbox("lod inter modification", leafShaderConfig.lodInterMod);
 	leafMenu.AddSlider("lod inter power", leafShaderConfig.lodInterPow, 0.0, 2.0);
+	leafMenu.AddCheckbox("scale with tree", leafShaderConfig.scaleWithTree);
+	leafMenu.AddCheckbox("sample leaves occlusion", leafShaderConfig.sampleOcclusion);
+	leafMenu.AddCheckbox("flip local normal", leafShaderConfig.flipLocalNormal);
+	leafMenu.AddSlider("default leaf occlusion", leafShaderConfig.defaultOcclusion, 0.0, 1.0);
 	leafMenu.TriggerNode("shader");
 
 	Menu& shadowMenu = UI::NewMenu("Shadows");
@@ -2652,6 +2728,13 @@ void Frame()
 
 			glillDatas[i].offset = data.glillmapOffsets[i];
 			glillDatas[i].globalSamplePower = globalGlillSamplePower;
+			glillDatas[i].treeDensityStrength = globalTreeDensityStrength;
+			glillDatas[i].treeDensityPower = globalTreeDensityPower;
+			if (i != 0)
+			{
+				glillDatas[i].treeDensityStrength = -1.0;
+				glillDatas[i].treeDensityPower = -1.0;
+			}
 			glillBuffers[i].Update(&glillDatas[i], sizeof(GlillData));
 
 			glillQueue[i] = true;
@@ -2676,17 +2759,13 @@ void Frame()
 		//Manager::GetCamera().UpdateProjection();
 	}
 
-	if (Input::GetKey(GLFW_KEY_B).pressed)
+	if (Input::GetKey(GLFW_KEY_U).pressed)
 	{
-		leafShaderConfig.translucencyBias = 0.5;
-		leafShaderConfig.translucencyRange = 0.5;
-		UpdateLeafShaderData();
+		CreateLeafMesh(true);
 	}
-	if (Input::GetKey(GLFW_KEY_N).pressed)
+	if (Input::GetKey(GLFW_KEY_Y).pressed)
 	{
-		leafShaderConfig.translucencyBias = 0.25;
-		leafShaderConfig.translucencyRange = 0.325;
-		UpdateLeafShaderData();
+		CreateLeafMesh(false);
 	}
 
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));

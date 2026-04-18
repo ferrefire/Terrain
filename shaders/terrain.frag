@@ -199,6 +199,37 @@ void main()
 
 		SampleSteepnessTexture(grassTextures, textureData, 1.0, 0.5, clamp((viewInter - 0.0075) / 0.0025, 0.0, 1.0));
 
+		/*const int scaleCascades = 4;
+		const float scales[4] = {0.0005, 0.005, 0.05, 0.5};
+		const float distances[4] = {0.25, 0.015, 0.0025, 0.0};
+
+		float strength = 1.0;
+
+		if (viewInter > distances[0])
+		{
+			SampleSteepnessTexture(grassTextures, textureData, strength, scales[0], 0.0);
+		}
+		else
+		{
+			for (int i = 1; i < scaleCascades; i++)
+			{
+				if (viewInter > distances[i])
+				{
+					float blendDistance = distances[i - 1] * 0.5;
+					float blendCutoff = distances[i - 1] - blendDistance;
+					float scaleStrength = 1.0;
+					if (viewInter > blendCutoff)
+					{
+						scaleStrength = 1.0 - ((viewInter - blendCutoff) / blendDistance);
+						SampleSteepnessTexture(grassTextures, textureData, strength * (1.0 - scaleStrength), scales[i - 1], 0.0);
+					}
+
+					SampleSteepnessTexture(grassTextures, textureData, strength * scaleStrength, scales[i], 0.0);
+					break;
+				}
+			}
+		}*/
+
 		//if (snow >= 1.0)
 		//{
 		//	textureData.color = vec3(1.0);

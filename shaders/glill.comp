@@ -13,7 +13,19 @@ layout(set = 1, binding = 1, std140) uniform Config
 	vec4 settings;
 	float interPower;
 	float globalSamplePower;
+	float treeDensityStrength;
+	float treeDensityPower;
 } config;
+
+layout(set = 1, binding = 2, std430) buffer TreeSetupBuffer
+{
+	TreeData setupData[];
+};
+
+layout(set = 1, binding = 3, std430) buffer ComputeConfig
+{
+	TreeComputeConfig treeConfig;
+};
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
@@ -37,6 +49,10 @@ vec4 GetOcclusion(vec2 origin, int directionCount, int sampleCount, float sample
 	{
 		float maxAngle = 0.0;
 		vec2 direction = vec2(sin(angleStep * i), cos(angleStep * i));
+		//int maxTreeCount = 0;
+		//float treeDensity = sampleDistance * sampleDistance;
+		float treeDensity = 0;
+		uint prevSetupIndex = 0;
 
 		for (int j = 0; j < sampleCount; j++)
 		{
@@ -50,10 +66,35 @@ vec4 GetOcclusion(vec2 origin, int directionCount, int sampleCount, float sample
 			float steepness = ((sampleHeight - height) / (currentDistance / (maxHeight * 2.0)));
 
 			maxAngle = max(maxAngle, steepness);
+
+			if (config.treeDensityStrength > 0.0 && config.treeDensityPower > 0.0)
+			{
+				int ix = int(floor((samplePosition.x - treeConfig.treesCenter.x) / treeConfig.treeSpacing)) + int(treeBase * 0.5);
+				int iz = int(floor((samplePosition.y - treeConfig.treesCenter.y) / treeConfig.treeSpacing)) + int(treeBase * 0.5);
+				uint setupIndex = ix * treeBase + iz;
+
+				if (setupIndex != prevSetupIndex)
+				{
+					TreeData currentTree = setupData[setupIndex];
+					if (currentTree.position.w >= 0.0) {treeDensity += 1;}
+					//if (currentTree.position.w >= 0.0) {treeDensity = min(treeDensity, SquaredDistance(samplePosition, currentTree.position.xz));}
+				}
+
+				prevSetupIndex = setupIndex;
+			}
 		}
 
 		float currentAngle = atan(maxAngle);
 		float currentValue = pow(cos(currentAngle), config.settings.z * config.globalSamplePower);
+
+		if (config.treeDensityStrength > 0.0 && config.treeDensityPower > 0.0)
+		{
+			float averageTreeDensity = float(treeDensity) / float(sampleCount);
+			currentValue -= pow(averageTreeDensity * config.treeDensityStrength, config.treeDensityPower) * currentValue;
+			//float averageTreeDensity = 1.0 - (float(treeDensity) / float(sampleDistance * sampleDistance));
+			//currentValue -= pow(averageTreeDensity * config.treeDensityStrength, config.treeDensityPower) * currentValue;
+		}
+
 		totalOcclusion += currentValue;
 
 		//float ny = (currentAngle + (PI * 0.5)) * 0.5;

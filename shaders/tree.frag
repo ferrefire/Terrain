@@ -14,6 +14,8 @@ struct TreeShaderConfig
 	float normalStrength;
 	int textureLod;
 	float ambientStrength;
+	uint sampleOcclusion;
+	float defaultOcclusion;
 };
 
 layout(set = 1, binding = 2) uniform sampler2D barkTextures[3];
@@ -79,18 +81,20 @@ void main()
 	//vec3 illumination = TerrainIllumination(worldPosition, normalize(mix(terrainValues.yzw, worldNormal, config.glillNormalMix)));
 	//vec3 illumination = TerrainIllumination(worldPosition, normalize(data.N));
 	//float occlusion = TerrainOcclusion(worldPosition.xz);
-	float occlusion = 1.0;
+	float occlusion = config.defaultOcclusion;
+	if (config.sampleOcclusion == 1) {occlusion = TerrainOcclusion(worldPosition.xz);}
 
 	//vec3 ambientDiffuse = 0.25 * (data.albedo * illumination.rgb);
 	float upDot = dot(data.N, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5;
-	float illuminationExposure = mix(0.5, 1.25, upDot);
+	float illuminationExposure = mix(0.25 * occlusion, 1.5, upDot);
 	vec3 ambientDiffuse = config.ambientStrength * (data.albedo * (illumination.rgb * illuminationExposure));
 	vec3 ambient = ambientDiffuse * ao;
 
 	//float aoMult = pow(occlusion, 0.5);
 
 	//diffuse *= ao * aoMult;
-	diffuse += ambient * occlusion;
+	//diffuse += ambient * occlusion;
+	diffuse += ambient;
 
 	pixelColor = vec4(diffuse, 1.0);
 }
