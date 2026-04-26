@@ -34,7 +34,7 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 //const float dis = 10000.0;
 
-vec4 GetOcclusion(vec2 origin, int directionCount, int sampleCount, float sampleDistance)
+vec4 GetOcclusion(vec2 origin, int directionCount, int sampleCount, float sampleDistance, float treeDensStren)
 {
 	float angleStep = 360.0 / float(directionCount);
 	float distanceStep = sampleDistance / float(sampleCount);
@@ -90,7 +90,7 @@ vec4 GetOcclusion(vec2 origin, int directionCount, int sampleCount, float sample
 		if (config.treeDensityStrength > 0.0 && config.treeDensityPower > 0.0)
 		{
 			float averageTreeDensity = float(treeDensity) / float(sampleCount);
-			currentValue -= pow(averageTreeDensity * config.treeDensityStrength, config.treeDensityPower) * currentValue;
+			currentValue -= pow(averageTreeDensity * config.treeDensityStrength, config.treeDensityPower) * currentValue * treeDensStren;
 			//float averageTreeDensity = 1.0 - (float(treeDensity) / float(sampleDistance * sampleDistance));
 			//currentValue -= pow(averageTreeDensity * config.treeDensityStrength, config.treeDensityPower) * currentValue;
 		}
@@ -120,7 +120,8 @@ void main()
 	//float sampleDistance = config.sizes.w * 0.005;
 
 	//float occlusion = GetOcclusion(worldPosition, 16, 25, 200);
-	vec4 occlusion = GetOcclusion(worldPosition, 16, int(config.settings.x), config.settings.y);
+	float trds = 1.0 - max(abs(uv.x), abs(uv.y)) * 2.0;
+	vec4 occlusion = GetOcclusion(worldPosition, 16, int(config.settings.x), config.settings.y, trds);
 
 	imageStore(glillImage, coords, vec4(occlusion.a, 0.0, 0.0, 0.0));
 }

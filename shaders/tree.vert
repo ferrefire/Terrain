@@ -26,9 +26,15 @@ void main()
 
 	TreeData currentTree = renderData[instanceIndex];
 
+	lod = int(floor(currentTree.position.w));
+	float lodInter = 1.0 - pow(1.0 - (currentTree.position.w - lod), 2);
+
 	worldNormal = normalize(RotateY(localNormal, currentTree.rotation.z, currentTree.rotation.w));
 
-	vec3 treePosition = RotateY(localPosition * currentTree.rotation.x, currentTree.rotation.z, currentTree.rotation.w);
+	vec3 mult = vec3(1.0);
+	if (lod == 2) {mult = mix(vec3(0.666, 1.0, 0.666), vec3(1.0), lodInter);}
+
+	vec3 treePosition = RotateY((localPosition * mult) * currentTree.rotation.x, currentTree.rotation.z, currentTree.rotation.w);
 	//treePosition.y += 0.5;
 	//treePosition.y *= 20.0;
 	treePosition.y -= 0.5;
@@ -36,8 +42,6 @@ void main()
 	worldPosition = treePosition + currentTree.position.xyz;
 
 	terrainValues = currentTree.terrainValues;
-
-	lod = int(floor(currentTree.position.w));
 
 	gl_Position = variables.projection * variables.view * vec4(worldPosition, 1.0);
 }

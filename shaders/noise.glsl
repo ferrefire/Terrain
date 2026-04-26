@@ -514,6 +514,10 @@ vec3 TerrainData(vec2 uv, int octaves, float sampleDis, bool heightOnly, float s
 	//float hx = -power * exp(-power * noise.x) * noise.y;
 	//float hz = -power * exp(-power * noise.x) * noise.z;
 
+	//float steepnessMult = SimpleFractalNoise(uv, 0.29365, 1);
+	//float steeper = mix(2.0, 1.0, steepnessMult);
+	//steepness = steeper;
+
 	//float height = noise.x;
 	float height = HeightPower(noise, steepness);
 	//float height = noise;

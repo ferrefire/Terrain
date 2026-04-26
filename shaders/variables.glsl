@@ -5,6 +5,17 @@ const int cascadeCount = 8;
 const float maxHeight = 5000.0;
 
 const int treeBase = 512;
+const int shadowCascades = 4;
+
+struct TextureData
+{
+	vec3 color;
+	vec3 normal;
+	vec3 arm;
+	vec3 weights;
+	vec3 uv;
+	vec3 baseNormal;
+};
 
 struct TreeComputeConfig
 {
@@ -24,27 +35,45 @@ struct TreeComputeConfig
 	uint cullExponent;
 	float cullStartDistance;
 
-	int radiuses[4];
-	int shadowRadiuses[4];
-
-	int squaredLengths[4];
-	int squaredShadowLengths[4];
-
-	float squaredDistances[4];
-
-	int leafCounts[4];
+	int radiuses[8];
+	int shadowRadiuses[8];
+	int squaredLengths[8];
+	int squaredShadowLengths[8];
+	float squaredDistances[8];
+	int leafCounts[8];
+	float cascadeTolerances[4];
+	//int radiuses[4];
+	//int shadowRadiuses[4];
+	//int squaredLengths[4];
+	//int squaredShadowLengths[4];
+	//float squaredDistances[4];
+	//int leafCounts[4];
 
 	vec4 treesCenter;
 
 	int overdrawCullingMinimum;
 	int overdrawCullingMaximum;
+	float overdrawCullingHeightBase;
 	float overdrawCullingHeightOffset;
 	uint overdrawCullingHeightOnly;
 	uint overdrawLodCull;
 	int overdrawLodCullMinimum;
 	int overdrawLodCullMaximum;
 	uint overdrawMisses;
+	uint overdrawLodCullHeavy;
+
 	float cullingHeight;
+
+	float minTreeScale;
+	float maxTreeScale;
+	float treeScalePower;
+
+	int originalFirstIndex;
+	int originalIndexCount;
+	uint highQualityLodLeaves;
+	uint treeOverdrawForceGround;
+
+	float cascadeCullBias;
 };
 
 struct DrawCommand
@@ -61,6 +90,7 @@ struct TreeData
 	vec4 position;
 	vec4 rotation;
 	vec4 terrainValues;
+	vec4 info;
 };
 
 struct LeafData
@@ -84,6 +114,7 @@ struct LeafShaderConfig
 	float lod1Size;
 	float lod2Size;
 	float lod3Size;
+	float lod4Size;
 
 	uint lodInterMod;
 	float lodInterPow;
@@ -92,13 +123,15 @@ struct LeafShaderConfig
 	uint sampleOcclusion;
 	uint flipLocalNormal;
 	float defaultOcclusion;
+
+	uint debugMode;
 };
 
 layout(set = 0, binding = 0, std140) uniform Variables
 {
 	mat4 view;
 	mat4 projection;
-	mat4 shadowMatrices[3];
+	mat4 shadowMatrices[shadowCascades];
 	vec4 viewPosition;
 	vec4 viewDirection;
 	vec4 lightDirection;

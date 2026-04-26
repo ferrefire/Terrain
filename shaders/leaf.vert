@@ -16,12 +16,18 @@ layout(set = 1, binding = 2, std430) readonly buffer LeafDataBuffer
 	LeafData leafData[];
 };
 
-layout(set = 1, binding = 3, std430) readonly buffer TreeComputeConfigBuffer
+layout(set = 1, binding = 3, std430) readonly buffer LeafLodDataBuffer
+{
+	vec4 leafLodPositions[];
+};
+
+
+layout(set = 1, binding = 4, std430) readonly buffer TreeComputeConfigBuffer
 {
 	TreeComputeConfig config;
 };
 
-layout(set = 1, binding = 4, std140) uniform LeafShaderConfigBuffer
+layout(set = 1, binding = 5, std140) uniform LeafShaderConfigBuffer
 {
 	LeafShaderConfig shaderConfig;
 };
@@ -42,7 +48,7 @@ layout(location = 5) out float variant;
 //const int leafCount3 = leafCount2 / 9;
 
 //const float scales[4] = {1.0, 2.5, 5.0, 12.0};
-const int factors[4] = {0, 3, 3 * 6, 3 * 6 * 9};
+const int factors[5] = {0, 3, 3 * 6, 3 * 6 * 9, 3 * 6 * 9 * 3};
 
 void main()
 {
@@ -53,15 +59,15 @@ void main()
 	int leafIndex = instanceIndex % config.leafCounts[0];
 
 	float scalar = 1.0;
-	const float scales[4] = {shaderConfig.lod0Size, shaderConfig.lod1Size, shaderConfig.lod2Size, shaderConfig.lod3Size};
+	const float scales[5] = {shaderConfig.lod0Size, shaderConfig.lod1Size, shaderConfig.lod2Size, shaderConfig.lod3Size, shaderConfig.lod4Size};
 
-	for (int i = 3; i > 0; i--)
+	for (int i = 4; i > 0; i--)
 	{
 		if (baseInstance == config.squaredLengths[i - 1] * config.leafCounts[0])
 		{
 			treeIndex = (baseInstance / config.leafCounts[0]) + ((instanceIndex - baseInstance) / config.leafCounts[i]);
 			float inter = float((instanceIndex - baseInstance) % config.leafCounts[i]) / float(config.leafCounts[i]);
-			leafIndex = int(floor(mix(0.0, config.leafCounts[0], inter)));
+			leafIndex = int(round(mix(0, config.leafCounts[0], inter)));
 			scalar = scales[i];
 		}
 	}
@@ -71,14 +77,17 @@ void main()
 
 	int iLod = int(floor(currentTree.position.w));
 	float lodInter = currentTree.position.w - float(iLod);
+	//float morphInter = 1.0 - pow(1.0 - lodInter, shaderConfig.lodInterPow);
 	if (shaderConfig.lodInterMod == 1) {lodInter = pow(lodInter, shaderConfig.lodInterPow);}
 
 	//if (lodInter > 0.75) {lodInter = (lodInter - 0.75) * 4.0;}
 	//else {lodInter = 0;}
 
-	float scaleMult = mix(0.8, 1.25, rand01(leafIndex));
+	float leafRan = rand01(leafIndex);
+	float scaleMult = mix(0.8, 1.25, leafRan);
+	//float scaleMult = mix(0.66, 1.5, rand01(leafIndex));
 
-	if (iLod < 3)
+	if (iLod < 4)
 	{
 		scalar = mix(scales[iLod], 0.0, lodInter);
 		if (leafIndex % factors[iLod + 1] == 0) {scalar = mix(scales[iLod], scales[iLod + 1], lodInter);}
@@ -89,12 +98,26 @@ void main()
 
 	scalar *= scaleMult;
 
-	scalar *= 0.75;
+	scalar *= 0.625;
 
 	//Improve this by rotating with one matrix for all rotations instead of one for each axis!!!
 
-	vec3 leafPosition = localPosition * scalar;
-	if (shaderConfig.scaleWithTree == 1) {leafPosition *= clamp(currentTree.rotation.x, 0.0, 1.0);}
+	vec3 leafPosition = localPosition;
+
+	if (iLod == 1)
+	{
+		int vertID = gl_VertexIndex;
+		leafPosition = mix(leafPosition, leafLodPositions[vertID].xyz, pow(lodInter, 2));
+	}
+
+	leafPosition *= scalar;
+	if (shaderConfig.scaleWithTree == 1)
+	{
+		float scaleWeight = currentTree.rotation.x;
+		//if (scaleWeight > 1.0) {scaleWeight = 1.0 + pow(scaleWeight - 1.0, 6);}
+		//if (scaleWeight > 1.0) {scaleWeight = pow(scaleWeight, 0.5);}
+		leafPosition *= scaleWeight;
+	}
 	//if (shaderConfig.scaleWithTree == 1) {leafPosition *= mix(currentTree.rotation.x, 1.0, 0.75);}
 
 	leafPosition = RotateX(leafPosition, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y);
@@ -107,7 +130,7 @@ void main()
 	leafPosition = RotateY(leafPosition, currentTree.rotation.z, currentTree.rotation.w);
 	leafPosition.y -= 0.5;
 
-	worldNormal = normalize(leafPosition - vec3(0.0, shaderConfig.worldNormalHeight, 0.0));
+	worldNormal = normalize(leafPosition - vec3(0.0, shaderConfig.worldNormalHeight * currentTree.rotation.x, 0.0));
 	localNormal = vec3(0, 0, 1);
 	
 	localNormal = normalize(RotateX(localNormal, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y));
@@ -122,7 +145,7 @@ void main()
 	//localCoords = localPosition;
 
 	//variant = instanceIndex % 3;
-	variant = scaleMult;
+	variant = 1.0 + rand11(leafIndex + int(ceil(leafRan * 100000))) * 0.25;
 
 	worldPosition = leafPosition + currentTree.position.xyz;
 

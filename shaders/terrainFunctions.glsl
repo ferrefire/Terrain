@@ -11,7 +11,7 @@ layout(set = 0, binding = 1) uniform sampler2D heightmaps[cascadeCount];
 layout(set = 0, binding = 2) uniform sampler2D terrainShadowMaps[3];
 layout(set = 0, binding = 3) uniform sampler2D glillMaps[3];
 layout(set = 0, binding = 4) uniform sampler2D skyMap;
-layout(set = 0, binding = 6) uniform sampler2DShadow shadowMaps[3];
+layout(set = 0, binding = 6) uniform sampler2DShadow shadowMaps[shadowCascades];
 layout(set = 0, binding = 7, std140) uniform ShadowData
 {
 	uint enabled;
@@ -458,14 +458,19 @@ float BlendShadows(int i, vec2 uv, float refDepth, int mode)
 	return (1.0);
 }
 
+const float limits[4] = {100 * 100, 500 * 500, 2500 * 2500, 12500 * 12500};
+
 float SampleShadows(vec3 worldPosition)
 {
 	if (shadowData.enabled == 0) {return (1.0);}
 
 	float result = 0.0;
 	float blend = 0.0;
+	float dis = SquaredDistance(worldPosition, variables.viewPosition.xyz);
 
-	for (int i = 0; i < 3; i++)
+	if (dis > limits[3]) {return (1.0);}
+
+	for (int i = 0; i < shadowCascades; i++)
 	{
 		vec4 lightClip = variables.shadowMatrices[i] * vec4(worldPosition, 1.0);
 		vec3 ndc = lightClip.xyz / lightClip.w;
@@ -475,16 +480,20 @@ float SampleShadows(vec3 worldPosition)
 
 		if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || ndc.z < 0.0 || ndc.z > 1.0) {continue;}
 
-		if (i == 0 && SquaredDistance(worldPosition, variables.viewPosition.xyz) > (100 * 100)) {continue;}
-		if (i == 1 && SquaredDistance(worldPosition, variables.viewPosition.xyz) > (500 * 500)) {continue;}
+		if (dis > limits[i]) {continue;}
+
+		//if (i == 0 && dis > (100 * 100)) {continue;}
+		//if (i == 1 && dis > (500 * 500)) {continue;}
+		//if (i == 2 && dis > (2500 * 2500)) {continue;}
 
 		float fade = 0.0;
-		if (i== 0 || i == 2)
+		if (i== 0 || i == shadowCascades - 1)
 		{
 			float border = 0.0;
 			border = max(border, abs(uv.x - 0.5));
 			border = max(border, abs(uv.y - 0.5));
 			border = max(border, abs(ndc.z - 0.5));
+			border = max(border, (dis / limits[i]) * 0.5);
 			if (border > 0.4) {fade = clamp((border - 0.4) * 10.0, 0.0, 1.0);}
 		}
 

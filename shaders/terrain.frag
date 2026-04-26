@@ -75,23 +75,8 @@ const float snowSteepness = 0.3;
 	return (diffuse);
 }*/
 
-struct TextureData
-{
-	vec3 color;
-	vec3 normal;
-	vec3 arm;
-	vec3 weights;
-	vec3 uv;
-	vec3 baseNormal;
-};
-
 void SampleSteepnessTexture(sampler2D samplers[3], inout TextureData textureData, float strength, float scale, float lodInter)
 {
-	//float inverseStrength = (1.0 - strength);
-	//textureData.color *= inverseStrength;
-	//textureData.normal *= inverseStrength;
-	//textureData.arm *= inverseStrength;
-
 	if (lodInter <= 0.0) {textureData.color += SampleTriplanarColor(samplers[0], textureData.uv * scale, textureData.weights) * strength;}
 	else {textureData.color += SampleTriplanarColorLod(samplers[0], textureData.uv * scale, textureData.weights) * strength;}
 	textureData.normal += SampleTriplanarNormal(samplers[1], textureData.uv * scale, textureData.weights, textureData.baseNormal, 1.0, lodInter) * strength;
@@ -157,7 +142,6 @@ void main()
 	textureData.arm = vec3(1, 1, 0);
 	textureData.uv = triplanarUV;
 	textureData.baseNormal = _worldNormal;
-	//textureData.weights = GetWeights(_worldNormal, 4.0);
 	textureData.weights = GetWeights(_worldNormal, 72);
 
 	//if (steepness <= rockSteepness + steepnessHalfTransition)
@@ -298,42 +282,6 @@ void main()
 				}
 			}
 		}
-
-		//if (snow >= 0.5)
-		//{
-		//	float rockSnow = clamp(steepness - rockSteepness, 0.0, 0.1) / 0.1;
-		//	rockSnow *= ((snow - 0.5) * 2.0);
-		//	if (rockSnow > 0.0) {textureData.color = mix(textureData.color, vec3(1.0), rockSnow);}
-		//}
-
-		/*float scale = 0;
-		float scaleInter = 0.0;
-		if (viewInter < 0.0025)
-		{
-			scale = 0.2;
-		}
-		else if (viewInter < 0.0075)
-		{
-			scale = 0.1;
-		}
-		else if (viewInter < 0.25)
-		{
-			scale = 0.005;
-		}
-		else
-		{
-			scale = 0.001;
-		}*/
-		
-
-		//color *= 1.0 - strength;
-		//normal *= 1.0 - strength;
-		//arm *= 1.0 - strength;
-		//color += SampleTriplanarColor(rockTextures[0], triplanarUV * scale, weights) * strength;
-		//normal += SampleTriplanarNormal(rockTextures[1], triplanarUV * scale, weights, _worldNormal, 1.0) * strength;
-		//arm += SampleTriplanarColor(rockTextures[2], triplanarUV * scale, weights) * strength;
-
-		//SampleSteepnessTexture(rockTextures, textureData, strength, scale, 0.0);
 	}
 
 	//float snowArea = SimpleFractalNoise((worldPosition.xz * 0.0001 + variables.terrainOffset.xz) * 0.5, 1, 4);
@@ -409,6 +357,8 @@ void main()
 
 	diffuse *= ao * aoMult;
 	diffuse += ambient * occlusion;
+
+	//diffuse *= ao * ao;
 
 	//diffuse += ambient;
 	//diffuse += ambient * occlusion;

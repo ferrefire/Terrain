@@ -7,7 +7,7 @@
 #include "lighting.glsl"
 //#include "functions.glsl"
 
-layout(set = 1, binding = 4, std140) uniform LeafShaderConfigBuffer
+layout(set = 1, binding = 5, std140) uniform LeafShaderConfigBuffer
 {
 	LeafShaderConfig shaderConfig;
 };
@@ -130,4 +130,7 @@ void main()
 	}
 
 	pixelColor = vec4(diffuse, 1.0);
+
+	if (shaderConfig.debugMode == 1) {pixelColor = vec4(RandomColor(int(floor(lod))), 1.0);}
+	if (shaderConfig.debugMode == 2) {pixelColor = vec4(data.N * 0.5 + 0.5, 1.0);}
 }

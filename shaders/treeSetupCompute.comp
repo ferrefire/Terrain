@@ -84,9 +84,11 @@ void main()
 	treeSeed = uint(ceil(abs(treeUV.x) + abs(treeUV.y) + abs(terrainValues.x * maxHeight)));
 	float deg = rand11(treeSeed) * 180.0;
 
-	treeSeed = (uint(ceil((abs(treeUV.x * 4.0)))) % 46038) + ((uint(ceil(abs(treeUV.y))) % 1937));
+	treeSeed = (uint(ceil((abs(treeUV.x * 3.15)))) % 46038) + ((uint(ceil(abs(treeUV.y * 1.593))) % 21937));
 	//float scale = mix(0.8, 1.25, rand01(treeSeed));
-	float scale = mix(0.8, 1.75, rand01(treeSeed));
+	//float scale = mix(0.8, 1.75, rand01(treeSeed));
+	//float scale = mix(config.minTreeScale, config.maxTreeScale, pow(rand01(treeSeed), config.treeScalePower));
+	float scale = mix(config.minTreeScale, config.maxTreeScale, rand01(treeSeed));
 
 	float r = radians(deg);
 	float c = cos(r);
@@ -96,4 +98,5 @@ void main()
 	setupData[index].position = treePosition;
 	setupData[index].rotation = treeRotation;
 	setupData[index].terrainValues = terrainValues;
+	setupData[index].info = vec4(treePosition.w, scale, 0.0, 0.0);
 }
