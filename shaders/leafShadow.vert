@@ -21,11 +21,6 @@ layout(set = 1, binding = 2, std430) readonly buffer LeafDataBuffer
 	LeafData leafData[];
 };
 
-layout(set = 1, binding = 3, std430) readonly buffer LeafLodDataBuffer
-{
-	vec4 leafLodPositions[];
-};
-
 layout(set = 1, binding = 4, std430) readonly buffer TreeComputeConfigBuffer
 {
 	TreeComputeConfig config;
@@ -77,7 +72,7 @@ void main()
 	float scaleMult = mix(0.8, 1.25, rand01(leafIndex));
 	//float scaleMult = mix(0.66, 1.5, rand01(leafIndex));
 
-	if (lod < 3)
+	/*if (lod < 3)
 	{
 		if (cascade == lod - 1)
 		{
@@ -91,11 +86,12 @@ void main()
 			if (leafIndex % factors[lod + 1] == 0) {scalar = mix(scales[lod], scales[lod + 1], lodInter);}
 			//if (lod == 0 && leafIndex % factors[lod + 1] == 0) {scalar = scales[lod + 1];}
 		}
-	}
+	}*/
 
 	scalar *= scaleMult;
 
 	scalar *= 0.625;
+	//scalar *= 1.5;
 
 	vec3 leafPosition = localPosition;
 	//if (lod == 1)

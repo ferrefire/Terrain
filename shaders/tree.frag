@@ -6,18 +6,6 @@
 #include "terrainFunctions.glsl"
 #include "lighting.glsl"
 
-struct TreeShaderConfig
-{
-	int weightPower;
-	float uvScale;
-	float glillNormalMix;
-	float normalStrength;
-	int textureLod;
-	float ambientStrength;
-	uint sampleOcclusion;
-	float defaultOcclusion;
-};
-
 layout(set = 1, binding = 2) uniform sampler2D barkTextures[3];
 
 layout(set = 1, binding = 3, std140) uniform treeShaderConfig
@@ -97,4 +85,8 @@ void main()
 	diffuse += ambient;
 
 	pixelColor = vec4(diffuse, 1.0);
+
+	if (config.debugMode == 1) {pixelColor = vec4(worldNormal * 0.5 + 0.5, 1.0);}
+	if (config.debugMode == 2) {pixelColor = vec4(data.N * 0.5 + 0.5, 1.0);}
+	if (config.debugMode == 3) {pixelColor = vec4(RandomColor(lod), 1.0);}
 }

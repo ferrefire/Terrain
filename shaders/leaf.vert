@@ -18,7 +18,7 @@ layout(set = 1, binding = 2, std430) readonly buffer LeafDataBuffer
 
 layout(set = 1, binding = 3, std430) readonly buffer LeafLodDataBuffer
 {
-	vec4 leafLodPositions[];
+	LeafLodPosition leafLodPositions[];
 };
 
 
@@ -33,13 +33,15 @@ layout(set = 1, binding = 5, std140) uniform LeafShaderConfigBuffer
 };
 
 layout(location = 0) in vec3 localPosition;
+layout(location = 1) in vec3 localNormal;
 
 layout(location = 0) out vec3 worldPosition;
 layout(location = 1) out vec3 worldNormal;
-layout(location = 2) out vec3 localNormal;
-layout(location = 3) out vec4 terrainValues;
-layout(location = 4) out float lod;
-layout(location = 5) out float variant;
+layout(location = 2) out vec3 baseNormal;
+layout(location = 3) out vec3 flatNormal;
+layout(location = 4) out vec4 terrainValues;
+layout(location = 5) out float lod;
+layout(location = 6) out float variant;
 //layout(location = 6) out vec3 localCoords;
 
 //const int leafCount = 2916;
@@ -99,15 +101,18 @@ void main()
 	scalar *= scaleMult;
 
 	scalar *= 0.625;
+	//scalar *= 1.5;
 
 	//Improve this by rotating with one matrix for all rotations instead of one for each axis!!!
 
 	vec3 leafPosition = localPosition;
+	baseNormal = normalize(localNormal);
 
 	if (iLod == 1)
 	{
 		int vertID = gl_VertexIndex;
-		leafPosition = mix(leafPosition, leafLodPositions[vertID].xyz, pow(lodInter, 2));
+		leafPosition = mix(leafPosition, leafLodPositions[vertID].position.xyz, pow(lodInter, 4));
+		baseNormal = normalize(mix(baseNormal, leafLodPositions[vertID].normal.xyz, pow(lodInter, 4)));
 	}
 
 	leafPosition *= scalar;
@@ -131,21 +136,23 @@ void main()
 	leafPosition.y -= 0.5;
 
 	worldNormal = normalize(leafPosition - vec3(0.0, shaderConfig.worldNormalHeight * currentTree.rotation.x, 0.0));
-	localNormal = vec3(0, 0, 1);
 	
-	localNormal = normalize(RotateX(localNormal, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y));
-	localNormal = normalize(RotateY(localNormal, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w));
-	localNormal = normalize(RotateZ(localNormal, currentLeaf.rotationZ.x, currentLeaf.rotationZ.y));
+	//flatNormal = normalize(vec3(0, 0, -1));
 
-	//localNormal = normalize((currentLeaf.rotation * vec4(localNormal, 0.0)).xyz);
+	//baseNormal = normalize(mix(localNormal, vec3(0, 0, -1), shaderConfig.flatLocalNormalBlend));
+	
+	//flatNormal = normalize(RotateX(flatNormal, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y));
+	//flatNormal = normalize(RotateY(flatNormal, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w));
+	//flatNormal = normalize(RotateZ(flatNormal, currentLeaf.rotationZ.x, currentLeaf.rotationZ.y));
+	//flatNormal = normalize(RotateY(flatNormal, currentTree.rotation.z, currentTree.rotation.w));
 
-	localNormal = normalize(RotateY(localNormal, currentTree.rotation.z, currentTree.rotation.w));
-	//worldNormal = localNormal;
+	baseNormal = normalize(RotateX(baseNormal, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y));
+	baseNormal = normalize(RotateY(baseNormal, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w));
+	baseNormal = normalize(RotateZ(baseNormal, currentLeaf.rotationZ.x, currentLeaf.rotationZ.y));
+	baseNormal = normalize(RotateY(baseNormal, currentTree.rotation.z, currentTree.rotation.w));
 
-	//localCoords = localPosition;
-
-	//variant = instanceIndex % 3;
-	variant = 1.0 + rand11(leafIndex + int(ceil(leafRan * 100000))) * 0.25;
+	//variant = 1.0 + rand11(leafIndex + int(ceil(leafRan * 100000))) * 0.25;
+	variant = 1.1 + rand11(leafIndex + int(ceil(leafRan * 100000))) * 0.125;
 
 	worldPosition = leafPosition + currentTree.position.xyz;
 

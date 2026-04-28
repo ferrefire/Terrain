@@ -101,6 +101,19 @@ struct LeafData
 	//mat4 rotation;
 };
 
+struct TreeShaderConfig
+{
+	int weightPower;
+	float uvScale;
+	float glillNormalMix;
+	float normalStrength;
+	int textureLod;
+	float ambientStrength;
+	uint sampleOcclusion;
+	float defaultOcclusion;
+	uint debugMode;
+};
+
 struct LeafShaderConfig
 {
 	float localNormalBlend;
@@ -125,6 +138,15 @@ struct LeafShaderConfig
 	float defaultOcclusion;
 
 	uint debugMode;
+	float flatLocalNormalBlend;
+	float qualityNormalBlendLodStart;
+	float qualityNormalBlendLodPower;
+};
+
+struct LeafLodPosition
+{
+	vec4 position;
+	vec4 normal;
 };
 
 layout(set = 0, binding = 0, std140) uniform Variables

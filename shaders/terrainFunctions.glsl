@@ -487,7 +487,7 @@ float SampleShadows(vec3 worldPosition)
 		//if (i == 2 && dis > (2500 * 2500)) {continue;}
 
 		float fade = 0.0;
-		if (i== 0 || i == shadowCascades - 1)
+		//if (i== 0 || i == shadowCascades - 1)
 		{
 			float border = 0.0;
 			border = max(border, abs(uv.x - 0.5));
@@ -503,16 +503,18 @@ float SampleShadows(vec3 worldPosition)
 		if (inter < shadowData.blend1Dis) {mode = 1;}
 		if (inter < shadowData.blend0Dis) {mode = 2;}
 
-		if (fade >= 1.0) {return (1.0);}
+		//if (fade >= 1.0) {return (1.0);}
 
-		if (i == 1 && blend > 0.0)
+		//if (i == 1 && blend > 0.0)
+		if (blend > 0.0)
 		{
 			fade = 1.0 - blend;
 		}
 
 		result += (1.0 - BlendShadows(i, uv, refDepth, mode)) * (1.0 - fade);
 
-		if (i == 0 && fade > 0.0)
+		//if (i == 0 && fade > 0.0)
+		if (fade > 0.0 && blend == 0.0)
 		{
 			blend = fade;
 			continue;

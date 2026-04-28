@@ -22,6 +22,7 @@
 
 const int computeCascade = 8;
 const int shadowCascades = 4;
+const int heightmapResolution = 2048;
 
 struct alignas(16) UniformData
 {
@@ -92,7 +93,8 @@ struct alignas(16) TerrainComputeData
 	float steepness = 1.5;
 	//float steepness = 1.0;
 	//float steepness = 2.0;
-	uint32_t padding[1];
+	int32_t resolution = heightmapResolution;
+	//uint32_t padding[1];
 };
 
 struct alignas(16) TerrainShaderData
@@ -243,6 +245,8 @@ struct alignas(16) TreeShaderConfig
 
 	uint32_t sampleOcclusion = 0;
 	float defaultOcclusion = 0.0;
+
+	uint32_t debugMode = 0;
 	
 	//uint32_t padding[1];
 };
@@ -270,8 +274,10 @@ struct alignas(16) LeafShaderConfig
 	//float translucencyRange = 0.425;
 	float translucencyRange = 0.25;
 
-	float lod0Size = 1.0;
-	float lod1Size = 1.75;
+	//float lod0Size = 1.0;
+	float lod0Size = 1.25;
+	//float lod1Size = 1.75;
+	float lod1Size = 2.0;
 	float lod2Size = 5.0;
 	//float lod3Size = 12.0;
 	//float lod3Size = 16.0;
@@ -287,6 +293,10 @@ struct alignas(16) LeafShaderConfig
 	float defaultOcclusion = 0.4;
 	
 	uint32_t debugMode = 0;
+	float flatLocalNormalBlend = 0.0;
+	//float qualityNormalBlendLodStart = 2.0;
+	float qualityNormalBlendLodStart = 3.0;
+	float qualityNormalBlendLodPower = 1.0;
 	//uint32_t padding[1];
 };
 
@@ -388,7 +398,7 @@ Image bark_norm;
 Image bark_arm;
 
 LeafShaderConfig leafShaderConfig{};
-meshP16 leafMesh;
+meshPN16 leafMesh;
 Descriptor leafDescriptor;
 Pipeline leafPipeline;
 Pipeline leafShadowPipeline;
@@ -434,7 +444,7 @@ int terrainLodRadius = 8;
 int terrainLodLength = 2 * terrainLodRadius + 1;
 int terrainLodCount = terrainLodLength * terrainLodLength;
 
-int heightmapResolution = 2048;
+//int heightmapResolution = 4096;
 float heightmapBaseSize = 0.075;
 int computeIterations = 2;
 int totalComputeIterations = int(pow(4, computeIterations));
@@ -1012,7 +1022,12 @@ void UpdateShadowData()
 }
 
 std::vector<VkDrawIndexedIndirectCommand> leafDrawCommands;
-std::vector<point4D> leafLodPositions;
+struct LeafLodPosition
+{
+	point4D position;
+	point4D normal;
+};
+std::vector<LeafLodPosition> leafLodPositions;
 
 void CreateLeafMesh(bool update)
 {
@@ -1022,7 +1037,7 @@ void CreateLeafMesh(bool update)
 
 	ShapeSettings leafSettings{};
 	leafSettings.lod = 0;
-	shapeP16 leafShape(ShapeType::Leaf, leafSettings);
+	shapePN16 leafShape(ShapeType::Leaf, leafSettings);
 
 	leafDrawCommands[0].indexCount = leafShape.GetIndices().size();
 	leafDrawCommands[0].instanceCount = 0;
@@ -1038,10 +1053,9 @@ void CreateLeafMesh(bool update)
 
 	//ShapeSettings leafSettings{};
 	leafSettings.lod = 1;
-	shapeP16 leafShape1(ShapeType::Leaf, leafSettings);
+	shapePN16 leafShape1(ShapeType::Leaf, leafSettings);
 
 	leafLodPositions.resize(leafShape.GetVertices().size());
-	
 
 	leafDrawCommands[2].indexCount = leafShape1.GetIndices().size();
 	leafDrawCommands[2].firstIndex = leafShape.GetIndices().size();
@@ -1062,20 +1076,33 @@ void CreateLeafMesh(bool update)
 	leafShape1.Rotate(180.0, Axis::z);
 	leafShape1.Scale(2.0);
 
-	leafLodPositions[0] = leafShape1.GetVertices()[0].position;
-	leafLodPositions[1] = leafShape1.GetVertices()[1].position;
-	leafLodPositions[2] = leafShape1.GetVertices()[2].position;
-	leafLodPositions[3] = leafShape1.GetVertices()[2].position;
-	leafLodPositions[4] = leafShape1.GetVertices()[3].position;
-	leafLodPositions[5] = leafShape1.GetVertices()[4].position;
-	leafLodPositions[6] = leafShape1.GetVertices()[4].position;
-	leafLodPositions[7] = leafShape1.GetVertices()[5].position;
-	leafLodPositions[8] = leafShape1.GetVertices()[6].position;
-	leafLodPositions[9] = leafShape1.GetVertices()[6].position;
+	leafShape.CalculateNormals();
+	leafShape1.CalculateNormals();
+
+	leafLodPositions[0].position = leafShape1.GetVertices()[0].position;
+	leafLodPositions[0].normal = leafShape1.GetVertices()[0].normal;
+	leafLodPositions[1].position = leafShape1.GetVertices()[1].position;
+	leafLodPositions[1].normal = leafShape1.GetVertices()[1].normal;
+	leafLodPositions[2].position = leafShape1.GetVertices()[2].position;
+	leafLodPositions[2].normal = leafShape1.GetVertices()[2].normal;
+	leafLodPositions[3].position = leafShape1.GetVertices()[2].position;
+	leafLodPositions[3].normal = leafShape1.GetVertices()[2].normal;
+	leafLodPositions[4].position = leafShape1.GetVertices()[3].position;
+	leafLodPositions[4].normal = leafShape1.GetVertices()[3].normal;
+	leafLodPositions[5].position = leafShape1.GetVertices()[4].position;
+	leafLodPositions[5].normal = leafShape1.GetVertices()[4].normal;
+	leafLodPositions[6].position = leafShape1.GetVertices()[4].position;
+	leafLodPositions[6].normal = leafShape1.GetVertices()[4].normal;
+	leafLodPositions[7].position = leafShape1.GetVertices()[5].position;
+	leafLodPositions[7].normal = leafShape1.GetVertices()[5].normal;
+	leafLodPositions[8].position = leafShape1.GetVertices()[6].position;
+	leafLodPositions[8].normal = leafShape1.GetVertices()[6].normal;
+	leafLodPositions[9].position = leafShape1.GetVertices()[6].position;
+	leafLodPositions[9].normal = leafShape1.GetVertices()[6].normal;
 
 	leafSettings.lod = 2;
 	leafSettings.scalarized = false;
-	shapeP16 leafShape2(ShapeType::Leaf, leafSettings);
+	shapePN16 leafShape2(ShapeType::Leaf, leafSettings);
 
 	leafDrawCommands[4].indexCount = leafShape2.GetIndices().size();
 	leafDrawCommands[4].firstIndex = leafShape.GetIndices().size();
@@ -1084,6 +1111,7 @@ void CreateLeafMesh(bool update)
 	leafDrawCommands[4].firstInstance = 0;
 
 	leafShape.Join(leafShape2);
+	leafShape.CalculateNormals();
 	leafMesh.Create(leafShape);
 }
 
@@ -1221,6 +1249,7 @@ void Start()
 	//treeMeshConfig.seed = 6282;
 	//treeMeshConfig.seed = 9206;
 	treeMeshConfig.seed = 15;
+	//treeMeshConfig.seed = 15628;
 	//treeMeshConfig.seed = 1563;
 	shapePN32 treeShape = Tree::GenerateTree(treeMeshConfig);
 	treeShape.Scale(point3D(4.0));
@@ -1333,6 +1362,7 @@ void Start()
 	drawCommands[4].vertexOffset = 0;
 	drawCommands[4].firstInstance = 0;
 
+	treeShape.CalculateNormals();
 	treeMesh.Create(treeShape);
 
 	ImageConfig sceneLuminanceConfig = Image::DefaultConfig();
@@ -1522,7 +1552,8 @@ void Start()
 	//data.lightDirection = point4D(point3D(0.529019, 0.282315, -0.800273));
 	//data.lightDirection = point4D(point3D(0.613087, 0.116438, 0.781388));
 	//data.lightDirection = point4D(point3D(0.582976, 0.328745, 0.743011));
-	data.lightDirection = point4D(point3D(0.139343, 0.53843, 0.83107));
+	//data.lightDirection = point4D(point3D(0.139343, 0.53843, 0.83107));
+	data.lightDirection = point4D(point3D(0.749465, 0.596829, 0.286527));
 	//data.lightDirection = point4D(point3D(0.310526, 0.408194, 0.858459));
 	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 
 		Manager::GetCamera().GetConfig().near, Manager::GetCamera().GetConfig().far);
@@ -1742,7 +1773,7 @@ void Start()
 
 	BufferConfig leafLodPositionsBufferConfig = Buffer::StorageConfig();
 	leafLodPositionsBufferConfig.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	leafLodPositionsBufferConfig.size = sizeof(point4D) * leafLodPositions.size();
+	leafLodPositionsBufferConfig.size = sizeof(LeafLodPosition) * leafLodPositions.size();
 	leafLodPositionsBuffer.Create(leafLodPositionsBufferConfig, leafLodPositions.data());
 
 	BufferConfig leafShaderConfigBufferConfig{};
@@ -2195,6 +2226,7 @@ void Start()
 	//Manager::GetCamera().Move(point3D(4603.41, -2411.25, 8862.13));
 	//Manager::GetCamera().Move(point3D(4638.89, -2356.18, 8880.5));
 	Manager::GetCamera().Move(point3D(3378.99, -2204.17, -3144.48));
+	//Manager::GetCamera().Move(point3D(3310.14, -2324.92, -3054.38));
 	//Manager::GetCamera().Move(point3D(428.953, -2005.17, 2031.84));
 	//Manager::GetCamera().Move(point3D(1249.58, -1968.5, 6361.08));
 	//Manager::GetCamera().Move(point3D(4692.71, -2418.12, 9021.92));
@@ -2208,6 +2240,7 @@ void Start()
 	//Manager::GetCamera().Rotate(point3D(12.1997, 669.309, 0.0));
 	//Manager::GetCamera().Rotate(point3D(-5.8003, 1071.71, 0.0));
 	Manager::GetCamera().Rotate(point3D(0.399712, 1401.68, 0.0));
+	//Manager::GetCamera().Rotate(point3D(28.2997, 19.78, 0.0));
 	//Manager::GetCamera().Rotate(point3D(-3.80028, 1728.39, 0.0));
 	//Manager::GetCamera().Rotate(point3D(-46.101, 1074.21, 0.0));
 	//Manager::GetCamera().Rotate(point3D(3.49968, 781.528, 0.0));
@@ -2389,6 +2422,7 @@ void Start()
 	treeMenu.AddSlider("ambient strength", treeShaderConfig.ambientStrength, 0.0, 1.0);
 	treeMenu.AddCheckbox("sample tree occlusion", treeShaderConfig.sampleOcclusion);
 	treeMenu.AddSlider("default tree occlusion", treeShaderConfig.defaultOcclusion, 0.0, 1.0);
+	treeMenu.AddDropdown("debug mode", treeShaderConfig.debugMode, {"none", "base normal", "world normal", "lod"});
 	treeMenu.TriggerNode("Shader");
 
 	Menu& leafMenu = UI::NewMenu("Leaves");
@@ -2411,7 +2445,10 @@ void Start()
 	leafMenu.AddCheckbox("sample leaves occlusion", leafShaderConfig.sampleOcclusion);
 	leafMenu.AddCheckbox("flip local normal", leafShaderConfig.flipLocalNormal);
 	leafMenu.AddSlider("default leaf occlusion", leafShaderConfig.defaultOcclusion, 0.0, 1.0);
-	leafMenu.AddDropdown("debug mode", leafShaderConfig.debugMode, {"none", "lod", "normal"});
+	leafMenu.AddDropdown("debug mode", leafShaderConfig.debugMode, {"none", "lod", "base normal", "world normal"});
+	leafMenu.AddSlider("flat local normal blend", leafShaderConfig.flatLocalNormalBlend, 0.0, 1.0);
+	leafMenu.AddSlider("quality normal blend lod start", leafShaderConfig.qualityNormalBlendLodStart, 0.0, 3.0);
+	leafMenu.AddSlider("quality normal blend lod power", leafShaderConfig.qualityNormalBlendLodPower, 0.0, 3.0);
 	leafMenu.TriggerNode("shader");
 
 	Menu& shadowMenu = UI::NewMenu("Shadows");
@@ -2758,10 +2795,10 @@ void Frame()
 	data.viewPosition = Manager::GetCamera().GetPosition();
 	data.viewDirection = Manager::GetCamera().GetDirection();
 
-	data.shadowMatrices[0] = ComputeShadowMatrix(0.1, shadowDistance);
-	data.shadowMatrices[1] = ComputeShadowMatrix(shadowDistance, shadowDistance * 5.0);
-	data.shadowMatrices[2] = ComputeShadowMatrix(shadowDistance * 5.0, shadowDistance * 25.0);
-	if (shadowCascades > 3) {data.shadowMatrices[3] = ComputeShadowMatrix(shadowDistance * 25.0, shadowDistance * 125.0);}
+	data.shadowMatrices[0] = ComputeShadowMatrix(0.01, shadowDistance);
+	data.shadowMatrices[1] = ComputeShadowMatrix(shadowDistance * 0.9, shadowDistance * 5.0);
+	data.shadowMatrices[2] = ComputeShadowMatrix(shadowDistance * 5.0 * 0.9, shadowDistance * 25.0);
+	if (shadowCascades > 3) {data.shadowMatrices[3] = ComputeShadowMatrix(shadowDistance * 25.0 * 0.9, shadowDistance * 125.0);}
 
 	data.resolution.x() = Manager::GetCamera().GetConfig().width;
 	data.resolution.y() = Manager::GetCamera().GetConfig().height;
@@ -2888,18 +2925,24 @@ void Frame()
 
 	if (Input::GetKey(GLFW_KEY_U).pressed)
 	{
-		treeComputeConfig.overdrawLodCullHeavy = 1;
-		treeComputeConfig.overdrawMisses = 1;
-		UpdateTreeComputeData();
+		leafShaderConfig.qualityNormalBlendLodPower = 3.0;
+		UpdateLeafShaderData();
+
+		//treeComputeConfig.overdrawLodCullHeavy = 1;
+		//treeComputeConfig.overdrawMisses = 1;
+		//UpdateTreeComputeData();
 
 		//atmosphereData.mistStrength = 32.0;
 		//UpdateAtmosphereData();
 	}
 	if (Input::GetKey(GLFW_KEY_Y).pressed)
 	{
-		treeComputeConfig.overdrawLodCullHeavy = 0;
-		treeComputeConfig.overdrawMisses = 0;
-		UpdateTreeComputeData();
+		leafShaderConfig.qualityNormalBlendLodPower = 1.0;
+		UpdateLeafShaderData();
+
+		//treeComputeConfig.overdrawLodCullHeavy = 0;
+		//treeComputeConfig.overdrawMisses = 0;
+		//UpdateTreeComputeData();
 
 		//atmosphereData.mistStrength = 24.0;
 		//UpdateAtmosphereData();

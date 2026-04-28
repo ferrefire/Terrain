@@ -161,7 +161,8 @@ shapePN32 Tree::GenerateBranch(TreeConfig config)
 			//float zRot = std::lerp(0.0, 1.0, floatDistribution(generator));
 			float yRot = leafNormal.Angle();
 			//float xRot = leafNormal.Angles().x();
-			float xRot = (point3D(leafData.leafPosition).Unitized().y()) * 0.25 + std::lerp(-0.1, 0.05, floatDistribution(generator));
+			//float xRot = (point3D(leafData.leafPosition).Unitized().y()) * 0.25 + std::lerp(-0.1, 0.05, floatDistribution(generator));
+			float xRot = (point3D(leafData.leafPosition).Unitized().y()) * 0.175 + std::lerp(-0.1, 0.05, floatDistribution(generator));
 			float zRot = std::lerp(-0.15, 0.15, floatDistribution(generator));
 			float xr = (-xRot * 360.0) * 0.0174532925;
 			//float xr = 0;
