@@ -9,7 +9,7 @@
 #include "noise.glsl"
 #include "functions.glsl"
 
-layout(set = 1, binding = 0, std430) buffer TreeSetupBuffer
+layout(set = 1, binding = 0, std430) readonly buffer TreeSetupBuffer
 {
 	TreeData setupData[];
 };
@@ -110,7 +110,7 @@ int InsideFrustum(uint lod, vec3 worldPosition, float mult)
 {
 	if (InView(worldPosition + vec3(0.0, 20.0, 0.0) * mult, vec3(0.0)) == 1) {return (1);}
 
-	if (lod > 1) {return (0);}
+	if (lod > 2) {return (0);}
 
 	for (int y = 0; y <= 2; y++)
 	{
@@ -285,6 +285,8 @@ void main()
 	float px = ix * config.treeSpacing;
 	float pz = iz * config.treeSpacing;
 
+	uint originalLod = lod;
+
 	if (config.overdrawCulling == 1 && config.overdrawLodCull == 1 && BehindTrees(currentTree.position.xyz, config.overdrawLodCullMaximum, config.overdrawLodCullMinimum, lod) == 1)
 	{
 		if (lod >= 3 && config.overdrawLodCullHeavy == 1) {return;}
@@ -309,12 +311,12 @@ void main()
 		{
 			//if (i > 1 && lod == 0) {continue;}
 
-			if (stop <= 0) {break;}
-			if (lod > i + 2) {continue;}
+			//if (stop <= 0) {break;}
+			if (originalLod > i + 1) {continue;}
 
 			//if (i == 0 && idis > 200 * 200) {continue;}
 			//if (i == 1 && idis > 750 * 750) {continue;}
-			//if (i == 2 && idis > 2500 * 2500) {continue;}
+			if (i == 2 && idis > 2500 * 2500) {continue;}
 
 			float edge = InsideCascade(i, currentTree.position.xyz, currentTree.rotation.x, config.cascadeTolerances[i]);
 

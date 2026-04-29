@@ -149,7 +149,18 @@ struct LeafLodPosition
 	vec4 normal;
 };
 
-layout(set = 0, binding = 0, std140) uniform Variables
+struct TerrainShaderData
+{
+	uint debugMode;
+	float rockSteepness;
+	float rockTransition;
+	float snowHeight;
+	float snowBlend;
+	float snowSteepness;
+	uint snowEnabled;
+};
+
+layout(set = 0, binding = 0, std140) readonly uniform Variables
 {
 	mat4 view;
 	mat4 projection;

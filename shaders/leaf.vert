@@ -27,7 +27,7 @@ layout(set = 1, binding = 4, std430) readonly buffer TreeComputeConfigBuffer
 	TreeComputeConfig config;
 };
 
-layout(set = 1, binding = 5, std140) uniform LeafShaderConfigBuffer
+layout(set = 1, binding = 5, std140) readonly uniform LeafShaderConfigBuffer
 {
 	LeafShaderConfig shaderConfig;
 };

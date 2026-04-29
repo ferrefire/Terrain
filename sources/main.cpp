@@ -22,7 +22,7 @@
 
 const int computeCascade = 8;
 const int shadowCascades = 4;
-const int heightmapResolution = 2048;
+const int heightmapResolution = 4096;
 
 struct alignas(16) UniformData
 {
@@ -87,10 +87,12 @@ struct alignas(16) TerrainComputeData
 	float seed = 0.303586;
 	//float erodeFactor = 1.0;
 	//float erodeFactor = 4.0;
-	float erodeFactor = 2.0;
+	//float erodeFactor = 2.0;
+	float erodeFactor = 3.0;
 	//float steepness = 2.0;
 	//float steepness = 1.75;
-	float steepness = 1.5;
+	//float steepness = 1.5;
+	float steepness = 1.25;
 	//float steepness = 1.0;
 	//float steepness = 2.0;
 	int32_t resolution = heightmapResolution;
@@ -100,7 +102,15 @@ struct alignas(16) TerrainComputeData
 struct alignas(16) TerrainShaderData
 {
 	uint32_t debugMode = 0;
-	uint32_t padding[3];
+	float rockSteepness = 0.10;
+	//float rockTransition = 0.075;
+	float rockTransition = 0.025;
+	//float snowHeight = 1500.0;
+	float snowHeight = 1250.0;
+	float snowBlend = 1500.0;
+	float snowSteepness = 0.3;
+	uint32_t snowEnabled = 1;
+	//uint32_t padding[3];
 };
 
 struct alignas(16) AerialData
@@ -281,8 +291,10 @@ struct alignas(16) LeafShaderConfig
 	float lod2Size = 5.0;
 	//float lod3Size = 12.0;
 	//float lod3Size = 16.0;
-	float lod3Size = 14.0;
-	float lod4Size = 24.0;
+	//float lod3Size = 14.0;
+	//float lod4Size = 24.0;
+	float lod3Size = 12.5;
+	float lod4Size = 20.0;
 
 	uint32_t lodInterMod = 1;
 	float lodInterPow = 2.0;
@@ -297,6 +309,7 @@ struct alignas(16) LeafShaderConfig
 	//float qualityNormalBlendLodStart = 2.0;
 	float qualityNormalBlendLodStart = 3.0;
 	float qualityNormalBlendLodPower = 1.0;
+	//float qualityNormalBlendLodPower = 1.5;
 	//uint32_t padding[1];
 };
 
@@ -1552,8 +1565,8 @@ void Start()
 	//data.lightDirection = point4D(point3D(0.529019, 0.282315, -0.800273));
 	//data.lightDirection = point4D(point3D(0.613087, 0.116438, 0.781388));
 	//data.lightDirection = point4D(point3D(0.582976, 0.328745, 0.743011));
-	//data.lightDirection = point4D(point3D(0.139343, 0.53843, 0.83107));
-	data.lightDirection = point4D(point3D(0.749465, 0.596829, 0.286527));
+	data.lightDirection = point4D(point3D(0.139343, 0.53843, 0.83107));
+	//data.lightDirection = point4D(point3D(0.749465, 0.596829, 0.286527));
 	//data.lightDirection = point4D(point3D(0.310526, 0.408194, 0.858459));
 	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 
 		Manager::GetCamera().GetConfig().near, Manager::GetCamera().GetConfig().far);
@@ -2348,7 +2361,13 @@ void Start()
 	Menu& terrainMenu = UI::NewMenu("Terrain");
 	terrainMenu.AddCheckbox("terrain enabled", terrainEnabled);
 	terrainMenu.TriggerNode("Shader", UpdateTerrainShaderData);
-	terrainMenu.AddDropdown("debug mode", terrainShaderData.debugMode, {"none", "base normal", "texture normal", "heightmap lod edge", "heightmap lod full", "chunk lod", "chunk ID"});
+	terrainMenu.AddDropdown("debug mode", terrainShaderData.debugMode, {"none", "base normal", "texture normal", "heightmap lod edge", "heightmap lod full", "chunk lod", "chunk ID", "steepness range"});
+	terrainMenu.AddSlider("rock steepness", terrainShaderData.rockSteepness, 0.0, 0.25);
+	terrainMenu.AddSlider("rock transition", terrainShaderData.rockTransition, 0.0, 0.1);
+	terrainMenu.AddSlider("snow height", terrainShaderData.snowHeight, 500.0, 2500.0);
+	terrainMenu.AddSlider("snow blend", terrainShaderData.snowBlend, 500.0, 2500.0);
+	terrainMenu.AddSlider("snow steepness", terrainShaderData.snowSteepness, 0.0, 0.5);
+	terrainMenu.AddCheckbox("snow enabled", terrainShaderData.snowEnabled);
 	terrainMenu.TriggerNode("Shader");
 	terrainMenu.TriggerNode("Generation");
 	terrainMenu.AddSlider("seed", terrainComputeData.seed, 0.0001, 1.0);
@@ -2795,10 +2814,10 @@ void Frame()
 	data.viewPosition = Manager::GetCamera().GetPosition();
 	data.viewDirection = Manager::GetCamera().GetDirection();
 
-	data.shadowMatrices[0] = ComputeShadowMatrix(0.01, shadowDistance);
-	data.shadowMatrices[1] = ComputeShadowMatrix(shadowDistance * 0.9, shadowDistance * 5.0);
-	data.shadowMatrices[2] = ComputeShadowMatrix(shadowDistance * 5.0 * 0.9, shadowDistance * 25.0);
-	if (shadowCascades > 3) {data.shadowMatrices[3] = ComputeShadowMatrix(shadowDistance * 25.0 * 0.9, shadowDistance * 125.0);}
+	data.shadowMatrices[0] = ComputeShadowMatrix(0.1, shadowDistance);
+	data.shadowMatrices[1] = ComputeShadowMatrix(shadowDistance, shadowDistance * 5.0);
+	data.shadowMatrices[2] = ComputeShadowMatrix(shadowDistance * 5.0, shadowDistance * 25.0);
+	if (shadowCascades > 3) {data.shadowMatrices[3] = ComputeShadowMatrix(shadowDistance * 25.0, shadowDistance * 125.0);}
 
 	data.resolution.x() = Manager::GetCamera().GetConfig().width;
 	data.resolution.y() = Manager::GetCamera().GetConfig().height;
@@ -2925,8 +2944,17 @@ void Frame()
 
 	if (Input::GetKey(GLFW_KEY_U).pressed)
 	{
-		leafShaderConfig.qualityNormalBlendLodPower = 3.0;
-		UpdateLeafShaderData();
+		//leafShaderConfig.qualityNormalBlendLodPower = 3.0;
+		//leafShaderConfig.lod3Size = 12.5;
+		//leafShaderConfig.lod4Size = 20.0;
+		//UpdateLeafShaderData();
+
+		//terrainComputeData.erodeFactor = 3.0;
+		//terrainComputeData.steepness = 1.25;
+		//terrainShaderData.rockSteepness = 0.1;
+		//terrainShaderData.rockTransition = 0.025;
+		terrainShaderData.snowHeight = 1250.0;
+		UpdateTerrainShaderData();
 
 		//treeComputeConfig.overdrawLodCullHeavy = 1;
 		//treeComputeConfig.overdrawMisses = 1;
@@ -2937,8 +2965,17 @@ void Frame()
 	}
 	if (Input::GetKey(GLFW_KEY_Y).pressed)
 	{
-		leafShaderConfig.qualityNormalBlendLodPower = 1.0;
-		UpdateLeafShaderData();
+		//leafShaderConfig.qualityNormalBlendLodPower = 1.0;
+		//leafShaderConfig.lod3Size = 14.0;
+		//leafShaderConfig.lod4Size = 24.0;
+		//UpdateLeafShaderData();
+
+		//terrainComputeData.erodeFactor = 2.0;
+		//terrainComputeData.steepness = 1.5;
+		//terrainShaderData.rockSteepness = 0.1;
+		//terrainShaderData.rockTransition = 0.075;
+		terrainShaderData.snowHeight = 1500.0;
+		UpdateTerrainShaderData();
 
 		//treeComputeConfig.overdrawLodCullHeavy = 0;
 		//treeComputeConfig.overdrawMisses = 0;

@@ -4,7 +4,7 @@
 
 #include "variables.glsl"
 
-layout(set = 2, binding = 0) uniform models { mat4 model; } object;
+layout(set = 2, binding = 0) readonly uniform models { mat4 model; } object;
 
 layout(location = 0) in vec3 localPosition;
 

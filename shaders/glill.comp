@@ -7,7 +7,7 @@
 #include "terrainFunctions.glsl"
 
 layout(set = 1, binding = 0, r8) uniform image2D glillImage;
-layout(set = 1, binding = 1, std140) uniform Config
+layout(set = 1, binding = 1, std140) readonly uniform Config
 {
 	vec4 sizes;
 	vec4 settings;
@@ -17,12 +17,12 @@ layout(set = 1, binding = 1, std140) uniform Config
 	float treeDensityPower;
 } config;
 
-layout(set = 1, binding = 2, std430) buffer TreeSetupBuffer
+layout(set = 1, binding = 2, std430) readonly buffer TreeSetupBuffer
 {
 	TreeData setupData[];
 };
 
-layout(set = 1, binding = 3, std430) buffer ComputeConfig
+layout(set = 1, binding = 3, std430) readonly buffer ComputeConfig
 {
 	TreeComputeConfig treeConfig;
 };

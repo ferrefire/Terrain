@@ -11,7 +11,7 @@ layout(set = 1, binding = 1, rgba16f) uniform image2D scatteringImage;
 layout(set = 1, binding = 2, rgba16f) uniform readonly image2D skyImage;
 layout(set = 1, binding = 3, rgba16f) uniform readonly image3D aerialImage;
 
-layout(set = 2, binding = 0, std140) uniform ScatteringData
+layout(set = 2, binding = 0, std140) readonly uniform ScatteringData
 {
 	float scatteringStrength;
 	float lightStrength;

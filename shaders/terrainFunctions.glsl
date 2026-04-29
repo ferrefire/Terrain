@@ -12,7 +12,7 @@ layout(set = 0, binding = 2) uniform sampler2D terrainShadowMaps[3];
 layout(set = 0, binding = 3) uniform sampler2D glillMaps[3];
 layout(set = 0, binding = 4) uniform sampler2D skyMap;
 layout(set = 0, binding = 6) uniform sampler2DShadow shadowMaps[shadowCascades];
-layout(set = 0, binding = 7, std140) uniform ShadowData
+layout(set = 0, binding = 7, std140) readonly uniform ShadowData
 {
 	uint enabled;
 	float blend0Dis;
@@ -458,7 +458,7 @@ float BlendShadows(int i, vec2 uv, float refDepth, int mode)
 	return (1.0);
 }
 
-const float limits[4] = {100 * 100, 500 * 500, 2500 * 2500, 12500 * 12500};
+const float limits[4] = {100 * 100, 500 * 500, 2000 * 2000, 12500 * 12500};
 
 float SampleShadows(vec3 worldPosition)
 {
@@ -488,6 +488,7 @@ float SampleShadows(vec3 worldPosition)
 
 		float fade = 0.0;
 		//if (i== 0 || i == shadowCascades - 1)
+		if (blend == 0.0)
 		{
 			float border = 0.0;
 			border = max(border, abs(uv.x - 0.5));
@@ -503,7 +504,7 @@ float SampleShadows(vec3 worldPosition)
 		if (inter < shadowData.blend1Dis) {mode = 1;}
 		if (inter < shadowData.blend0Dis) {mode = 2;}
 
-		//if (fade >= 1.0) {return (1.0);}
+		if (fade >= 1.0) {return (1.0);}
 
 		//if (i == 1 && blend > 0.0)
 		if (blend > 0.0)

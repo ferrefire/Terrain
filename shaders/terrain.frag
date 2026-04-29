@@ -4,15 +4,10 @@
 
 #include "variables.glsl"
 
-struct TerrainShaderData
-{
-	uint debugMode;
-};
-
 layout(set = 1, binding = 0) uniform sampler2D rockTextures[3];
 layout(set = 1, binding = 1) uniform sampler2D grassTextures[3];
 layout(set = 1, binding = 2) uniform sampler2D dryTextures[3];
-layout(set = 1, binding = 3, std140) uniform terrainShaderData
+layout(set = 1, binding = 3, std140) readonly uniform terrainShaderData
 {
 	TerrainShaderData config;
 };
@@ -30,9 +25,9 @@ layout(location = 0) out vec4 pixelColor;
 #include "noise.glsl"
 #include "terrainFunctions.glsl"
 
-const float rockSteepness = 0.10;
-const float rockTransition = 0.075;
-const float snowSteepness = 0.3;
+//const float rockSteepness = 0.10;
+//const float rockTransition = 0.075;
+//const float snowSteepness = 0.3;
 //const float snowSteepness = 0.25;
 //const float snowTransition = 0.075;
 //const float steepnessHalfTransition = steepnessTransition * 0.5;
@@ -75,11 +70,11 @@ const float snowSteepness = 0.3;
 	return (diffuse);
 }*/
 
-void SampleSteepnessTexture(sampler2D samplers[3], inout TextureData textureData, float strength, float scale, float lodInter)
+void SampleSteepnessTexture(sampler2D samplers[3], inout TextureData textureData, float strength, float scale, float lodInter, float normalStrength)
 {
 	if (lodInter <= 0.0) {textureData.color += SampleTriplanarColor(samplers[0], textureData.uv * scale, textureData.weights) * strength;}
 	else {textureData.color += SampleTriplanarColorLod(samplers[0], textureData.uv * scale, textureData.weights) * strength;}
-	textureData.normal += SampleTriplanarNormal(samplers[1], textureData.uv * scale, textureData.weights, textureData.baseNormal, 1.0, lodInter) * strength;
+	textureData.normal += SampleTriplanarNormal(samplers[1], textureData.uv * scale, textureData.weights, textureData.baseNormal, normalStrength, lodInter) * strength;
 	textureData.arm += SampleTriplanarColor(samplers[2], textureData.uv * scale, textureData.weights, vec3(1.0, 1.0, 0.0), lodInter) * strength;
 }
 
@@ -152,11 +147,11 @@ void main()
 	//snow = clamp(snow, 0.0, 1.0);
 	//float blendSteepness = mix(rockSteepness, snowSteepness, rockSnow);
 
-	float snowHeight = 1500.0;
+	//float snowHeight = 1500.0;
 	//float snowHeight = 500.0;
-	float snowHeightBlend = 1500.0;
+	//float snowHeightBlend = 1500.0;
 
-	float snow = pow(clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + snowHeight, 0.0, snowHeightBlend) / snowHeightBlend, 0.75);
+	float snow = pow(clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + config.snowHeight, 0.0, config.snowBlend) / config.snowBlend, 0.75);
 	//float coverSteepness = 0;
 	//float diff = 0;
 
@@ -166,10 +161,10 @@ void main()
 	//	diff = coverSteepness - steepness;
 	//}
 
-	float blendSteepness = rockSteepness;
+	//float blendSteepness = rockSteepness;
 	
 	//if (steepness <= drySteepness)
-	if (steepness <= blendSteepness)
+	if (steepness <= config.rockSteepness)
 	{
 		//diffuse = GetColor(grassTextures, data, weights, _worldNormal, triplanarUV, false);
 
@@ -181,7 +176,7 @@ void main()
 		textureData.normal *= 0.0;
 		textureData.arm *= 0.0;
 
-		SampleSteepnessTexture(grassTextures, textureData, 1.0, 0.5, clamp((viewInter - 0.0075) / 0.0025, 0.0, 1.0));
+		SampleSteepnessTexture(grassTextures, textureData, 1.0, 0.5, clamp((viewInter - 0.0075) / 0.0025, 0.0, 1.0), 1.0);
 
 		/*const int scaleCascades = 4;
 		const float scales[4] = {0.0005, 0.005, 0.05, 0.5};
@@ -243,9 +238,9 @@ void main()
 
 		SampleSteepnessTexture(dryTextures, textureData, strength, scale);
 	}*/
-	if (steepness > blendSteepness - rockTransition)
+	if (steepness > config.rockSteepness - config.rockTransition)
 	{
-		float strength = clamp(steepness - (blendSteepness - rockTransition), 0.0, rockTransition) / rockTransition;
+		float strength = clamp(steepness - (config.rockSteepness - config.rockTransition), 0.0, config.rockTransition) / config.rockTransition;
 
 		textureData.color *= (1.0 - strength);
 		textureData.normal *= (1.0 - strength);
@@ -260,7 +255,7 @@ void main()
 
 		if (viewInter > distances[0])
 		{
-			SampleSteepnessTexture(rockTextures, textureData, strength, scales[0], 0.0);
+			SampleSteepnessTexture(rockTextures, textureData, strength, scales[0], 0.0, 1.0);
 		}
 		else
 		{
@@ -274,10 +269,10 @@ void main()
 					if (viewInter > blendCutoff)
 					{
 						scaleStrength = 1.0 - ((viewInter - blendCutoff) / blendDistance);
-						SampleSteepnessTexture(rockTextures, textureData, strength * (1.0 - scaleStrength), scales[i - 1], 0.0);
+						SampleSteepnessTexture(rockTextures, textureData, strength * (1.0 - scaleStrength), scales[i - 1], 0.0, 1.0);
 					}
 
-					SampleSteepnessTexture(rockTextures, textureData, strength * scaleStrength, scales[i], 0.0);
+					SampleSteepnessTexture(rockTextures, textureData, strength * scaleStrength, scales[i], 0.0, 1.0);
 					break;
 				}
 			}
@@ -288,9 +283,9 @@ void main()
 	//snowArea = ((((exp(pow(snowArea * 2.0 - 2.0, 3.0))) + (pow(snowArea, 2.0))) * 0.5) - 0.5) * 2.0;
 	//snow = clamp(snow + snowArea, 0.0, 1.0);
 
-	if (snow > 0.0)
+	if (config.snowEnabled == 1 && snow > 0.0)
 	{
-		float coverSteepness = mix(0.0, snowSteepness, snow);
+		float coverSteepness = mix(0.0, config.snowSteepness, snow);
 		float diff = coverSteepness - steepness;
 		//coverSteepness = mix(0.0, snowSteepness, snow);
 		//diff = coverSteepness - steepness;
@@ -316,6 +311,13 @@ void main()
 
 	if (config.debugMode == 5) {textureData.color = RandomColor(chunkLod);}
 	if (config.debugMode == 6) {textureData.color = RandomColor(chunkId);}
+	if (config.debugMode == 7)
+	{
+		textureData.color = RandomColor(1);
+		if (steepness <= config.rockSteepness - config.rockTransition) {textureData.color = RandomColor(2);}
+		else if (steepness <= config.rockSteepness) {textureData.color = RandomColor(3);}
+		else {textureData.color = RandomColor(4);}
+	}
 
 	float roughness = textureData.arm.g;
 	float metallic = textureData.arm.b;
