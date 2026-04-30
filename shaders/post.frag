@@ -26,6 +26,8 @@ layout(set = 1, binding = 7, std140) uniform PostData
 {
 	uint useLinearDepth;
 	uint aerialBlendMode;
+	uint toneMapping;
+	float exposure;
 } postData;
 
 layout(set = 1, binding = 8) uniform sampler2DShadow screenTexture;
@@ -267,17 +269,18 @@ void main()
 
 	//vec3 exposedColor = color * currentExposure;
 	//vec3 exposedColor = color * pow(1.0 / luminanceData.value, 0.25);
-	vec3 exposedColor = color * 1.0;
+	vec3 exposedColor = color * postData.exposure;
 	//vec3 exposedColor = color * 1.25;
 
 	//vec3 mappedColor = acesTonemap(texture(skyTexture, worldCoordinates).rgb * 6.0);
 
 	//exposedColor = vec3(texture(glillTexture, worldCoordinates).r);
 
-	vec3 mappedColor = acesTonemap(exposedColor);
+	vec3 mappedColor = RRTAndODTFit(exposedColor);
+	if (postData.toneMapping == 1) {mappedColor = acesTonemap(exposedColor);}
 	
 	pixelColor = vec4(mappedColor, 1.0);
-	if (postData.useLinearDepth == 1) {pixelColor = vec4(vec3(texture(screenTexture, vec3(worldCoordinates, 1.0)).r), 1.0);}
+	//if (postData.useLinearDepth == 1) {pixelColor = vec4(vec3(texture(screenTexture, vec3(worldCoordinates, 1.0)).r), 1.0);}
 	//pixelColor = vec4(vec3(test), 1.0);
 	//pixelColor = vec4(texture(skyTexture, worldCoordinates).rgb, 1.0);
 }

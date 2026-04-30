@@ -141,6 +141,9 @@ struct LeafShaderConfig
 	float flatLocalNormalBlend;
 	float qualityNormalBlendLodStart;
 	float qualityNormalBlendLodPower;
+	float qualitySmoothness;
+
+	float colorMult;
 };
 
 struct LeafLodPosition

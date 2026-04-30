@@ -85,14 +85,14 @@ void main()
 	data.lightColor = vec3(1.0, 0.9, 0.7) * lightStrength;
 	data.N = mixedNormal;
 	//data.albedo = ToLinear((vec3(44, 64, 3) * colorMult) / 255.0);
-	data.albedo = ToLinear((vec3(46, 54, 2) * colorMult) / 255.0);
+	data.albedo = ToLinear((vec3(46, 54, 2) * colorMult * shaderConfig.colorMult) / 255.0);
 
 	//if (lod == 0) {data.albedo = vec3(0, 1, 0);}
 	//else if (lod == 1) {data.albedo = vec3(0, 0, 1);}
 	//else if (lod == 2) {data.albedo = vec3(1, 0, 0);}
 
 	data.roughness = 1.0;
-	if (lod < shaderConfig.qualityNormalBlendLodStart) {data.roughness = mix(0.625, 1.0, leafQualityInter);}
+	if (lod < shaderConfig.qualityNormalBlendLodStart) {data.roughness = mix(shaderConfig.qualitySmoothness, 1.0, leafQualityInter);}
 	data.metallic = 0.0;
 
 	vec3 diffuse = PBRLighting(data);

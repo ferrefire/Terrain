@@ -88,11 +88,13 @@ struct alignas(16) TerrainComputeData
 	//float erodeFactor = 1.0;
 	//float erodeFactor = 4.0;
 	//float erodeFactor = 2.0;
-	float erodeFactor = 3.0;
+	//float erodeFactor = 3.0;
+	float erodeFactor = 2.5;
 	//float steepness = 2.0;
 	//float steepness = 1.75;
 	//float steepness = 1.5;
-	float steepness = 1.25;
+	//float steepness = 1.25;
+	float steepness = 1.0;
 	//float steepness = 1.0;
 	//float steepness = 2.0;
 	int32_t resolution = heightmapResolution;
@@ -155,7 +157,10 @@ struct alignas(16) PostData
 {
 	uint32_t useLinearDepth = 0;
 	uint32_t aerialBlendMode = 0;
-	uint32_t padding[2];
+	//uint32_t toneMapping = 1;
+	uint32_t toneMapping = 0;
+	float exposure = 1.0;
+	//uint32_t padding[2];
 };
 
 struct alignas(16) RetrieveData
@@ -309,7 +314,11 @@ struct alignas(16) LeafShaderConfig
 	//float qualityNormalBlendLodStart = 2.0;
 	float qualityNormalBlendLodStart = 3.0;
 	float qualityNormalBlendLodPower = 1.0;
+	float qualitySmoothness = 0.625;
 	//float qualityNormalBlendLodPower = 1.5;
+
+	float colorMult = 1.0;
+
 	//uint32_t padding[1];
 };
 
@@ -1135,17 +1144,21 @@ void Start()
 	aerialData.sliceOffset = 0.0;
 	aerialData.lodOcclusion = 1;
 	aerialData.defaultOcclusion = 0.75;
-	globalGlillSamplePower = 1.0;
-	atmosphereData.skyPower = 2.0;
-	//atmosphereData.skyPower = 3.0;
-	atmosphereData.skyDilute = 128.0;
-	scatteringData.scatteringStrength = 1.0;
 	aerialData.mistStrength = 8.0;
+	aerialData.mistBuildupPower = 2.0;
+
+	globalGlillSamplePower = 1.0;
+	
+	scatteringData.scatteringStrength = 1.0;
+	
+	atmosphereData.skyPower = 2.0;
+	atmosphereData.skyDilute = 128.0;
 	atmosphereData.skyStrength = 24.0;
 	atmosphereData.mistStrength = 24.0;
-	skyData.rayleighStrength = 0.25;
-	aerialData.mistBuildupPower = 2.0;
+
 	postData.aerialBlendMode = 2.0;
+
+	skyData.rayleighStrength = 0.25;
 
 	pass.AddAttachment(Pass::DefaultHDRAttachment());
 	pass.AddAttachment(Pass::DefaultSwapAttachment());
@@ -2388,6 +2401,8 @@ void Start()
 	postMenu.TriggerNode("Settings", UpdatePostData);
 	postMenu.AddCheckbox("use linear depth", postData.useLinearDepth);
 	postMenu.AddDropdown("aerial blend mode", postData.aerialBlendMode, {"none", "texel corners", "weighted"});
+	postMenu.AddCheckbox("tonemapping", postData.toneMapping);
+	postMenu.AddSlider("exposure", postData.exposure, 0.0, 2.0);
 	postMenu.TriggerNode("Settings");
 
 	Menu& treeMenu = UI::NewMenu("Trees");
@@ -2468,6 +2483,8 @@ void Start()
 	leafMenu.AddSlider("flat local normal blend", leafShaderConfig.flatLocalNormalBlend, 0.0, 1.0);
 	leafMenu.AddSlider("quality normal blend lod start", leafShaderConfig.qualityNormalBlendLodStart, 0.0, 3.0);
 	leafMenu.AddSlider("quality normal blend lod power", leafShaderConfig.qualityNormalBlendLodPower, 0.0, 3.0);
+	leafMenu.AddSlider("quality smoothness", leafShaderConfig.qualitySmoothness, 0.0, 1.0);
+	leafMenu.AddSlider("color mult", leafShaderConfig.colorMult, 0.0, 2.0);
 	leafMenu.TriggerNode("shader");
 
 	Menu& shadowMenu = UI::NewMenu("Shadows");
@@ -2953,8 +2970,8 @@ void Frame()
 		//terrainComputeData.steepness = 1.25;
 		//terrainShaderData.rockSteepness = 0.1;
 		//terrainShaderData.rockTransition = 0.025;
-		terrainShaderData.snowHeight = 1250.0;
-		UpdateTerrainShaderData();
+		//terrainShaderData.snowHeight = 1250.0;
+		//UpdateTerrainShaderData();
 
 		//treeComputeConfig.overdrawLodCullHeavy = 1;
 		//treeComputeConfig.overdrawMisses = 1;
@@ -2962,6 +2979,22 @@ void Frame()
 
 		//atmosphereData.mistStrength = 32.0;
 		//UpdateAtmosphereData();
+
+		//atmosphereData.skyPower = 1.0;
+		//skyData.rayleighStrength = 1.0;
+		//UpdateAtmosphereData();
+		//UpdateSkyData();
+
+		//terrainComputeData.erodeFactor = 2.5;
+		//UpdateTerrainComputeData();
+
+		//postData.toneMapping = 0;
+		//UpdatePostData();
+		//leafShaderConfig.colorMult = 0.75;
+		//UpdateLeafShaderData();
+
+		atmosphereData.mieScatteringStrength = 2.0;
+		UpdateAtmosphereData();
 	}
 	if (Input::GetKey(GLFW_KEY_Y).pressed)
 	{
@@ -2974,8 +3007,16 @@ void Frame()
 		//terrainComputeData.steepness = 1.5;
 		//terrainShaderData.rockSteepness = 0.1;
 		//terrainShaderData.rockTransition = 0.075;
-		terrainShaderData.snowHeight = 1500.0;
-		UpdateTerrainShaderData();
+		//terrainShaderData.snowHeight = 1500.0;
+		//UpdateTerrainShaderData();
+
+		//atmosphereData.skyPower = 2.0;
+		//skyData.rayleighStrength = 0.25;
+		//UpdateAtmosphereData();
+		//UpdateSkyData();
+
+		//terrainComputeData.erodeFactor = 3.0;
+		//UpdateTerrainComputeData();
 
 		//treeComputeConfig.overdrawLodCullHeavy = 0;
 		//treeComputeConfig.overdrawMisses = 0;
@@ -2983,6 +3024,14 @@ void Frame()
 
 		//atmosphereData.mistStrength = 24.0;
 		//UpdateAtmosphereData();
+
+		//postData.toneMapping = 1;
+		//UpdatePostData();
+		//leafShaderConfig.colorMult = 1.0;
+		//UpdateLeafShaderData();
+
+		atmosphereData.mieScatteringStrength = 1.0;
+		UpdateAtmosphereData();
 	}
 
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));

@@ -252,6 +252,7 @@ void main()
 		const int scaleCascades = 4;
 		const float scales[4] = {0.001, 0.005, 0.05, 0.2};
 		const float distances[4] = {0.25, 0.015, 0.0025, 0.0};
+		//const float normalStrengths[4] = {1.5, 1.375, 1.25, 1.0};
 
 		if (viewInter > distances[0])
 		{
