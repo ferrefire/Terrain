@@ -144,6 +144,7 @@ struct LeafShaderConfig
 	float qualitySmoothness;
 
 	float colorMult;
+	float ambientMult;
 };
 
 struct LeafLodPosition
@@ -167,6 +168,8 @@ layout(set = 0, binding = 0, std140) readonly uniform Variables
 {
 	mat4 view;
 	mat4 projection;
+	mat4 projectedView;
+	mat4 iversedProjectedView;
 	mat4 shadowMatrices[shadowCascades];
 	vec4 viewPosition;
 	vec4 viewDirection;

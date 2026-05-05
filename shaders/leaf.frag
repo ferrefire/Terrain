@@ -119,7 +119,7 @@ void main()
 	//float upDot = dot(flippedNormal, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5;
 	float illuminationExposure = mix(0.25 * occlusion, 1.5, upDot);
 	//float illuminationExposure = mix(0.75 * occlusion, 1.5, upDot);
-	vec3 ambientDiffuse = 0.25 * (data.albedo * (illumination.rgb * illuminationExposure));
+	vec3 ambientDiffuse = shaderConfig.ambientMult * (data.albedo * (illumination.rgb * illuminationExposure));
 	//vec3 ambientDiffuse = config.ambientStrength * (data.albedo * illumination.rgb);
 	vec3 ambient = ambientDiffuse * ao;
 

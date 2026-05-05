@@ -24,6 +24,10 @@ layout(set = 0, binding = 5, std430) buffer AtmosphereData
 	float defaultSkyPower;
 	float skyDilute;
 	vec4 skyColor;
+	vec4 aerialDimensions;
+	float aerialSliceScale;
+	int aerialSlicePower;
+	float rayShiftOffset;
 } atmosphereData;
 
 #define PI 3.1415926535897932384626433832795
@@ -53,7 +57,9 @@ const float H = sqrt(topRadius2 - bottomRadius2);
 const vec2 transmittanceDimensions = vec2(256, 64);
 const vec2 scatteringDimensions = vec2(32, 32);
 const vec2 skyDimensions = vec2(192, 128);
-const vec3 aerialDimensions = vec3(64, 64, 32);
+
+//#define AERIAL_RES 64
+//const vec3 aerialDimensions = vec3(AERIAL_RES, AERIAL_RES, 32);
 
 //const float cameraScale = 0.001;
 

@@ -26,6 +26,7 @@ layout(set = 1, binding = 7, std140) uniform PostData
 {
 	uint useLinearDepth;
 	uint aerialBlendMode;
+	float aerialBlendDistance;
 	uint toneMapping;
 	float exposure;
 } postData;
@@ -123,7 +124,8 @@ vec4 GetAerial(float depth, vec3 pixelWorldPos)
 	float realDepth = length(pixelWorldPos - variables.viewPosition.xyz);
 
 	//if (postData.useLinearDepth == 1) {realDepth = LinearizeDepth(depth);}
-	float slice = realDepth * atmosphereData.cameraScale * (1.0 / 4.0); // Maybe use 0.1 as cameraScale
+	//float slice = realDepth * atmosphereData.cameraScale * 0.25;
+	float slice = realDepth * atmosphereData.cameraScale / atmosphereData.aerialSliceScale;
     float weight = 1.0;
 
 	//if (slice < 0.5)
@@ -132,18 +134,25 @@ vec4 GetAerial(float depth, vec3 pixelWorldPos)
     //    slice = 0.5;
 	//}
 
-	const float aerialTexelSize = 1.0 / float(aerialDimensions.x);
+	const float aerialTexelSize = 1.0 / float(atmosphereData.aerialDimensions.x);
 	const float offset = aerialTexelSize * 0.5;
 
-	float w = sqrt(slice / aerialDimensions.z);
+	//float w = sqrt(slice / atmosphereData.aerialDimensions.z);
+	float w = slice / atmosphereData.aerialDimensions.z;
+
+	for (int i = 0; i < atmosphereData.aerialSlicePower; i++) {w = sqrt(w);}
+
+	//return (vec4(floor(w * atmosphereData.aerialDimensions.z)));
+
+	w = clamp(w, 0.0, 1.0);
 
 	vec4 aerialValue = vec4(0.0);
 
-	if (postData.aerialBlendMode == 0.0)
+	if (postData.aerialBlendMode == 0 || (postData.aerialBlendMode == 3 && w > postData.aerialBlendDistance))
 	{
 		aerialValue = texture(aerialTexture, vec3(worldCoordinates, w));
 	}
-	else if (postData.aerialBlendMode == 1.0)
+	else if (postData.aerialBlendMode == 1 || (postData.aerialBlendMode == 3 && w <= postData.aerialBlendDistance))
 	{
 		aerialValue = texture(aerialTexture, vec3(worldCoordinates + vec2(-offset), w));
     	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset, -offset), w));
@@ -151,7 +160,7 @@ vec4 GetAerial(float depth, vec3 pixelWorldPos)
     	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset), w));
 		aerialValue *= 0.25;
 	}
-	else if (postData.aerialBlendMode == 2.0)
+	else if (postData.aerialBlendMode == 2)
 	{
 		aerialValue = texture(aerialTexture, vec3(worldCoordinates, w)) * 0.4;
 		aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(-offset * 2.0), w)) * 0.15;
@@ -212,6 +221,9 @@ void main()
 	float viewHeight = length(worldPosistion);
 
 	vec4 aerialResult = GetAerial(depth, pixelWorldPos);
+
+	//pixelColor = vec4(vec3(RandomColor(int(aerialResult.x))), 1.0);
+	//return;
 	//aerialResult.w = pow(aerialResult.w, 2.0);
 	//vec3 mistColor = aerialResult.rgb * (1.0 - aerialResult.w);
 	//vec3 mistColor = aerialResult.rgb * pow(aerialResult.w, 0.125 * 0.5);

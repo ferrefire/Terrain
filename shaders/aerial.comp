@@ -37,7 +37,7 @@ layout(set = 2, binding = 0, std140) readonly uniform AerialData
 	uint sunMist;
 } aerialData;
 
-layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 vec3 MultiScattering(vec3 worldPosition, float viewAngle)
 {
@@ -83,7 +83,7 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 
 	for (int i = 0; i < sampleCount; i++)
 	{
-		float newRayShift = integrationLength * (float(i) + 0.3) / sampleCount;
+		float newRayShift = integrationLength * (float(i) + atmosphereData.rayShiftOffset) / sampleCount;
 		integrationStep = newRayShift - oldRayShift;
 
 		vec3 rayPosition = worldPosition + newRayShift * worldDirection;
@@ -189,49 +189,56 @@ void main()
 {
 	if (gl_GlobalInvocationID.x + gl_GlobalInvocationID.y + gl_GlobalInvocationID.z == 0) {SetTerrainIllumination();}
 
-	mat4 invViewProjMat = inverse(variables.projection * variables.view);
-    vec2 pixPos = vec2(gl_GlobalInvocationID.xy + vec2(0.5, 0.5)) / aerialDimensions.xy;
-    vec3 ClipSpace = vec3(pixPos * vec2(2.0, 2.0) - vec2(1.0, 1.0), 0.5);
-    
-    vec4 Hpos = invViewProjMat * vec4(ClipSpace, 1.0);
+	//mat4 invViewProjMat = inverse(variables.projection * variables.view);
+	vec2 pixPos = vec2(gl_GlobalInvocationID.xy + vec2(0.5, 0.5)) / atmosphereData.aerialDimensions.xy;
+	vec3 ClipSpace = vec3(pixPos * vec2(2.0, 2.0) - vec2(1.0, 1.0), 0.5);
+
+	//vec4 Hpos = invViewProjMat * vec4(ClipSpace, 1.0);
+	vec4 Hpos = variables.iversedProjectedView * vec4(ClipSpace, 1.0);
 
 	vec3 sunDirection = variables.lightDirection.xyz;
 
 	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale;
-    vec3 worldDirection = normalize(Hpos.xyz / Hpos.w - variables.viewPosition.xyz);
+	vec3 worldDirection = normalize(Hpos.xyz / Hpos.w - variables.viewPosition.xyz);
 	vec3 worldPosition = viewPosition + vec3(0.0, bottomRadius, 0.0);
 
-	float slice = ((float(gl_GlobalInvocationID.z) + aerialData.sliceOffset) / aerialDimensions.z);
-    slice *= slice;
-    slice *= aerialDimensions.z;
+	float slice = ((float(gl_GlobalInvocationID.z) + aerialData.sliceOffset) / atmosphereData.aerialDimensions.z);
+	//slice *= slice;
+	//slice = pow(slice, 3.0);
+	for (int i = 0; i < atmosphereData.aerialSlicePower; i++) {slice *= slice;}
+	slice *= atmosphereData.aerialDimensions.z;
 
-	float tMax = slice * 4.0;
-    vec3 newWorldPosition = worldPosition + tMax * worldDirection;
-	float viewHeight = length(newWorldPosition);
+	float tMax = slice * atmosphereData.aerialSliceScale;
+	vec3 newWorldPosition = worldPosition + tMax * worldDirection;
+	//float viewHeight = length(newWorldPosition);
+	float viewHeight = SquaredMagnitude(newWorldPosition);
 
-	if (viewHeight <= (bottomRadius + atmosphereData.offsetRadius))
-    {
-        newWorldPosition = normalize(newWorldPosition) * (bottomRadius + atmosphereData.offsetRadius + 0.001);
-        worldDirection = normalize(newWorldPosition - worldPosition);
-        tMax = length(newWorldPosition - worldPosition);
-    }
+	//if (viewHeight <= (bottomRadius + atmosphereData.offsetRadius))
+	if (viewHeight <= (bottomRadius + atmosphereData.offsetRadius) * (bottomRadius + atmosphereData.offsetRadius))
+	{
+		newWorldPosition = normalize(newWorldPosition) * (bottomRadius + atmosphereData.offsetRadius + 0.001);
+		worldDirection = normalize(newWorldPosition - worldPosition);
+		tMax = length(newWorldPosition - worldPosition);
+	}
 
-	viewHeight = length(worldPosition);
+	//viewHeight = length(worldPosition);
+	viewHeight = SquaredMagnitude(worldPosition);
 
-	if (viewHeight >= topRadius)
+	//if (viewHeight >= topRadius)
+	if (viewHeight >= topRadius * topRadius)
 	{
 		vec3 previousWorldPosition = worldPosition;
 		if (!MoveToAtmosphere(worldPosition, worldDirection))
 		{
 			imageStore(aerialImage, ivec3(gl_GlobalInvocationID.xyz), vec4( 0.0, 0.0, 0.0, 1.0));
-            return;
+			return;
 		}
 
 		float atmosphereDistance = length(previousWorldPosition - worldPosition);
 		if (tMax < atmosphereDistance)
 		{
 			imageStore(aerialImage, ivec3(gl_GlobalInvocationID.xyz), vec4( 0.0, 0.0, 0.0, 1.0));
-            return;
+			return;
 		}
 
 		tMax = max(0.0, tMax - atmosphereDistance);

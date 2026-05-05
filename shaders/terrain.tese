@@ -38,5 +38,7 @@ void main()
 	chunkLod = patchLod;
 	chunkId = patchId;
 
-	gl_Position = variables.projection * variables.view * vec4(worldPosition, 1.0);
+	
+	if (chunkLod < 2) {gl_Position = variables.projectedView * vec4(worldPosition, 1.0);}
+	else {gl_Position = variables.projection * variables.view * vec4(worldPosition, 1.0);}
 }

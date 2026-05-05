@@ -22,12 +22,16 @@
 
 const int computeCascade = 8;
 const int shadowCascades = 4;
-const int heightmapResolution = 4096;
+const int heightmapResolution = 2048;
+const int aerialQuality = 2;
+const Point<int, 3> aerialRes = Point<int, 3>(32 * aerialQuality, 32 * aerialQuality, 16 * aerialQuality);
 
 struct alignas(16) UniformData
 {
 	mat4 view;
 	mat4 projection;
+	mat4 projectedView;
+	mat4 inversedProjectedView;
 	mat4 shadowMatrices[shadowCascades];
 	point4D viewPosition;
 	point4D viewDirection;
@@ -61,7 +65,8 @@ struct alignas(16) AtmosphereData
 	float miePhaseFunction = 0.8;
 	float offsetRadius = 0.01;
 	float rayleighScatteringStrength = 1.0;
-	float mieScatteringStrength = 1.0;
+	//float mieScatteringStrength = 1.0;
+	float mieScatteringStrength = 2.0;
 	float mieExtinctionStrength = 1.0;
 	float absorptionExtinctionStrength = 1.0;
 	float mistStrength = 48.0;
@@ -79,6 +84,13 @@ struct alignas(16) AtmosphereData
 	float defaultSkyPower = 500.0;
 	float skyDilute = 1.0;
 	point4D skyColor;
+	point4D aerialDimensions = point4D(aerialRes.x(), aerialRes.y(), aerialRes.z(), 0);
+	//float aerialSliceScale = 4.0;
+	float aerialSliceScale = 1.5;
+	//int32_t aerialSlicePower = 1;
+	int32_t aerialSlicePower = 2;
+	float rayShiftOffset = 0.3;
+	//float rayShiftOffset = 0.0;
 	//uint32_t padding[2];
 };
 
@@ -128,7 +140,8 @@ struct alignas(16) AerialData
 	float blendDistance = 10.0;
 	float defaultOcclusion = 0.5;
 	float phaseStrength = 1.0;
-	float sunStrength = 1.0;
+	//float sunStrength = 1.0;
+	float sunStrength = 1.5;
 	float sampleCountMult = 1.0;
 	uint32_t lodOcclusion = 0.0;
 	uint32_t blendOcclusion = 0.0;
@@ -157,6 +170,7 @@ struct alignas(16) PostData
 {
 	uint32_t useLinearDepth = 0;
 	uint32_t aerialBlendMode = 0;
+	float aerialBlendDistance = 0.5;
 	//uint32_t toneMapping = 1;
 	uint32_t toneMapping = 0;
 	float exposure = 1.0;
@@ -318,6 +332,7 @@ struct alignas(16) LeafShaderConfig
 	//float qualityNormalBlendLodPower = 1.5;
 
 	float colorMult = 1.0;
+	float ambientMult = 0.25;
 
 	//uint32_t padding[1];
 };
@@ -485,8 +500,6 @@ float globalGlillSamplePower = 1.0;
 float globalTreeDensityStrength = 0.4;
 float globalTreeDensityPower = 1.0;
 
-Point<int, 3> aerialRes = Point<int, 3>(64, 64, 32);
-
 int treeComputeBase = 512;
 int treeCount = treeComputeBase * treeComputeBase;
 
@@ -614,7 +627,7 @@ void ComputeLuminance(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 
 	aerialDescriptor.Bind(0, commandBuffer, aerialPipeline);
 	aerialPipeline.Bind(commandBuffer);
-	vkCmdDispatch(commandBuffer, 1, aerialRes.y(), aerialRes.z());
+	vkCmdDispatch(commandBuffer, int(aerialRes.x()) / 8, int(aerialRes.y()) / 8, int(aerialRes.z()) / 8);
 
 	//vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
 
@@ -1156,9 +1169,9 @@ void Start()
 	atmosphereData.skyStrength = 24.0;
 	atmosphereData.mistStrength = 24.0;
 
-	postData.aerialBlendMode = 2.0;
-
 	skyData.rayleighStrength = 0.25;
+
+	//postData.aerialBlendMode = 2;
 
 	pass.AddAttachment(Pass::DefaultHDRAttachment());
 	pass.AddAttachment(Pass::DefaultSwapAttachment());
@@ -1578,7 +1591,8 @@ void Start()
 	//data.lightDirection = point4D(point3D(0.529019, 0.282315, -0.800273));
 	//data.lightDirection = point4D(point3D(0.613087, 0.116438, 0.781388));
 	//data.lightDirection = point4D(point3D(0.582976, 0.328745, 0.743011));
-	data.lightDirection = point4D(point3D(0.139343, 0.53843, 0.83107));
+	//data.lightDirection = point4D(point3D(0.139343, 0.53843, 0.83107));
+	data.lightDirection = point4D(point3D(0.89623, 0.1058, 0.430789).Unitized());
 	//data.lightDirection = point4D(point3D(0.749465, 0.596829, 0.286527));
 	//data.lightDirection = point4D(point3D(0.310526, 0.408194, 0.858459));
 	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 
@@ -2251,7 +2265,8 @@ void Start()
 	//Manager::GetCamera().Move(point3D(4641.78, -2376.92, 8547.5));
 	//Manager::GetCamera().Move(point3D(4603.41, -2411.25, 8862.13));
 	//Manager::GetCamera().Move(point3D(4638.89, -2356.18, 8880.5));
-	Manager::GetCamera().Move(point3D(3378.99, -2204.17, -3144.48));
+	//Manager::GetCamera().Move(point3D(3378.99, -2204.17, -3144.48));
+	Manager::GetCamera().Move(point3D(-7215.99, 582.893, 1909.08));
 	//Manager::GetCamera().Move(point3D(3310.14, -2324.92, -3054.38));
 	//Manager::GetCamera().Move(point3D(428.953, -2005.17, 2031.84));
 	//Manager::GetCamera().Move(point3D(1249.58, -1968.5, 6361.08));
@@ -2265,7 +2280,8 @@ void Start()
 	//Manager::GetCamera().Rotate(point3D(24.7997, 338.802, 0.0));
 	//Manager::GetCamera().Rotate(point3D(12.1997, 669.309, 0.0));
 	//Manager::GetCamera().Rotate(point3D(-5.8003, 1071.71, 0.0));
-	Manager::GetCamera().Rotate(point3D(0.399712, 1401.68, 0.0));
+	//Manager::GetCamera().Rotate(point3D(0.399712, 1401.68, 0.0));
+	Manager::GetCamera().Rotate(point3D(18.8998, 1388.69, 0.0));
 	//Manager::GetCamera().Rotate(point3D(28.2997, 19.78, 0.0));
 	//Manager::GetCamera().Rotate(point3D(-3.80028, 1728.39, 0.0));
 	//Manager::GetCamera().Rotate(point3D(-46.101, 1074.21, 0.0));
@@ -2319,6 +2335,9 @@ void Start()
 	menu.AddSlider("sky power", atmosphereData.skyPower, 0.0, 8.0);
 	menu.AddSlider("default sky power", atmosphereData.defaultSkyPower, 0.0, 1000.0);
 	menu.AddSlider("sky dilute", atmosphereData.skyDilute, 0.0, 512.0);
+	menu.AddSlider("aerial slice scale", atmosphereData.aerialSliceScale, 0.0, 8.0);
+	menu.AddSlider("aerial slice power", atmosphereData.aerialSlicePower, 0, 4);
+	menu.AddSlider("ray shift offset", atmosphereData.rayShiftOffset, 0.0, 1.0);
 	menu.TriggerNode("variables");
 
 	menu.TriggerNode("aerial settings", UpdateAerialData);
@@ -2400,7 +2419,8 @@ void Start()
 	Menu& postMenu = UI::NewMenu("Post");
 	postMenu.TriggerNode("Settings", UpdatePostData);
 	postMenu.AddCheckbox("use linear depth", postData.useLinearDepth);
-	postMenu.AddDropdown("aerial blend mode", postData.aerialBlendMode, {"none", "texel corners", "weighted"});
+	postMenu.AddDropdown("aerial blend mode", postData.aerialBlendMode, {"none", "texel corners", "weighted", "distance"});
+	postMenu.AddSlider("aerial blend distance", postData.aerialBlendDistance, 0.0, 1.0);
 	postMenu.AddCheckbox("tonemapping", postData.toneMapping);
 	postMenu.AddSlider("exposure", postData.exposure, 0.0, 2.0);
 	postMenu.TriggerNode("Settings");
@@ -2485,6 +2505,7 @@ void Start()
 	leafMenu.AddSlider("quality normal blend lod power", leafShaderConfig.qualityNormalBlendLodPower, 0.0, 3.0);
 	leafMenu.AddSlider("quality smoothness", leafShaderConfig.qualitySmoothness, 0.0, 1.0);
 	leafMenu.AddSlider("color mult", leafShaderConfig.colorMult, 0.0, 2.0);
+	leafMenu.AddSlider("ambient mult", leafShaderConfig.ambientMult, 0.0, 0.5);
 	leafMenu.TriggerNode("shader");
 
 	Menu& shadowMenu = UI::NewMenu("Shadows");
@@ -2727,6 +2748,7 @@ void Frame()
 
 		std::cout << "Camera position: " << Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0 << std::endl;
 		//std::cout << "Camera position: " << Manager::GetCamera().GetPosition() << std::endl;
+		std::cout << "Camera Total Rotation: " << Manager::GetCamera().GetTotalAngles() << std::endl;
 		std::cout << "Camera Rotation: " << Manager::GetCamera().GetAngles() << std::endl;
 		std::cout << "Camera Direction: " << Manager::GetCamera().GetDirection() << std::endl;
 		std::cout << "Light direction: " << data.lightDirection << std::endl;
@@ -2745,7 +2767,7 @@ void Frame()
 
 	if (data.lightDirection.w() == 0)
 	{
-		data.lightDirection = point3D::Rotation(angles);
+		data.lightDirection = point3D::Rotation(angles).Unitized();
 		SetTerrainShadowValues(2);
 		SetTerrainShadowValues(1);
 		SetTerrainShadowValues(0);
@@ -2827,6 +2849,8 @@ void Frame()
 	Manager::GetCamera().UpdateView();
 	data.view = Manager::GetCamera().GetView();
 	data.projection = Manager::GetCamera().GetProjection();
+	data.projectedView = data.projection * data.view;
+	data.inversedProjectedView = data.projectedView.Inversed();
 	//data.shadowMatrix = shadowOrtho * shadowView;
 	data.viewPosition = Manager::GetCamera().GetPosition();
 	data.viewDirection = Manager::GetCamera().GetDirection();
@@ -2993,8 +3017,11 @@ void Frame()
 		//leafShaderConfig.colorMult = 0.75;
 		//UpdateLeafShaderData();
 
-		atmosphereData.mieScatteringStrength = 2.0;
+		atmosphereData.mistStrength = 24.0;
 		UpdateAtmosphereData();
+
+		aerialData.sunStrength = 1.5;
+		UpdateAerialData();
 	}
 	if (Input::GetKey(GLFW_KEY_Y).pressed)
 	{
@@ -3030,8 +3057,11 @@ void Frame()
 		//leafShaderConfig.colorMult = 1.0;
 		//UpdateLeafShaderData();
 
-		atmosphereData.mieScatteringStrength = 1.0;
+		atmosphereData.mistStrength = 32.0;
 		UpdateAtmosphereData();
+
+		aerialData.sunStrength = 1.0;
+		UpdateAerialData();
 	}
 
 	frameBuffers[Renderer::GetCurrentFrame()].Update(&data, sizeof(data));

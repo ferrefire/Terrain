@@ -55,7 +55,7 @@ ScatteredLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldDir
 
 	for (int i = 0; i < sampleCount; i++)
 	{
-		float newRayShift = integrationLength * (float(i) + 0.3) / sampleCount;
+		float newRayShift = integrationLength * (float(i) + atmosphereData.rayShiftOffset) / sampleCount;
 		integrationStep = newRayShift - oldRayShift;
 
 		vec3 rayPosition = worldPosition + newRayShift * worldDirection;
