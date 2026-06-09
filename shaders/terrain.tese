@@ -31,7 +31,7 @@ void main()
 	vec3 sampledPosition = tesselatedPosition.xyz;
 
 	vec4 heightValues = TerrainValues(tesselatedPosition.xz);
-	sampledPosition.y = heightValues.x * maxHeight - variables.terrainOffset.y * 10000;
+	sampledPosition.y = heightValues.x * maxHeight - variables.terrainOffset.y * terrainDiv;
 
 	worldPosition = sampledPosition;
 

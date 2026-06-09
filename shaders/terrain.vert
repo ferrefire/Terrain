@@ -105,7 +105,7 @@ void main()
 
 	//vec3 sampledPosition = localPosition;
 	//sampledPosition.y += height * 0.5;
-	worldPosition.y = terrainValues.x * maxHeight - variables.terrainOffset.y * 10000.0;
+	worldPosition.y = terrainValues.x * maxHeight - variables.terrainOffset.y * terrainDiv;
 
 	//vec3 worldPosition = (object.model * vec4(sampledPosition, 1.0)).xyz;
 	gl_Position = vec4(worldPosition, 1.0);

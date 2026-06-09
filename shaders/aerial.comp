@@ -2,12 +2,16 @@
 
 #extension GL_GOOGLE_include_directive : require
 
+#define COMPUTE_SHADER
+
 #include "atmosphere.glsl"
 
 #include "variables.glsl"
 
 #include "terrainFunctions.glsl"
 #include "functions.glsl"
+
+#include "lighting.glsl"
 
 layout(set = 1, binding = 0, rgba16f) uniform readonly image2D transmittanceImage;
 layout(set = 1, binding = 1, rgba16f) uniform readonly image2D scatteringImage;
@@ -33,9 +37,30 @@ layout(set = 2, binding = 0, std140) readonly uniform AerialData
 	uint blendOcclusion;
 	uint useOcclusion;
 	uint mistEnabled;
-	uint shadowsEnabled;
+	uint terrainShadowsEnabled;
 	uint sunMist;
+
+	uint shadowMapsEnabled;
+	uint forestMistEnabled;
+	int forestMistRange;
+	float forestMistStrength;
+	float forestMistCenter;
+	float forestMistMinDis;
+	float forestMistMaxDis;
+	float forestMistMaxRayHeight;
+
+	float minRayHeight;
 } aerialData;
+
+layout(set = 2, binding = 1, std430) readonly buffer TreeSetupBuffer
+{
+	TreeData setupData[];
+};
+
+layout(set = 2, binding = 2, std430) readonly buffer ComputeConfig
+{
+	TreeComputeConfig treeConfig;
+};
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
@@ -81,13 +106,39 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 	vec3 accumulatedTransmittance = vec3(1.0);
 	vec3 accumulatedLight = vec3(0.0);
 
+	int breakNext = 0;
+
 	for (int i = 0; i < sampleCount; i++)
 	{
+		if (breakNext == 1) {break;}
+
 		float newRayShift = integrationLength * (float(i) + atmosphereData.rayShiftOffset) / sampleCount;
 		integrationStep = newRayShift - oldRayShift;
 
 		vec3 rayPosition = worldPosition + newRayShift * worldDirection;
 		oldRayShift = newRayShift;
+
+		vec3 realPos = rayPosition - vec3(0.0, bottomRadius, 0.0);
+		realPos /= atmosphereData.cameraScale;
+		realPos -= vec3(0.0, maxHeight * 0.5, 0.0);
+
+		float rayTerrainHeight = TerrainValues(realPos.xz).x * maxHeight;
+
+		float terrainHeightDis = realPos.y - rayTerrainHeight;
+
+		if (terrainHeightDis < aerialData.minRayHeight) {breakNext = 1;}
+
+		//if (terrainHeightDis < 0.0)
+		//{
+		//	if (terrainHeightDis < aerialData.minRayHeight) {breakNext = 1;}
+		//	
+		//	realPos.y = rayTerrainHeight;
+		//	terrainHeightDis = 0.0;
+		//	rayPosition = realPos;
+		//	rayPosition += vec3(0.0, maxHeight * 0.5, 0.0);
+		//	rayPosition *= atmosphereData.cameraScale;
+		//	rayPosition += vec3(0.0, bottomRadius, 0.0);
+		//}
 
 		//vec3 rayPosition = worldPosition + integrationStep * worldDirection;
 
@@ -109,19 +160,30 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 
 		//if (inShadow == 1.0) {inShadow = TerrainShadow(rayPosition - vec3(0.0, 2500.0 + (variables.terrainOffset.y * 10000.0) + bottomRadius, 0.0));}
 
-		vec3 realPos = rayPosition - vec3(0.0, bottomRadius, 0.0);
-		realPos /= atmosphereData.cameraScale;
-		realPos -= vec3(0.0, maxHeight * 0.5, 0.0);
+		//vec3 realPos = rayPosition - vec3(0.0, bottomRadius, 0.0);
+		//realPos /= atmosphereData.cameraScale;
+		//realPos -= vec3(0.0, maxHeight * 0.5, 0.0);
+
+		vec3 shadowPos = realPos - vec3(0.0, variables.terrainOffset.y * terrainDiv, 0.0);
 
 		float occlusion = 1.0;
 		float occlusionValue = 1.0;
 
 		if (realPos.y < aerialData.maximumHeight && realPos.y > -2500.0)
 		{
-			if (aerialData.shadowsEnabled == 1 && inShadow == 1.0)
+			//float rayTerrainHeight = TerrainValues(realPos.xz).x * maxHeight;
+			//float terrainHeightDis = realPos.y - rayTerrainHeight;
+
+			//if (terrainHeightDis < aerialData.minRayHeight) {break;}
+		
+			//terrainHeightDis = realPos.y - rayTerrainHeight;
+
+			if (aerialData.terrainShadowsEnabled == 1 && inShadow == 1.0)
 			{
 				//inShadow = TerrainShadow(realPos);
 				inShadow = TerrainShadow(realPos, 0, true);
+
+				if (aerialData.shadowMapsEnabled == 1 && inShadow > 0.0) {inShadow = min(inShadow, SampleShadows(shadowPos, 0));}
 			}
 
 			if (aerialData.mistEnabled == 1)
@@ -133,7 +195,7 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 					heightInter = pow(heightInter, aerialData.decreasePower);
 				}
 
-				float groundInter = pow(clamp(((realPos.y - (TerrainValues(realPos.xz).x * maxHeight)) / maxHeight) / aerialData.mistHeight, 0.0, 1.0), aerialData.mistHeightPower);
+				float groundInter = pow(clamp(((realPos.y - rayTerrainHeight) / maxHeight) / aerialData.mistHeight, 0.0, 1.0), aerialData.mistHeightPower);
 
 				groundInter = mix(groundInter, 1.0, heightInter);
 
@@ -154,6 +216,39 @@ TransmittedLuminance IntegrateScatteredLuminance(vec3 worldPosition, vec3 worldD
 					//test = 1.0 + occlusion * aerialData.shadowTolerance;
 				}
 			}
+
+			if (aerialData.forestMistEnabled == 1 && (terrainHeightDis >= 0.0 && terrainHeightDis <= aerialData.forestMistMaxRayHeight))
+			{
+				int ix = int(floor((shadowPos.x - treeConfig.treesCenter.x) / treeConfig.treeSpacing)) + int(treeBase * 0.5);
+				int iz = int(floor((shadowPos.z - treeConfig.treesCenter.y) / treeConfig.treeSpacing)) + int(treeBase * 0.5);
+			
+				const int range = aerialData.forestMistRange;
+				for (int x = -range; x <= range; x++)
+				{
+					if (occlusion >= aerialData.forestMistStrength) {break;}
+
+					for (int y = -range; y <= range; y++)
+					{
+						if (occlusion >= aerialData.forestMistStrength) {break;}
+
+						uint setupIndex = (ix + x) * treeBase + (iz + y);
+						TreeData currentTree = setupData[setupIndex];
+						if (currentTree.position.w >= 0.0)
+						{
+							float treeDis = SquaredDistance(shadowPos, currentTree.position.xyz + vec3(0.0, aerialData.forestMistCenter, 0.0) * currentTree.info.y);
+							float maxTreeDis = ((aerialData.forestMistMaxDis * currentTree.info.y) * (aerialData.forestMistMaxDis * currentTree.info.y));
+							float minTreeDis = ((aerialData.forestMistMinDis * currentTree.info.y) * (aerialData.forestMistMinDis * currentTree.info.y));
+							if (treeDis < maxTreeDis)
+							{
+								float treeDisInter = 1.0;
+								if (treeDis > minTreeDis) {treeDisInter = 1.0 - ((treeDis - minTreeDis) / (maxTreeDis - minTreeDis));}
+
+								occlusion = max(occlusion, aerialData.forestMistStrength * treeDisInter);
+							}
+						}
+					}
+				}
+			}			
 		}
 
 		if (inShadow > 0.0)
@@ -189,18 +284,23 @@ void main()
 {
 	if (gl_GlobalInvocationID.x + gl_GlobalInvocationID.y + gl_GlobalInvocationID.z == 0) {SetTerrainIllumination();}
 
-	//mat4 invViewProjMat = inverse(variables.projection * variables.view);
+	mat4 invViewProjMat = inverse(variables.projection * variables.view);
 	vec2 pixPos = vec2(gl_GlobalInvocationID.xy + vec2(0.5, 0.5)) / atmosphereData.aerialDimensions.xy;
 	vec3 ClipSpace = vec3(pixPos * vec2(2.0, 2.0) - vec2(1.0, 1.0), 0.5);
 
-	//vec4 Hpos = invViewProjMat * vec4(ClipSpace, 1.0);
-	vec4 Hpos = variables.iversedProjectedView * vec4(ClipSpace, 1.0);
+	vec4 Hpos = invViewProjMat * vec4(ClipSpace, 1.0);
+	//vec4 Hpos = variables.iversedProjectedView * vec4(ClipSpace, 1.0);
 
 	vec3 sunDirection = variables.lightDirection.xyz;
 
-	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale;
+	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * terrainDiv), 0.0)) * atmosphereData.cameraScale;
+
 	vec3 worldDirection = normalize(Hpos.xyz / Hpos.w - variables.viewPosition.xyz);
 	vec3 worldPosition = viewPosition + vec3(0.0, bottomRadius, 0.0);
+
+	//worldPosition.x = floor(worldPosition.x / atmosphereData.cameraScale) * atmosphereData.cameraScale;
+	//worldPosition.y = floor(worldPosition.y / atmosphereData.cameraScale) * atmosphereData.cameraScale;
+	//worldPosition.z = floor(worldPosition.z / atmosphereData.cameraScale) * atmosphereData.cameraScale;
 
 	float slice = ((float(gl_GlobalInvocationID.z) + aerialData.sliceOffset) / atmosphereData.aerialDimensions.z);
 	//slice *= slice;
@@ -248,6 +348,8 @@ void main()
 	TransmittedLuminance transmittedLuminance = IntegrateScatteredLuminance(worldPosition, worldDirection, sunDirection, sampleCount, tMax);
 
 	float averageTransmittance = (transmittedLuminance.transmittance.x + transmittedLuminance.transmittance.y + transmittedLuminance.transmittance.z) / 3.0;
+
+	//transmittedLuminance.luminance = vec3(RandomColor(int(gl_GlobalInvocationID.y * atmosphereData.aerialDimensions.y + gl_GlobalInvocationID.x))) * 0.01;
 
 	imageStore(aerialImage, ivec3(gl_GlobalInvocationID.xyz), vec4(transmittedLuminance.luminance, averageTransmittance));
 }

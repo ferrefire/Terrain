@@ -34,7 +34,7 @@ vec4 TerrainValues(vec2 worldPosition, int startLod)
 
 	for (int i = startLod; i < cascadeCount; i++)
 	{
-		uv = worldPosition * 0.0001 - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz);
+		uv = worldPosition * heightmapDivMult - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz * uvFactor);
 		float size = baseDistance * pow(2.0, i);
 		if (max(abs(uv.x), abs(uv.y)) < (size * 0.5))
 		{
@@ -68,7 +68,7 @@ vec4 TerrainValuesLod(vec2 worldPosition, int targetLod)
 
 	targetLod = clamp(targetLod, 0, cascadeCount - 1);
 	int i = targetLod;
-	uv = worldPosition * 0.0001 - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz);
+	uv = worldPosition * heightmapDivMult - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz * uvFactor);
 	float size = baseDistance * pow(2.0, i);
 	if (max(abs(uv.x), abs(uv.y)) < (size * 0.5))
 	{
@@ -90,7 +90,7 @@ float TerrainCascadeLod(vec2 worldPosition)
 
 	for (int i = 0; i < cascadeCount; i++)
 	{
-		uv = worldPosition * 0.0001 - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz);
+		uv = worldPosition * heightmapDivMult - (variables.heightmapOffsets[i].xy - variables.terrainOffset.xz * uvFactor);
 		float size = baseDistance * pow(2.0, i);
 		if (max(abs(uv.x), abs(uv.y)) < (size * 0.5))
 		{
@@ -145,8 +145,8 @@ float TerrainShadow(vec3 worldPosition)
 
 	for (int i = 2; i >= 0; i--)
 	{
-		uv = worldPosition.xz * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
-		uv = (uv * 10000.0) / variables.shadowmapOffsets[i].w;
+		uv = worldPosition.xz * heightmapDivMult - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz) * uvFactor;
+		uv = (uv * heightmapDiv) / variables.shadowmapOffsets[i].w;
 
 		if (abs(uv.x) < 0.5 && abs(uv.y) < 0.5)
 		{
@@ -155,8 +155,8 @@ float TerrainShadow(vec3 worldPosition)
 			
 			if (i < 2)
 			{
-				viewUV = variables.viewPosition.xz * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
-				viewUV = (viewUV * 10000.0) / variables.shadowmapOffsets[i].w;
+				viewUV = variables.viewPosition.xz * heightmapDivMult - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz) * uvFactor;
+				viewUV = (viewUV * heightmapDiv) / variables.shadowmapOffsets[i].w;
 				float uvDis = max(abs(uv.x - viewUV.x), abs(uv.y - viewUV.y));
 				if (i > 0) {uvDis -= (variables.shadowmapOffsets[i - 1].w / variables.shadowmapOffsets[i].w) * 0.5;}
 				uvDis = clamp(uvDis * 2.0, 0.0, 1.0);
@@ -185,8 +185,8 @@ float TerrainShadow(vec3 worldPosition, int lod, bool blended)
 
 	for (int i = 2; i >= lod; i--)
 	{
-		uv = worldPosition.xz * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
-		uv = (uv * 10000.0) / variables.shadowmapOffsets[i].w;
+		uv = worldPosition.xz * heightmapDivMult - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz) * uvFactor;
+		uv = (uv * heightmapDiv) / variables.shadowmapOffsets[i].w;
 
 		if (abs(uv.x) < 0.5 && abs(uv.y) < 0.5)
 		{
@@ -208,8 +208,8 @@ float TerrainShadow(vec3 worldPosition, int lod, bool blended)
 			
 			if (i < 2)
 			{
-				viewUV = variables.viewPosition.xz * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
-				viewUV = (viewUV * 10000.0) / variables.shadowmapOffsets[i].w;
+				viewUV = variables.viewPosition.xz * heightmapDivMult - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz) * uvFactor;
+				viewUV = (viewUV * heightmapDiv) / variables.shadowmapOffsets[i].w;
 				float uvDis = max(abs(uv.x - viewUV.x), abs(uv.y - viewUV.y));
 				if (i > 0) {uvDis -= (variables.shadowmapOffsets[i - 1].w / variables.shadowmapOffsets[i].w) * 0.5;}
 				uvDis = clamp(uvDis * 2.0, 0.0, 1.0);
@@ -235,8 +235,8 @@ vec2 TerrainShadowValue(vec3 worldPosition, int lod)
 	float heightUV = worldPosition.y * maxHeightMult;
 	int i = clamp(lod, 0, 2);
 
-	uv = worldPosition.xz * 0.0001 - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz);
-	uv = (uv * 10000.0) / variables.shadowmapOffsets[i].w;
+	uv = worldPosition.xz * heightmapDivMult - (variables.shadowmapOffsets[i].xz - variables.terrainOffset.xz) * uvFactor;
+	uv = (uv * heightmapDiv) / variables.shadowmapOffsets[i].w;
 
 	if (abs(uv.x) < 0.5 && abs(uv.y) < 0.5)
 	{
@@ -305,8 +305,8 @@ float TerrainOcclusionCascade(vec2 worldPosition, int cascade)
 
 	if (variables.glillOffsets[i].y == 1) {return (result);}
 
-	vec2 uv = worldPosition * 0.0001 - (variables.glillOffsets[i].xz - variables.terrainOffset.xz);
-	uv = (uv * 10000.0) / variables.glillOffsets[i].w;
+	vec2 uv = worldPosition * heightmapDivMult - (variables.glillOffsets[i].xz - variables.terrainOffset.xz) * uvFactor;
+	uv = (uv * heightmapDiv) / variables.glillOffsets[i].w;
 
 	if (max(abs(uv.x), abs(uv.y)) <= 0.5)
 	{
@@ -333,10 +333,10 @@ float TerrainOcclusion(vec2 worldPosition)
 	{
 		if (variables.glillOffsets[i].y == 1) {return (result);}
 
-		//vec2 uv = worldPosition * 0.0001 - (variables.glillOffsets[i].xz - variables.terrainOffset.xz);
-		//uv = (uv * 10000.0) / variables.glillOffsets[i].w;
+		vec2 uv = worldPosition * heightmapDivMult - (variables.glillOffsets[i].xz - variables.terrainOffset.xz) * uvFactor;
+		uv = (uv * heightmapDiv) / variables.glillOffsets[i].w;
 
-		vec2 uv = (worldPosition - (10000.0 * (variables.glillOffsets[i].xz - variables.terrainOffset.xz))) / variables.glillOffsets[i].w;
+		//vec2 uv = (worldPosition - (heightmapDiv * (variables.glillOffsets[i].xz - variables.terrainOffset.xz))) / variables.glillOffsets[i].w;
 
 		if (max(abs(uv.x), abs(uv.y)) <= 0.5)
 		{
@@ -460,7 +460,7 @@ float BlendShadows(int i, vec2 uv, float refDepth, int mode)
 
 const float limits[4] = {100 * 100, 500 * 500, 2000 * 2000, 12500 * 12500};
 
-float SampleShadows(vec3 worldPosition)
+float SampleShadows(vec3 worldPosition, int mode)
 {
 	if (shadowData.enabled == 0) {return (1.0);}
 
@@ -500,9 +500,12 @@ float SampleShadows(vec3 worldPosition)
 
 		float inter = clamp(SquaredDistance(worldPosition, variables.viewPosition.xyz) / (1000.0 * 1000.0), 0.0, 1.0);
 
-		int mode = 0;
-		if (inter < shadowData.blend1Dis) {mode = 1;}
-		if (inter < shadowData.blend0Dis) {mode = 2;}
+		if (mode == -1)
+		{
+			mode = 0;
+			if (inter < shadowData.blend1Dis) {mode = 1;}
+			if (inter < shadowData.blend0Dis) {mode = 2;}
+		}
 
 		if (fade >= 1.0) {return (1.0);}
 
@@ -532,6 +535,11 @@ float SampleShadows(vec3 worldPosition)
 
 	return (1.0 - clamp(result, 0.0, 1.0));
 	//return (1.0 - clamp(result, 0.0, 1.0));
+}
+
+float SampleShadows(vec3 worldPosition)
+{
+	return (SampleShadows(worldPosition, -1));
 }
 
 #endif

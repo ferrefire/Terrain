@@ -106,7 +106,7 @@ void main()
 	//else {_worldNormal = normalize(worldNormal);}
 
 	//vec3 _worldNormal = worldNormal;
-	vec3 triplanarUV = worldPosition + mod(variables.terrainOffset.xyz * 10000.0, 5000.0);
+	vec3 triplanarUV = worldPosition + mod(variables.terrainOffset.xyz * terrainDiv, 5000.0);
 	//vec3 triplanarUV = worldPosition;
 
 	float steepness = 1.0 - (dot(_worldNormal, vec3(0, 1, 0)) * 0.5 + 0.5);
@@ -151,7 +151,7 @@ void main()
 	//float snowHeight = 500.0;
 	//float snowHeightBlend = 1500.0;
 
-	float snow = pow(clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + config.snowHeight, 0.0, config.snowBlend) / config.snowBlend, 0.75);
+	float snow = pow(clamp(worldPosition.y + (variables.terrainOffset.y * terrainDiv) + config.snowHeight, 0.0, config.snowBlend) / config.snowBlend, 0.75);
 	//float coverSteepness = 0;
 	//float diff = 0;
 

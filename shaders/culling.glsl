@@ -37,7 +37,7 @@ int BehindTerrain(vec3 worldPosition, int iterations, uint ease)
 
 		terrainHeight = TerrainValues(rayPosition.xz).x * maxHeight;
 
-		if (terrainHeight > rayPosition.y + variables.terrainOffset.y * 10000.0)
+		if (terrainHeight > rayPosition.y + variables.terrainOffset.y * terrainDiv)
 		{
 			result = 1;
 			break;

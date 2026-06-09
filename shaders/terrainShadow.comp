@@ -64,7 +64,7 @@ void main()
 	//float spacing = resolutionMult * variables.shadowmapOffsets[computeIndex].w;
 	//uv = uv * variables.shadowmapOffsets[computeIndex].w - (variables.shadowmapOffsets[2].xz - variables.terrainOffset.xz) * 10000.0;
 	vec3 worldPosition = vec3(0.0);
-	worldPosition.xz = (uv * config.sizes.w) + (config.sizes.xz - variables.terrainOffset.xz) * 10000.0;
+	worldPosition.xz = (uv * config.sizes.w) + (config.sizes.xz - variables.terrainOffset.xz) * terrainDiv;
 
 	//vec2 lodValues = vec2(0.0);
 	//if (config.sizes.y < 2)

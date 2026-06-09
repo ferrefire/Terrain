@@ -7,6 +7,14 @@ const float maxHeight = 5000.0;
 const int treeBase = 512;
 const int shadowCascades = 4;
 
+const float heightmapDiv = 10000.0;
+const float heightmapDivMult = 1.0 / heightmapDiv;
+
+const float terrainDiv = 10000.0;
+const float terrainDivMult = 1.0 / terrainDiv;
+
+const float uvFactor = terrainDiv / heightmapDiv;
+
 struct TextureData
 {
 	vec3 color;

@@ -42,11 +42,11 @@ void main()
 	int ix = int(gl_GlobalInvocationID.x) - int(treeBase * 0.5);
 	int iz = int(gl_GlobalInvocationID.y) - int(treeBase * 0.5);
 
-	float px = ix * config.treeSpacing;
-	float pz = iz * config.treeSpacing;
+	float px = (float(ix) + 0.5) * config.treeSpacing;
+	float pz = (float(iz) + 0.5) * config.treeSpacing;
 
-	float vx = floor((variables.viewPosition.x + variables.terrainOffset.x * 10000.0) / config.treeSpacing) * config.treeSpacing - variables.terrainOffset.x * 10000.0;
-	float vz = floor((variables.viewPosition.z + variables.terrainOffset.z * 10000.0) / config.treeSpacing) * config.treeSpacing - variables.terrainOffset.z * 10000.0;
+	float vx = floor((variables.viewPosition.x + variables.terrainOffset.x * terrainDiv) / config.treeSpacing) * config.treeSpacing - variables.terrainOffset.x * terrainDiv;
+	float vz = floor((variables.viewPosition.z + variables.terrainOffset.z * terrainDiv) / config.treeSpacing) * config.treeSpacing - variables.terrainOffset.z * terrainDiv;
 
 	if (index == 0)
 	{
@@ -54,7 +54,7 @@ void main()
 	}
 
 	vec4 treePosition = vec4(px + vx, 0.0, pz + vz, 1.0);
-	vec2 treeUV = vec2(treePosition.x + variables.terrainOffset.x * 10000.0, treePosition.z + variables.terrainOffset.z * 10000.0);
+	vec2 treeUV = vec2(treePosition.x + variables.terrainOffset.x * terrainDiv, treePosition.z + variables.terrainOffset.z * terrainDiv);
 
 	uint treeSeed = uint(ceil((abs(treeUV.x) * 0.5) + (abs(treeUV.y) * 2.0)));
 	float offsetX = rand11(treeSeed) * config.treeOffset;
@@ -77,7 +77,7 @@ void main()
 
 	terrainValues = TerrainValues(treePosition.xz);
 
-	float treeHeight = terrainValues.x * maxHeight - variables.terrainOffset.y * 10000.0;
+	float treeHeight = terrainValues.x * maxHeight - variables.terrainOffset.y * terrainDiv;
 
 	treePosition.y = treeHeight;
 

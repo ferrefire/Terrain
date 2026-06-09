@@ -102,7 +102,7 @@ void main()
 	float shadow = 1.0;
 	//if (dot(mixedNormal, data.L) < 0.0) {shadow = 0.0;}
 
-	if (shadow > 0.0) {shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z));}
+	if (shadow > 0.0) {shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * terrainDiv, worldPosition.z));}
 	if (shadow > 0.0) {shadow = min(shadow, SampleShadows(worldPosition));}
 	diffuse *= shadow;
 

@@ -118,6 +118,8 @@ vec3 Normalize(vec3 vec)
 	return (vec);
 }
 
+#	ifndef COMPUTE_SHADER
+
 vec3 FaceColor()
 {
 	int primitiveID = gl_PrimitiveID + 1;
@@ -128,6 +130,8 @@ vec3 FaceColor()
 
 	return (color);
 }
+
+#	endif
 
 vec3 RandomColor(int i)
 {

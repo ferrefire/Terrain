@@ -134,8 +134,8 @@ vec4 GetAerial(float depth, vec3 pixelWorldPos)
     //    slice = 0.5;
 	//}
 
-	const float aerialTexelSize = 1.0 / float(atmosphereData.aerialDimensions.x);
-	const float offset = aerialTexelSize * 0.5;
+	const vec2 aerialTexelSize = vec2(1.0) / vec2(atmosphereData.aerialDimensions.xy);
+	const vec2 offset = aerialTexelSize * 0.5;
 
 	//float w = sqrt(slice / atmosphereData.aerialDimensions.z);
 	float w = slice / atmosphereData.aerialDimensions.z;
@@ -154,19 +154,19 @@ vec4 GetAerial(float depth, vec3 pixelWorldPos)
 	}
 	else if (postData.aerialBlendMode == 1 || (postData.aerialBlendMode == 3 && w <= postData.aerialBlendDistance))
 	{
-		aerialValue = texture(aerialTexture, vec3(worldCoordinates + vec2(-offset), w));
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset, -offset), w));
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(-offset, offset), w));
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset), w));
+		aerialValue = texture(aerialTexture, vec3(worldCoordinates + -offset, w));
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * vec2(1.0, -1.0)), w));
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * vec2(-1.0, 1.0)), w));
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + offset, w));
 		aerialValue *= 0.25;
 	}
 	else if (postData.aerialBlendMode == 2)
 	{
 		aerialValue = texture(aerialTexture, vec3(worldCoordinates, w)) * 0.4;
-		aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(-offset * 2.0), w)) * 0.15;
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset * 2.0, -offset * 2.0), w)) * 0.15;
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(-offset * 2.0, offset * 2.0), w)) * 0.15;
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset * 2.0), w)) * 0.15;
+		aerialValue += texture(aerialTexture, vec3(worldCoordinates + -offset * 2.0, w)) * 0.15;
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * 2.0 * vec2(1.0, -1.0)), w)) * 0.15;
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * 2.0 * vec2(-1.0, 1.0)), w)) * 0.15;
+    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + offset * 2.0, w)) * 0.15;
 	}
 
     //vec4 aerialValue = texture(aerialTexture, vec3(worldCoordinates + vec2(-offset), w));
@@ -213,7 +213,7 @@ void main()
     vec4 Hpos = invViewProjMat * vec4(clipSpace, 1.0);
 	vec3 pixelWorldPos = Hpos.xyz / Hpos.w;
 
-	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * 10000.0), 0.0)) * atmosphereData.cameraScale;
+	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * terrainDiv), 0.0)) * atmosphereData.cameraScale;
 
     vec3 worldDirection = normalize(pixelWorldPos - variables.viewPosition.xyz);
 	vec3 worldPosistion = viewPosition + vec3(0.0, bottomRadius, 0.0);

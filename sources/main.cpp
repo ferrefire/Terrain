@@ -23,8 +23,13 @@
 const int computeCascade = 8;
 const int shadowCascades = 4;
 const int heightmapResolution = 2048;
-const int aerialQuality = 2;
-const Point<int, 3> aerialRes = Point<int, 3>(32 * aerialQuality, 32 * aerialQuality, 16 * aerialQuality);
+const int aerialQuality = 4;
+const int aerialResMult = 2;
+const Point<int, 3> aerialRes = Point<int, 3>(16 * aerialQuality * aerialResMult, 16 * aerialQuality * aerialResMult, 8 * aerialQuality);
+
+const float terrainDiv = 10000.0;
+const float heightmapDiv = 10000.0;
+const float uvFactor = terrainDiv / heightmapDiv;
 
 struct alignas(16) UniformData
 {
@@ -88,9 +93,10 @@ struct alignas(16) AtmosphereData
 	//float aerialSliceScale = 4.0;
 	float aerialSliceScale = 1.5;
 	//int32_t aerialSlicePower = 1;
-	int32_t aerialSlicePower = 2;
-	float rayShiftOffset = 0.3;
-	//float rayShiftOffset = 0.0;
+	//int32_t aerialSlicePower = 2;
+	int32_t aerialSlicePower = 3;
+	//float rayShiftOffset = 0.3;
+	float rayShiftOffset = 0.0;
 	//uint32_t padding[2];
 };
 
@@ -147,9 +153,22 @@ struct alignas(16) AerialData
 	uint32_t blendOcclusion = 0.0;
 	uint32_t useOcclusion = 1.0;
 	uint32_t mistEnabled = 1;
-	uint32_t shadowsEnabled = 1;
+	uint32_t terrainShadowsEnabled = 1;
 	uint32_t sunMist = 0;
-	uint32_t padding[2];
+
+	uint shadowMapsEnabled = 1;
+	uint forestMistEnabled = 1;
+	int forestMistRange = 1;
+	float forestMistStrength = 15.0;
+	float forestMistCenter = 0.0;
+	float forestMistMinDis = 25.0;
+	//float forestMistMaxDis = 50.0;
+	float forestMistMaxDis = 40.0;
+	float forestMistMaxRayHeight = 100.0;
+
+	float minRayHeight = -5.0;
+
+	//uint32_t padding[2];
 };
 
 struct alignas(16) ScatteringData
@@ -169,7 +188,8 @@ struct alignas(16) SkyData
 struct alignas(16) PostData
 {
 	uint32_t useLinearDepth = 0;
-	uint32_t aerialBlendMode = 0;
+	//uint32_t aerialBlendMode = 0;
+	uint32_t aerialBlendMode = 1;
 	float aerialBlendDistance = 0.5;
 	//uint32_t toneMapping = 1;
 	uint32_t toneMapping = 0;
@@ -332,7 +352,8 @@ struct alignas(16) LeafShaderConfig
 	//float qualityNormalBlendLodPower = 1.5;
 
 	float colorMult = 1.0;
-	float ambientMult = 0.25;
+	//float ambientMult = 0.25;
+	float ambientMult = 0.2;
 
 	//uint32_t padding[1];
 };
@@ -767,10 +788,10 @@ void SetTerrainShadowValues(int index)
 	float spacing = (1.0 / float(shadowmapResolution)) * shadowRange;
 
 	data.shadowmapOffsets[index].y() = index;
-	data.shadowmapOffsets[index].x() = data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f);
-	data.shadowmapOffsets[index].z() = data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f);
-	data.shadowmapOffsets[index].x() = floor((data.shadowmapOffsets[index].x() * 10000.0) / spacing) * spacing * 0.0001;
-	data.shadowmapOffsets[index].z() = floor((data.shadowmapOffsets[index].z() * 10000.0) / spacing) * spacing * 0.0001;
+	data.shadowmapOffsets[index].x() = data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / terrainDiv);
+	data.shadowmapOffsets[index].z() = data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / terrainDiv);
+	data.shadowmapOffsets[index].x() = floor((data.shadowmapOffsets[index].x() * terrainDiv) / spacing) * spacing / terrainDiv;
+	data.shadowmapOffsets[index].z() = floor((data.shadowmapOffsets[index].z() * terrainDiv) / spacing) * spacing / terrainDiv;
 	data.shadowmapOffsets[index].w() = shadowRange;
 
 	terrainShadowBuffers[index].Update(&data.shadowmapOffsets[index], sizeof(point4D));
@@ -1664,10 +1685,12 @@ void Start()
 	frameDescriptorConfigs[5].stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | 
 		VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 	frameDescriptorConfigs[6].type = DescriptorType::CombinedSampler;
-	frameDescriptorConfigs[6].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+	//frameDescriptorConfigs[6].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+	frameDescriptorConfigs[6].stages = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 	frameDescriptorConfigs[6].count = shadowCascades;
 	frameDescriptorConfigs[7].type = DescriptorType::UniformBuffer;
-	frameDescriptorConfigs[7].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+	//frameDescriptorConfigs[7].stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+	frameDescriptorConfigs[7].stages = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 	frameDescriptor.Create(0, frameDescriptorConfigs);
 
 	std::vector<DescriptorConfig> materialDescriptorConfigs(4);
@@ -2033,13 +2056,19 @@ void Start()
 	aerialBufferConfig.size = sizeof(AerialData);
 	aerialBuffer.Create(aerialBufferConfig, &aerialData);
 
-	std::vector<DescriptorConfig> aerialDescriptorConfigs(1);
+	std::vector<DescriptorConfig> aerialDescriptorConfigs(3);
 	aerialDescriptorConfigs[0].type = DescriptorType::UniformBuffer;
 	aerialDescriptorConfigs[0].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	aerialDescriptorConfigs[1].type = DescriptorType::StorageBuffer;
+	aerialDescriptorConfigs[1].stages = VK_SHADER_STAGE_COMPUTE_BIT;
+	aerialDescriptorConfigs[2].type = DescriptorType::StorageBuffer;
+	aerialDescriptorConfigs[2].stages = VK_SHADER_STAGE_COMPUTE_BIT;
 	aerialDescriptor.Create(2, aerialDescriptorConfigs);
 
 	aerialDescriptor.GetNewSet();
 	aerialDescriptor.Update(0, 0, aerialBuffer);
+	aerialDescriptor.Update(0, 1, treeSetupDataBuffer);
+	aerialDescriptor.Update(0, 2, treeComputeConfigBuffer);
 
 	BufferConfig scatteringBufferConfig{};
 	scatteringBufferConfig.mapped = true;
@@ -2341,7 +2370,7 @@ void Start()
 	menu.TriggerNode("variables");
 
 	menu.TriggerNode("aerial settings", UpdateAerialData);
-	menu.AddCheckbox("shadows enabled", aerialData.shadowsEnabled);
+	menu.AddCheckbox("terrain shadows enabled", aerialData.terrainShadowsEnabled);
 	menu.AddCheckbox("mist enabled", aerialData.mistEnabled);
 	menu.AddSlider("mist strength", aerialData.mistStrength, 0.0, 32.0);
 	menu.AddSlider("mist height", aerialData.mistHeight, 0.0, 0.125);
@@ -2360,7 +2389,19 @@ void Start()
 	menu.AddCheckbox("lod occlusion", aerialData.lodOcclusion);
 	menu.AddCheckbox("blend occlusion", aerialData.blendOcclusion);
 	menu.AddCheckbox("sun mist", aerialData.sunMist);
+	menu.AddSlider("min ray height", aerialData.minRayHeight, -500.0, 250.0);
 	menu.TriggerNode("aerial settings");
+
+	menu.TriggerNode("aerial mist settings", UpdateAerialData);
+	menu.AddCheckbox("shadow maps enabled", aerialData.shadowMapsEnabled);
+	menu.AddCheckbox("forest mist enabled", aerialData.forestMistEnabled);
+	menu.AddSlider("forest mist range", aerialData.forestMistRange, 0, 2);
+	menu.AddSlider("forest mist strength", aerialData.forestMistStrength, 0.0, 30.0);
+	menu.AddSlider("forest mist center", aerialData.forestMistCenter, 0.0, 30.0);
+	menu.AddSlider("forest mist min distance", aerialData.forestMistMinDis, 0.0, 50.0);
+	menu.AddSlider("forest mist max distance", aerialData.forestMistMaxDis, 25.0, 150.0);
+	menu.AddSlider("max ray height", aerialData.forestMistMaxRayHeight, 0.0, 250.0);
+	menu.TriggerNode("aerial mist settings");
 
 	menu.TriggerNode("scattering settings", UpdateScatteringData);
 	menu.AddSlider("scattering strength", scatteringData.scatteringStrength, 0.0, 3.0);
@@ -2628,13 +2669,13 @@ mat4 ComputeShadowMatrix(float near, float far)
 	}
 	center *= 0.125;
 
-	float radius = 0.0;
-	for (int i = 0; i < 8; i++) {radius = maxF(radius, (corners[i] - center).Length());}
+	//float radius = 0.0;
+	//for (int i = 0; i < 8; i++) {radius = maxF(radius, (corners[i] - center).Length());}
 
-	radius = std::ceil(radius * 16.0) / 16.0;
+	//radius = std::ceil(radius * 16.0) / 16.0;
 
-	float extent = radius * 2.0;
-	float texelSize = extent / 4096.0;
+	//float extent = radius * 2.0;
+	//float texelSize = extent / 2048.0;
 
 	//float step = (distance / 4096.0);
 	//center.x() = floor(center.x() * 0.1) * 10.0;
@@ -2655,15 +2696,15 @@ mat4 ComputeShadowMatrix(float near, float far)
 	mat4 shadowView = mat4::Look(eye, center, point3D(0.0, 1.0, 0.0));
 	//mat4 shadowView = mat4::Look(eye, eye + front, up);
 
-	point3D centerSV = shadowView * point4D(center, 1.0);
+	//point3D centerSV = shadowView * point4D(center, 1.0);
 
-	centerSV.x() = std::floor(centerSV.x() / texelSize) * texelSize;
-	centerSV.y() = std::floor(centerSV.y() / texelSize) * texelSize;
+	//centerSV.x() = std::floor(centerSV.x() / texelSize) * texelSize;
+	//centerSV.y() = std::floor(centerSV.y() / texelSize) * texelSize;
 
-	float left = centerSV.x() - radius;
-	float right = centerSV.x() + radius;
-	float bottom = centerSV.y() - radius;
-	float top = centerSV.y() + radius;
+	//float left = centerSV.x() - radius;
+	//float right = centerSV.x() + radius;
+	//float bottom = centerSV.y() - radius;
+	//float top = centerSV.y() + radius;
 
 	for (int i = 0; i < 8; i++) {corners[i] = shadowView * corners[i];}
 
@@ -2731,7 +2772,7 @@ void Frame()
 
 	if (!flying)
 	{
-		float cameraHeight = (Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0).y();
+		float cameraHeight = (Manager::GetCamera().GetPosition() + data.terrainOffset * terrainDiv).y();
 		float cameraTerrainHeight = (*reinterpret_cast<RetrieveData*>(retrieveBuffer.GetAddress())).viewTerrainHeight;
 
 		Manager::GetCamera().Move(point3D(0.0, cameraTerrainHeight - cameraHeight + 1.75, 0.0));
@@ -2746,7 +2787,7 @@ void Frame()
 		//cameraConfig.speed = 4000.0f;
 		//Manager::GetCamera().SetConfig(cameraConfig);
 
-		std::cout << "Camera position: " << Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0 << std::endl;
+		std::cout << "Camera position: " << Manager::GetCamera().GetPosition() + data.terrainOffset * terrainDiv << std::endl;
 		//std::cout << "Camera position: " << Manager::GetCamera().GetPosition() << std::endl;
 		std::cout << "Camera Total Rotation: " << Manager::GetCamera().GetTotalAngles() << std::endl;
 		std::cout << "Camera Rotation: " << Manager::GetCamera().GetAngles() << std::endl;
@@ -2781,7 +2822,7 @@ void Frame()
 	if (fabs(Manager::GetCamera().GetPosition().x()) > terrainResetDis)
 	{
 		float camOffset = ((int(Manager::GetCamera().GetPosition().x()) / int(terrainResetDis)) * terrainResetDis);
-		data.terrainOffset.x() += camOffset / 10000.0f;
+		data.terrainOffset.x() += camOffset / terrainDiv;
 		Manager::GetCamera().Move(point3D(-camOffset, 0, 0));
 
 		shouldComputeTrees = true;
@@ -2790,7 +2831,7 @@ void Frame()
 	if (fabs(Manager::GetCamera().GetPosition().y()) > terrainResetDis)
 	{
 		float camOffset = ((int(Manager::GetCamera().GetPosition().y()) / int(terrainResetDis)) * terrainResetDis);
-		data.terrainOffset.y() += camOffset / 10000.0f;
+		data.terrainOffset.y() += camOffset / terrainDiv;
 		Manager::GetCamera().Move(point3D(0, -camOffset, 0));
 
 		shouldComputeTrees = true;
@@ -2799,7 +2840,7 @@ void Frame()
 	if (fabs(Manager::GetCamera().GetPosition().z()) > terrainResetDis)
 	{
 		float camOffset = ((int(Manager::GetCamera().GetPosition().z()) / int(terrainResetDis)) * terrainResetDis);
-		data.terrainOffset.z() += camOffset / 10000.0f;
+		data.terrainOffset.z() += camOffset / terrainDiv;
 		Manager::GetCamera().Move(point3D(0, 0, -camOffset));
 
 		shouldComputeTrees = true;
@@ -2884,12 +2925,12 @@ void Frame()
 	{
 		for (int i = computeCascade - 1; i >= 0; i--)
 		{
-			if (fabs(data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f) - data.heightmapOffsets[i].x()) > (heightmapBaseSize * pow(2.0, i)) * 0.125 || 
-				fabs(data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f) - data.heightmapOffsets[i].y()) > (heightmapBaseSize * pow(2.0, i)) * 0.125)
+			if (fabs(data.terrainOffset.x() * uvFactor + (Manager::GetCamera().GetPosition().x() / heightmapDiv) - data.heightmapOffsets[i].x()) > (heightmapBaseSize * pow(2.0, i)) * 0.125 || 
+				fabs(data.terrainOffset.z() * uvFactor + (Manager::GetCamera().GetPosition().z() / heightmapDiv) - data.heightmapOffsets[i].y()) > (heightmapBaseSize * pow(2.0, i)) * 0.125)
 			{
 				currentLod = i;
-				computeDatas[currentLod].y() = data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f);
-				computeDatas[currentLod].z() = data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f);
+				computeDatas[currentLod].y() = data.terrainOffset.x() * uvFactor + (Manager::GetCamera().GetPosition().x() / heightmapDiv);
+				computeDatas[currentLod].z() = data.terrainOffset.z() * uvFactor + (Manager::GetCamera().GetPosition().z() / heightmapDiv);
 				break;
 			}
 		}
@@ -2911,8 +2952,8 @@ void Frame()
 
 	for (int i = 2; i >= 0; i--)
 	{
-		if (allMapsComputed && (fabs(data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f) - data.shadowmapOffsets[i].x()) > data.shadowmapOffsets[i].w() * 0.0001 * 0.125 || 
-			fabs(data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f) - data.shadowmapOffsets[i].z()) > data.shadowmapOffsets[i].w() * 0.0001 * 0.125))
+		if (allMapsComputed && (fabs(data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / terrainDiv) - data.shadowmapOffsets[i].x()) > data.shadowmapOffsets[i].w() / terrainDiv * 0.125 || 
+			fabs(data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / terrainDiv) - data.shadowmapOffsets[i].z()) > data.shadowmapOffsets[i].w() / terrainDiv * 0.125))
 		{
 			SetTerrainShadowValues(i);
 		}
@@ -2944,11 +2985,11 @@ void Frame()
 
 	for (int i = glillDatas.size() - 1; i >= 0; i--)
 	{
-		if (allMapsComputed && (glillQueue[i] || fabs(data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f) - data.glillmapOffsets[i].x()) > data.glillmapOffsets[i].w() * 0.0001 * 0.125 || 
-			fabs(data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f) - data.glillmapOffsets[i].z()) > data.glillmapOffsets[i].w() * 0.0001 * 0.125))
+		if (allMapsComputed && (glillQueue[i] || fabs(data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / terrainDiv) - data.glillmapOffsets[i].x()) > data.glillmapOffsets[i].w() / terrainDiv * 0.125 || 
+			fabs(data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / terrainDiv) - data.glillmapOffsets[i].z()) > data.glillmapOffsets[i].w() / terrainDiv * 0.125))
 		{
-			data.glillmapOffsets[i].x() = data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / 10000.0f);
-			data.glillmapOffsets[i].z() = data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / 10000.0f);
+			data.glillmapOffsets[i].x() = data.terrainOffset.x() + (Manager::GetCamera().GetPosition().x() / terrainDiv);
+			data.glillmapOffsets[i].z() = data.terrainOffset.z() + (Manager::GetCamera().GetPosition().z() / terrainDiv);
 
 			glillDatas[i].offset = data.glillmapOffsets[i];
 			glillDatas[i].globalSamplePower = globalGlillSamplePower;
@@ -3017,10 +3058,16 @@ void Frame()
 		//leafShaderConfig.colorMult = 0.75;
 		//UpdateLeafShaderData();
 
-		atmosphereData.mistStrength = 24.0;
+		//atmosphereData.mistStrength = 24.0;
+		//UpdateAtmosphereData();
+
+		//aerialData.sunStrength = 1.5;
+		//UpdateAerialData();
+
+		atmosphereData.aerialSlicePower = 4;
 		UpdateAtmosphereData();
 
-		aerialData.sunStrength = 1.5;
+		aerialData.forestMistStrength = 30.0;
 		UpdateAerialData();
 	}
 	if (Input::GetKey(GLFW_KEY_Y).pressed)
@@ -3057,10 +3104,16 @@ void Frame()
 		//leafShaderConfig.colorMult = 1.0;
 		//UpdateLeafShaderData();
 
-		atmosphereData.mistStrength = 32.0;
+		//atmosphereData.mistStrength = 32.0;
+		//UpdateAtmosphereData();
+
+		//aerialData.sunStrength = 1.0;
+		//UpdateAerialData();
+
+		atmosphereData.aerialSlicePower = 3;
 		UpdateAtmosphereData();
 
-		aerialData.sunStrength = 1.0;
+		aerialData.forestMistStrength = 15.0;
 		UpdateAerialData();
 	}
 

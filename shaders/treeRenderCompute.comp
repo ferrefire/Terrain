@@ -130,7 +130,7 @@ uint BehindTrees(vec3 worldPosition, int iterations, uint amount, uint lod)
 {
 	vec3 origin = variables.viewPosition.xyz + vec3(0.0, config.overdrawCullingHeightOffset, 0.0);
 
-	if (config.treeOverdrawForceGround == 1) {origin.y = (TerrainValues(origin.xz).x * maxHeight - variables.terrainOffset.y * 10000.0) + 2.0;}
+	if (config.treeOverdrawForceGround == 1) {origin.y = (TerrainValues(origin.xz).x * maxHeight - variables.terrainOffset.y * terrainDiv) + 2.0;}
 	vec3 rayPosition = origin;
 	float inter = 0.0;
 	float iterationsMult = 1.0 / float(iterations);

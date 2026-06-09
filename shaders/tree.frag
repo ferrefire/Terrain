@@ -60,7 +60,7 @@ void main()
 	//float shadow = 1.0;
 	//if (lod > 1) {shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z), 0, false);}
 	//else {shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z));}
-	float shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * 10000.0, worldPosition.z));
+	float shadow = TerrainShadow(vec3(worldPosition.x, worldPosition.y + variables.terrainOffset.y * terrainDiv, worldPosition.z));
 	if (shadow > 0.0) {shadow = min(shadow, SampleShadows(worldPosition));}
 	diffuse *= shadow;
 
