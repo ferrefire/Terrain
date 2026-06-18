@@ -156,8 +156,8 @@ struct alignas(16) AerialData
 	uint32_t terrainShadowsEnabled = 1;
 	uint32_t sunMist = 0;
 
-	uint shadowMapsEnabled = 1;
-	uint forestMistEnabled = 1;
+	uint32_t shadowMapsEnabled = 1;
+	uint32_t forestMistEnabled = 1;
 	int forestMistRange = 1;
 	float forestMistStrength = 15.0;
 	float forestMistCenter = 0.0;
@@ -3277,6 +3277,7 @@ int main(int argc, char** argv)
 	Manager::GetConfig().deviceConfig.synchronization2 = true;
 	Manager::GetConfig().deviceConfig.nonUniformIndexingShaderSampledImageArray = true;
 	Manager::GetConfig().framesInFlight = 1;
+	///Manager::GetConfig().fullscreen = true;
 	//Manager::GetConfig().uncapped = true;
 	//Manager::GetConfig().wireframe = true;
 
