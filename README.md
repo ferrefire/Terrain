@@ -2,7 +2,7 @@
 
 ### A real-time procedural landscape renderer built from scratch with C++, Vulkan and GLSL.
 
-Important note: I originally intended for this project to be a small test for the ![Limcore library](https://github.com/ferrefire/Limcore/tree/main) (A Vulkan Graphics Framework I wrote myself).
+Important note: I originally intended for this project to be a small test for the [Limcore](https://github.com/ferrefire/Limcore/tree/main) library (A Vulkan Graphics Framework I wrote myself). However it has far outgrown its original scope and because of that the code is structured rather poorly and located in a single main file. For a correct evaluation of my coding and project management skills, please use the [Limcore](https://github.com/ferrefire/Limcore/tree/main) project.
 
 This project generates and renders large-scale procedural landscapes consisting of detailed terrain, hundreds of thousends of trees, dynamic atmospheric scattering, volumetric lighting, and long-distance shadows.
 
@@ -10,7 +10,7 @@ The project focuses on GPU-driven rendering, runtime procedural generation, visu
 
 ## Demo
 
-![Watch a demonstration video.](https://youtu.be/Oyfc-dOlFgw?si=SZk0uC1qDMeusN-K)
+[Watch a demonstration video.](https://www.youtube.com/watch?v=Oyfc-dOlFgw)
 
 Some screenshots:
 
