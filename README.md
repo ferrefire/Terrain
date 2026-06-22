@@ -29,6 +29,7 @@ Some screenshots:
 - [Focus](#focus)
 - [Features](#features)
 - [Building](#building)
+- [License](#license)
 
 ## Overview
 
@@ -45,7 +46,7 @@ Except for PBR textures, the landscape and all its components are completely gen
 ## Focus
 
 The main focus for this project was:
-- Testing my Vulkan Graphics library Limcore
+- Testing my Vulkan Graphics library [Limcore](https://github.com/ferrefire/Limcore/tree/main)
 - Full procedural generation at run-time
 - Large-scale real-time environment rendering
 - GPU-driven systems
@@ -54,7 +55,7 @@ The main focus for this project was:
 - Extreme scale
 - Vulkan renderer architecture
 
-It was originaly made as a test for the Limcore library. However it soon evolved into much more as I continued to delve deeper into GPU computing and the urge to optimize it to its full extent. It serves as a technical demonstration of my capabilities as a graphics programmer. It also displays the workings and usage of the Limcore library as an easy to use framework while still providing full control.
+It was originaly made as a test for the [Limcore](https://github.com/ferrefire/Limcore/tree/main) library. However it soon evolved into much more as I continued to delve deeper into GPU computing and the urge to optimize it to its full extent. It serves as a technical demonstration of my capabilities as a graphics programmer. It also displays the workings and usage of the Limcore library as an easy to use framework while still providing full control.
 
 ## Features
 
@@ -107,11 +108,11 @@ Alongside the sky, a 3D array of aerial perspective slices are computed each fra
 ### Requirements
 
 For Linux:
-- CMake version 3.22 or newer
+- [CMake](https://cmake.org/) version 3.22 or newer
 
 For Windows:
-- Visual Studio 2022 or newer
-- CMake version 3.22 or newer
+- [Visual Studio](https://visualstudio.microsoft.com/) 2022 or newer
+- [CMake](https://cmake.org/) version 3.22 or newer
 
 ### Dependencies
 
@@ -134,8 +135,11 @@ For Linux:
 
 For Windows:
 1. Download the repository and extract the file
-2. Start Visual Studio and click `Open a folder`
-3. Select the extracted folder
-4. The project should now automatically start building
+2. Start [Visual Studio](https://visualstudio.microsoft.com/) and click `Open a folder`
+3. Select the extracted folder, the project should now automatically start building
 5. Make sure to use the x64-Release configuration for the best results
 6. Select `Terrain.exe` as the executeable and click the green triangle to run it
+
+## License
+
+This project is licensed under the MIT License, see LICENSE.txt for more information.
