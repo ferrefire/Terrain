@@ -4,13 +4,13 @@
 
 Important note: I originally intended for this project to be a small test for the [Limcore](https://github.com/ferrefire/Limcore/tree/main) library (A Vulkan Graphics Framework I wrote myself). However it has far outgrown its original scope and because of that the code is structured rather poorly and located in a single main file. For a correct evaluation of my coding and project management skills, please use the [Limcore](https://github.com/ferrefire/Limcore/tree/main) project.
 
-This project generates and renders large-scale procedural landscapes consisting of detailed terrain, hundreds of thousends of trees, dynamic atmospheric scattering, volumetric lighting, and long-distance shadows.
+This project generates and renders large-scale procedural landscapes consisting of detailed terrain, hundreds of thousands of trees, dynamic atmospheric scattering, volumetric lighting, and long-distance shadows.
 
 The project focuses on GPU-driven rendering, runtime procedural generation, visual scalability, high performance, configurability, and stable frame times. Its core terrain, vegetation, lighting, atmosphere, shadow, and rendering systems were designed and implemented from scratch.
 
 ## Demo
 
-[Watch a demonstration video.](https://www.youtube.com/watch?v=Oyfc-dOlFgw)
+[Watch a demonstration video.](https://www.youtube.com/watch?v=S-_lWjfJU1Q)
 
 Some screenshots:
 
@@ -33,8 +33,7 @@ Some screenshots:
 ## Overview
 
 The project combines several tightly integrated systems:
-
-- A GPU-generated, heightmap-based terarin renderer
+- A GPU-generated, heightmap-based terrain renderer
 - Procedurally generated tree meshes with multiple levels of detail
 - GPU-driven tree placement, visibility testing and LOD selection
 - Cascaded terrain and vegetation shadows
@@ -46,8 +45,7 @@ Except for PBR textures, the landscape and all its components are completely gen
 ## Focus
 
 The main focus for this project was:
-
-- Testing my Vulkan Graphics libray Limcore
+- Testing my Vulkan Graphics library Limcore
 - Full procedural generation at run-time
 - Large-scale real-time environment rendering
 - GPU-driven systems
@@ -56,7 +54,7 @@ The main focus for this project was:
 - Extreme scale
 - Vulkan renderer architecture
 
-It was originaly made as a test for the Limcore library. However it soon evolved into much more as I continued to delve deeper into GPU computing and the urge to optimize it to its full extent. I think it serves as a technical demonstration of my capabilities as a graphics programmer. It also displays the workings and usage of the Limcore library as an easy to use framework while still providing full control.
+It was originaly made as a test for the Limcore library. However it soon evolved into much more as I continued to delve deeper into GPU computing and the urge to optimize it to its full extent. It serves as a technical demonstration of my capabilities as a graphics programmer. It also displays the workings and usage of the Limcore library as an easy to use framework while still providing full control.
 
 ## Features
 
@@ -68,11 +66,11 @@ Terrain geometry is produced by sampling multiple heightmap cascades. Each casca
 
 The heightmaps are generated entirely on the GPU using compute shaders and analytical derivatives of value noise. A heightmap contains the height and normal for a given position packed into either rgba8 or rgba16 format.
 
-When a heightmap cascade needs to be generated or updated, its workload it divided across several frames. This avoids large compute spikes and keeps interaction smooth while terrain data is being produced at runtime.
+When a heightmap cascade needs to be generated or updated, its workload is divided across several frames. This avoids large compute spikes and keeps interaction smooth while terrain data is being produced at runtime.
 
 ### Terrain Rendering
 
-The terrain is rendered using tesselation shaders for adaptive geometric detail and GPU culling.
+The terrain is rendered using tessellation shaders for adaptive geometric detail and GPU culling.
 
 Triplanar sampling is used for correct and realistic texturing and normal mapping. This way the terrain is rendered in a dynamic yet consistant manner.
 
@@ -87,20 +85,57 @@ The tree system can generate and render hundreds of thousands of trees across th
 Tree geometry is generated at run-time from a user defined configuration rather than loaded from pre-made models.
 
 The mesh generator produces:
-
 - Trunk and branch geometry
 - Leaf positions and rotations
 - Surface normals and UV coordinates
 - Several levels of detail packed into a single mesh
 
-Tree and leaf positions are processed into draw command buffers on the GPU using compute shaders, after which they are rendered using instnaced indexed indirect draw commands. This results in minimal CPU-GPU travel.
+Tree and leaf positions are processed into draw command buffers on the GPU using compute shaders, after which they are rendered using instanced indexed indirect draw commands. This results in minimal CPU-GPU travel.
 
 The trees and leaves consist of several levels of detail between which they are seamlessly transitioned and morphed. The LOD level is calculated on several factors such as distance, forest density, and screen coverage. All LODs are 3D and interact with the environment, avoiding obvious billboarding.
 
-Traditional cascade shadow mapping combined with custom optimizations allow for visible trees to continue casting shadows at extreme distances, including vegetation located more than 100 kilometers from the camera.
+Traditional cascade shadow mapping combined with custom optimizations allows for visible trees to continue casting shadows at extreme distances, including vegetation located more than 100 kilometers from the camera.
 
 ### Atmosphere and Volumetric Lighting
 
-The sky is rendered using a configurable atmospheric rendering system. Its parameters can be changed at runtime, allowing the environment and lighting conditions to respond in real-time. The atmosphere is simulated using physically correct models based on the earth's biosphere.
+The sky is rendered using a configurable atmospheric rendering system. Its parameters can be changed at runtime, allowing the environment and lighting conditions to respond in real-time. The atmosphere is simulated using physically correct models based on the Earth's biosphere.
 
 Alongside the sky, a 3D array of aerial perspective slices are computed each frame. This provides full terrain-wide volumetric lighting based on the atmospheric parameters. The system integrates data from both the terrain and vegetation. For example shadow data is used to create light shafts and occlusion is used for mist.
+
+## Building
+
+### Requirements
+
+For Linux:
+- CMake version 3.22 or newer
+
+For Windows:
+- Visual Studio 2022 or newer
+- CMake version 3.22 or newer
+
+### Dependencies
+
+This project uses the [Limcore](https://github.com/ferrefire/Limcore/tree/main) library which handles and fetches all dependencies for you. So no need to have them pre-installed.
+
+Still, here is a list of external libraries used:
+- [Limcore](https://github.com/ferrefire/Limcore/tree/main)
+- [GLFW](https://github.com/glfw/glfw) (Used by Limcore)
+- [ImGui](https://github.com/ocornut/imgui) (Used by Limcore)
+
+### Build
+
+For Linux:
+1. Download or clone the repository
+2. Use a terminal to navigate into the project directory
+3. Make sure the `setup.sh` file has the correct permissions: `chmod 777 setup.sh`
+4. Build the project: `./setup.sh build`
+5. Compile the executeable: `./setup.sh compile`
+6. Run the project: `./setup.sh r`
+
+For Windows:
+1. Download the repository and extract the file
+2. Start Visual Studio and click `Open a folder`
+3. Select the extracted folder
+4. The project should now automatically start building
+5. Make sure to use the x64-Release configuration for the best results
+6. Select `Terrain.exe` as the executeable and click the green triangle to run it
