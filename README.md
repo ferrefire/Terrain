@@ -2,7 +2,7 @@
 
 ### A real-time procedural landscape renderer built from scratch with C++, Vulkan and GLSL.
 
-Important note: I originally intended for this project to be a small test for the [Limcore](https://github.com/ferrefire/Limcore/tree/main) library (A Vulkan Graphics Framework I wrote myself). However it has far outgrown its original scope and because of that the code is structured rather poorly and located in a single main file. For a correct evaluation of my coding and project management skills, please use the [Limcore](https://github.com/ferrefire/Limcore/tree/main) project.
+Important note: I originally intended for this project to be a small test for the [Limcore](https://github.com/ferrefire/Limcore) library (A Vulkan Graphics Framework I wrote myself). However it has far outgrown its original scope and because of that the code is structured rather poorly and located in a single main file. For a correct evaluation of my coding and project management skills, please use the [Limcore](https://github.com/ferrefire/Limcore) project.
 
 This project generates and renders large-scale procedural landscapes consisting of detailed terrain, hundreds of thousands of trees, dynamic atmospheric scattering, volumetric lighting, and long-distance shadows.
 
@@ -10,7 +10,7 @@ The project focuses on GPU-driven rendering, runtime procedural generation, visu
 
 ## Demo
 
-[Watch a demonstration video.](https://www.youtube.com/watch?v=S-_lWjfJU1Q)
+[Watch a demonstration video.](https://www.youtube.com/watch?v=gwGd-PgFRMI)
 
 Some screenshots:
 
@@ -46,7 +46,7 @@ Except for PBR textures, the landscape and all its components are completely gen
 ## Focus
 
 The main focus for this project was:
-- Testing my Vulkan Graphics library [Limcore](https://github.com/ferrefire/Limcore/tree/main)
+- Testing my Vulkan Graphics library [Limcore](https://github.com/ferrefire/Limcore)
 - Full procedural generation at run-time
 - Large-scale real-time environment rendering
 - GPU-driven systems
@@ -55,7 +55,7 @@ The main focus for this project was:
 - Extreme scale
 - Vulkan renderer architecture
 
-It was originaly made as a test for the [Limcore](https://github.com/ferrefire/Limcore/tree/main) library. However it soon evolved into much more as I continued to delve deeper into GPU computing and the urge to optimize it to its full extent. It serves as a technical demonstration of my capabilities as a graphics programmer. It also displays the workings and usage of the Limcore library as an easy to use framework while still providing full control.
+It was originaly made as a test for the [Limcore](https://github.com/ferrefire/Limcore) library. However it soon evolved into much more as I continued to delve deeper into GPU computing and the urge to optimize it to its full extent. It serves as a technical demonstration of my capabilities as a graphics programmer. It also displays the workings and usage of the Limcore library as an easy to use framework while still providing full control.
 
 ## Features
 
@@ -116,12 +116,27 @@ For Windows:
 
 ### Dependencies
 
-This project uses the [Limcore](https://github.com/ferrefire/Limcore/tree/main) library which handles and fetches all dependencies for you. So no need to have them pre-installed.
+This project uses the [Limcore](https://github.com/ferrefire/Limcore) library which handles and fetches all dependencies for you. So no need to have them pre-installed.
 
 Still, here is a list of external libraries used:
-- [Limcore](https://github.com/ferrefire/Limcore/tree/main)
+- [Limcore](https://github.com/ferrefire/Limcore)
 - [GLFW](https://github.com/glfw/glfw) (Used by Limcore)
 - [ImGui](https://github.com/ocornut/imgui) (Used by Limcore)
+
+### Pre-compiled
+
+For Windows: [TerrainWindows.zip](https://github.com/user-attachments/files/29269381/TerrainWindows.zip)
+
+For Linux: Will do later.
+
+Controls:
+- Press the `M` key to enable and disable the mouse
+- Press the `ESC` key to quit the application
+- Use `WASD` for relative horizontal movement
+- Use `CTRL` and `SPACEBAR` for relative vertical movement
+- Use the scrollwheel to increase or decrease movement speed
+- Press the `F` key to lock onto the terrain height
+- Use the arrow keys to rotate the sun direction 
 
 ### Build
 
