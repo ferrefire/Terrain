@@ -13,26 +13,12 @@ layout(set = 1, binding = 0, std430) buffer TreeSetupBuffer
 	TreeData setupData[];
 };
 
-//layout(set = 1, binding = 1, std430) buffer TreeRenderBuffer
-//{
-//	TreeData renderData[];
-//};
-
-//layout(set = 1, binding = 3, std430) buffer DrawBuffer
-//{
-//	DrawCommand drawCommands[];
-//};
-
 layout(set = 1, binding = 7, std430) buffer ComputeConfig
 {
 	TreeComputeConfig config;
 };
 
 layout(local_size_x = 8, local_size_y = 8) in;
-
-//const float treeSpacing = 50;
-//const float treeRandomOffset = 20;
-//const int lod0Radius = 3;
 
 void main()
 {

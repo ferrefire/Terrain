@@ -37,20 +37,12 @@ void main()
 	//vec2 uv = (dispatchUV - vec2(0.5, 0.5)) * config.sizes.x;
 	vec2 uv = (dispatchUV - vec2(0.5, 0.5)) * (heightMapBase * pow(2.0, config.sizes.x));
 	
-	//if (config.sizes.x > 0.05 && max(abs(dispatchUV.x - 0.5), abs(dispatchUV.y - 0.5)) < 0.125) return;
-
-	//float height = TerrainData(uv + variables.terrainOffset.xz, int(variables.terrainOffset.w), true).x;
-	//vec3 tnoise = TerrainData(uv + variables.terrainOffset.xz, int(variables.terrainOffset.w), 0.00001, false);
-	//vec3 tnoise = TerrainData(uv + config.sizes.yz, int(variables.terrainOffset.w), 0.00001, false);
 	float normalDis = mix(0.00001, 0.0001, clamp((config.sizes.x / cascadeCount), 0.0, 1.0));
-	//int octaveDecrease = int(floor(mix(0.0, 7.0, clamp((config.sizes.x / cascadeCount), 0.0, 1.0))));
+
 	int octaveDecrease = int(config.sizes.x);
 	vec3 tnoise = TerrainData(uv + config.sizes.yz, 15 - octaveDecrease, normalDis, false, settings.seed, settings.erodeFactor, settings.steepness);
-	//vec3 tnoise = TerrainData(uv + config.sizes.yz, int(variables.terrainOffset.w), 0.0001, false);
-	//vec3 tnoise = TerrainData(uv + config.sizes.yz, int(variables.terrainOffset.w), 0.00001, false);
 
 	vec3 normal = DerivativeToNormal(vec2(tnoise.y, tnoise.z)) * 0.5 + 0.5;
-	//vec2 derivatives = vec2(tnoise.y, tnoise.z) * 0.5 + 0.5;
 	vec2 derivatives = normal.xz;
 	vec2 packedHeight = packFloatToRG8(tnoise.x);
 	//vec2 packedHeight = packFloatToRG16(tnoise.x);

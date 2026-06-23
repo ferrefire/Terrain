@@ -11,11 +11,6 @@ layout(input_attachment_index = 0, set = 1, binding = 0) uniform subpassInput gA
 
 layout(input_attachment_index = 1, set = 1, binding = 1) uniform subpassInput gDepth;
 
-//layout(set = 0, binding = 0) uniform sampler2D screenTexture;
-//layout(set = 0, binding = 1) uniform sampler2D transmittanceTexture;
-//layout(set = 0, binding = 2) uniform sampler2D scatteringTexture;
-//layout(set = 0, binding = 3) uniform sampler2D skyTexture;
-//layout(set = 0, binding = 4, std430) buffer LuminanceData{float value;} luminanceData;
 layout(set = 1, binding = 2) uniform sampler2D transmittanceTexture;
 layout(set = 1, binding = 3) uniform sampler2D scatteringTexture;
 layout(set = 1, binding = 4) uniform sampler2D skyTexture;
@@ -45,93 +40,86 @@ vec3 Reihard(vec3 base)
 	return (base / (1.0 + base));
 }
 
-vec3 Hable(vec3 x) {
-    float A = 0.15;
-    float B = 0.50;
-    float C = 0.10;
-    float D = 0.20;
-    float E = 0.02;
-    float F = 0.30;
-    float W = 11.2; // white point
+vec3 Hable(vec3 x)
+{
+	float A = 0.15;
+	float B = 0.50;
+	float C = 0.10;
+	float D = 0.20;
+	float E = 0.02;
+	float F = 0.30;
+	float W = 11.2;
 
-    vec3 num   = ((x * (A * x + C * B)) + D * E);
-    vec3 denom = (x * (A * x + B) + D * F);
-    vec3 color = num / denom - E / F;
+	vec3 num   = ((x * (A * x + C * B)) + D * E);
+	vec3 denom = (x * (A * x + B) + D * F);
+	vec3 color = num / denom - E / F;
 
-    // normalize so that white point W maps to 1.0
-    float white = (((W * (A * W + C * B)) + D * E) /
-                   ((W * (A * W + B) + D * F)) - E / F);
-    return color / white;
+	float white = (((W * (A * W + C * B)) + D * E) /
+				   ((W * (A * W + B) + D * F)) - E / F);
+
+	return (color / white);
 }
 
-vec3 RRTAndODTFit(vec3 v) {
-    vec3 a = v * (v + 0.0245786) - 0.000090537;
-    vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
-    return a / b;
+vec3 RRTAndODTFit(vec3 v)
+{
+	vec3 a = v * (v + 0.0245786) - 0.000090537;
+	vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
+	return (a / b);
 }
 
-vec3 acesTonemap(vec3 color) {
-    // transform from sRGB linear to “ACES” like space
-    //const mat3 ACESInputMat = mat3(
-    //     0.59719, 0.35458, 0.04823,
-    //     0.07600, 0.90834, 0.01566,
-    //     0.02840, 0.13383, 0.83777
-    //);
+vec3 acesTonemap(vec3 color)
+{
 
 	const mat3 ACESInputMat = mat3(
-         0.59719, 0.07600, 0.02840,
-         0.35458, 0.90834, 0.13383,
-         0.04823, 0.01566, 0.83777
-    );
+		 0.59719, 0.07600, 0.02840,
+		 0.35458, 0.90834, 0.13383,
+		 0.04823, 0.01566, 0.83777
+	);
 
-    //const mat3 ACESOutputMat = mat3(
-    //     1.60475, -0.53108, -0.07367,
-    //    -0.10208,  1.10813, -0.00605,
-    //    -0.00327, -0.07276,  1.07602
-    //);
+	//const mat3 ACESOutputMat = mat3(
+	//	 1.60475, -0.53108, -0.07367,
+	//	-0.10208,  1.10813, -0.00605,
+	//	-0.00327, -0.07276,  1.07602
+	//);
 
 	const mat3 ACESOutputMat = mat3(
-         1.60475, -0.10208, -0.00327,
-        -0.53108,  1.10813, -0.07276,
-        -0.07367, -0.00605,  1.07602
-    );
+		 1.60475, -0.10208, -0.00327,
+		-0.53108,  1.10813, -0.07276,
+		-0.07367, -0.00605,  1.07602
+	);
 
-    color = ACESInputMat * color;
-    color = RRTAndODTFit(color);
-    color = ACESOutputMat * color;
-    return clamp(color, 0.0, 1.0);
+	color = ACESInputMat * color;
+	color = RRTAndODTFit(color);
+	color = ACESOutputMat * color;
+
+	return (clamp(color, 0.0, 1.0));
 }
 
 vec3 sunWithBloom(vec3 worldDir, vec3 sunDir)
 {
-    const float sunSolidAngle = 1.0 * PI / 180.0;
-    const float minSunCosTheta = cos(sunSolidAngle);
+	const float sunSolidAngle = 1.0 * PI / 180.0;
+	const float minSunCosTheta = cos(sunSolidAngle);
 
-    float cosTheta = dot(worldDir, sunDir);
-    if(cosTheta >= minSunCosTheta) {return vec3(0.5) ;}
-    float offset = minSunCosTheta - cosTheta;
-    float gaussianBloom = exp(-offset * 50000.0) * 0.5;
-    float invBloom = 1.0/(0.02 + offset * 300.0) * 0.01;
-    return vec3(gaussianBloom + invBloom);
+	float cosTheta = dot(worldDir, sunDir);
+	if(cosTheta >= minSunCosTheta) {return vec3(0.5) ;}
+	float offset = minSunCosTheta - cosTheta;
+	float gaussianBloom = exp(-offset * 50000.0) * 0.5;
+	float invBloom = 1.0/(0.02 + offset * 300.0) * 0.01;
+
+	return (vec3(gaussianBloom + invBloom));
 }
 
 vec4 GetAerial(float depth, vec3 pixelWorldPos)
 {
-	//vec3 clipSpace = vec3(worldCoordinates * vec2(2.0) - vec2(1.0), depth);
-	//vec4 hPos = invViewProjMat * vec4(clipSpace, 1.0);
-	//vec3 cameraRayWorld = normalize(pixelWorldPos - variables.viewPosition.xyz);
-
 	float realDepth = length(pixelWorldPos - variables.viewPosition.xyz);
 
-	//if (postData.useLinearDepth == 1) {realDepth = LinearizeDepth(depth);}
-	//float slice = realDepth * atmosphereData.cameraScale * 0.25;
 	float slice = realDepth * atmosphereData.cameraScale / atmosphereData.aerialSliceScale;
-    float weight = 1.0;
+	float weight = 1.0;
 
 	//if (slice < 0.5)
 	//{
 	//	weight = clamp(slice * 2.0, 0.0, 1.0);
-    //    slice = 0.5;
+	//	slice = 0.5;
 	//}
 
 	const vec2 aerialTexelSize = vec2(1.0) / vec2(atmosphereData.aerialDimensions.xy);
@@ -141,8 +129,6 @@ vec4 GetAerial(float depth, vec3 pixelWorldPos)
 	float w = slice / atmosphereData.aerialDimensions.z;
 
 	for (int i = 0; i < atmosphereData.aerialSlicePower; i++) {w = sqrt(w);}
-
-	//return (vec4(floor(w * atmosphereData.aerialDimensions.z)));
 
 	w = clamp(w, 0.0, 1.0);
 
@@ -155,36 +141,19 @@ vec4 GetAerial(float depth, vec3 pixelWorldPos)
 	else if (postData.aerialBlendMode == 1 || (postData.aerialBlendMode == 3 && w <= postData.aerialBlendDistance))
 	{
 		aerialValue = texture(aerialTexture, vec3(worldCoordinates + -offset, w));
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * vec2(1.0, -1.0)), w));
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * vec2(-1.0, 1.0)), w));
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + offset, w));
+		aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * vec2(1.0, -1.0)), w));
+		aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * vec2(-1.0, 1.0)), w));
+		aerialValue += texture(aerialTexture, vec3(worldCoordinates + offset, w));
 		aerialValue *= 0.25;
 	}
 	else if (postData.aerialBlendMode == 2)
 	{
 		aerialValue = texture(aerialTexture, vec3(worldCoordinates, w)) * 0.4;
 		aerialValue += texture(aerialTexture, vec3(worldCoordinates + -offset * 2.0, w)) * 0.15;
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * 2.0 * vec2(1.0, -1.0)), w)) * 0.15;
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * 2.0 * vec2(-1.0, 1.0)), w)) * 0.15;
-    	aerialValue += texture(aerialTexture, vec3(worldCoordinates + offset * 2.0, w)) * 0.15;
+		aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * 2.0 * vec2(1.0, -1.0)), w)) * 0.15;
+		aerialValue += texture(aerialTexture, vec3(worldCoordinates + (offset * 2.0 * vec2(-1.0, 1.0)), w)) * 0.15;
+		aerialValue += texture(aerialTexture, vec3(worldCoordinates + offset * 2.0, w)) * 0.15;
 	}
-
-    //vec4 aerialValue = texture(aerialTexture, vec3(worldCoordinates + vec2(-offset), w));
-    //aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset, -offset), w));
-    //aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(-offset, offset), w));
-    //aerialValue += texture(aerialTexture, vec3(worldCoordinates + vec2(offset), w));
-	//aerialValue *= 0.25;
-    //vec4 aerialValue = weight * texture(aerialTexture, vec3(worldCoordinates, w));
-
-	//if (slice - floor(slice) > 0.9)
-	//{
-	//	w = sqrt(floor(slice + 1.0) / aerialDimensions.z);
-	//	aerialValue.rgb += texture(aerialTexture, vec3(worldCoordinates, w)).rgb;
-	//	aerialValue.rgb *= 0.5;
-	//	aerialValue.rgb = vec3(0, 0, 1);
-	//}
-
-	//if (w > 0.4) return (vec4(100));
 
 	return (aerialValue);
 }
@@ -196,40 +165,23 @@ void main()
 	vec3 color = vec3(0.0);
 	float depth = subpassLoad(gDepth).x;
 
-	//pixelColor = vec4(vec3(LinearizeDepth01(depth)), 1.0);
-	//return;
-
-	//if (depth >= 1.0) {color = vec3(0.0);}
-
-	//float currentExposure = 1.0 / (averageLuminance + 0.5);
-	//float currentExposure = 1.0 / (averageLuminance);
-	//currentExposure = pow(currentExposure, 0.25);
-
-	//vec3 sunDirection = normalize(vec3(0.39036, 0.48795, -0.78072));
 	mat4 invViewProjMat = inverse(variables.projection * variables.view);
-    vec2 pixPos = worldCoordinates;
-    vec3 clipSpace = vec3(pixPos * vec2(2.0) - vec2(1.0), depth);
-    
-    vec4 Hpos = invViewProjMat * vec4(clipSpace, 1.0);
+	vec2 pixPos = worldCoordinates;
+	vec3 clipSpace = vec3(pixPos * vec2(2.0) - vec2(1.0), depth);
+		
+	vec4 Hpos = invViewProjMat * vec4(clipSpace, 1.0);
 	vec3 pixelWorldPos = Hpos.xyz / Hpos.w;
 
 	vec3 viewPosition = (variables.viewPosition.xyz + vec3(0.0, maxHeight * 0.5 + (variables.terrainOffset.y * terrainDiv), 0.0)) * atmosphereData.cameraScale;
 
-    vec3 worldDirection = normalize(pixelWorldPos - variables.viewPosition.xyz);
+	vec3 worldDirection = normalize(pixelWorldPos - variables.viewPosition.xyz);
 	vec3 worldPosistion = viewPosition + vec3(0.0, bottomRadius, 0.0);
 
 	float viewHeight = length(worldPosistion);
 
 	vec4 aerialResult = GetAerial(depth, pixelWorldPos);
 
-	//pixelColor = vec4(vec3(RandomColor(int(aerialResult.x))), 1.0);
-	//return;
-	//aerialResult.w = pow(aerialResult.w, 2.0);
-	//vec3 mistColor = aerialResult.rgb * (1.0 - aerialResult.w);
-	//vec3 mistColor = aerialResult.rgb * pow(aerialResult.w, 0.125 * 0.5);
 	vec3 mistColor = aerialResult.rgb;
-	//vec3 mistColor = aerialResult.rgb * aerialResult.w * 64;
-	//vec3 mistColor = aerialResult.rgb * aerialResult.w * 48;
 
 	if (depth >= 1.0)
 	{
@@ -252,32 +204,10 @@ void main()
 	else
 	{
 		color = subpassLoad(gAlbedo).rgb;
-
-		//vec4 aerialResult = GetAerial(depth, invViewProjMat);
-
-		//color = mix(color, aerialResult.rgb * 24.0, clamp(1.0 - pow(aerialResult.w, 64.0) - 0.25, 0.0, 1.0));
-		//color += aerialResult.rgb * 16.0 * aerialResult.w;
-		//color = vec3(aerialResult.w);
-
-		//color += mistColor * 48;
-
-		//vec3 wPos = (Hpos.xyz / Hpos.w);
-		//float groundInter = clamp((wPos.y - (TerrainValues(wPos.xz).x * maxHeight)) / maxHeight, 0.0, 1.0);
-		//float occlusion = 1.0 - TerrainOcclusion(wPos.xz);
-		//occlusion = mix(occlusion, 0.0, groundInter);
-		//test = 1.0 + occlusion;
 	}
 
 	//color = color * (aerialResult.w) + mistColor * 64;
 	color += mistColor * atmosphereData.mistStrength;
-
-	//int sliceX = int(floor(worldCoordinates.x * 8));
-	//int sliceY = int(floor(worldCoordinates.y * 4));
-	//int slice = sliceX + sliceY * 8;
-	//float coordX = worldCoordinates.x * 8 - sliceX;
-	//float coordY = worldCoordinates.y * 4 - sliceY;
-	//color = texture(aerialTexture, vec3(coordX, coordY, float(slice) / 32.0)).rgb * 3.0;
-	//color = texture(skyTexture, worldCoordinates).rgb * 6.0;
 
 	//vec3 exposedColor = color * currentExposure;
 	//vec3 exposedColor = color * pow(1.0 / luminanceData.value, 0.25);

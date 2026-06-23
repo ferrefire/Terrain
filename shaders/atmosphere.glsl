@@ -34,13 +34,6 @@ layout(set = 0, binding = 5, std430) buffer AtmosphereData
 
 const float bottomRadius = 6360.0;
 const float topRadius = 6460.0;
-//const float offsetRadius = 0.01; // Maybe change back to 0.0001
-//const float rayleighScaleHeight = 8.0;
-//const float mieScaleHeight = 1.2;
-
-//const float[10] rayleighDensity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0 / rayleighScaleHeight, 0.0, 0.0};
-//const float[10] mieDensity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0 / mieScaleHeight, 0.0, 0.0};
-//const float[10] absorptionDensity = {25.0, 0.0, 0.0, 1.0 / 15.0, -2.0 / 3.0, 0.0, 0.0, 0.0, -1.0 / 15.0, 8.0 / 3.0};
 
 const vec3 rayleighScattering = vec3(0.005802, 0.013558, 0.033100);
 const vec3 mieScattering = vec3(0.003996, 0.003996, 0.003996);
@@ -57,11 +50,6 @@ const float H = sqrt(topRadius2 - bottomRadius2);
 const vec2 transmittanceDimensions = vec2(256, 64);
 const vec2 scatteringDimensions = vec2(32, 32);
 const vec2 skyDimensions = vec2(192, 128);
-
-//#define AERIAL_RES 64
-//const vec3 aerialDimensions = vec3(AERIAL_RES, AERIAL_RES, 32);
-
-//const float cameraScale = 0.001;
 
 struct ScatteringResult
 {

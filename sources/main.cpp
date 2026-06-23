@@ -103,18 +103,8 @@ struct alignas(16) AtmosphereData
 struct alignas(16) TerrainComputeData
 {
 	float seed = 0.303586;
-	//float erodeFactor = 1.0;
-	//float erodeFactor = 4.0;
-	//float erodeFactor = 2.0;
-	//float erodeFactor = 3.0;
 	float erodeFactor = 2.5;
-	//float steepness = 2.0;
-	//float steepness = 1.75;
-	//float steepness = 1.5;
-	//float steepness = 1.25;
 	float steepness = 1.0;
-	//float steepness = 1.0;
-	//float steepness = 2.0;
 	int32_t resolution = heightmapResolution;
 	//uint32_t padding[1];
 };
@@ -123,9 +113,7 @@ struct alignas(16) TerrainShaderData
 {
 	uint32_t debugMode = 0;
 	float rockSteepness = 0.10;
-	//float rockTransition = 0.075;
 	float rockTransition = 0.025;
-	//float snowHeight = 1500.0;
 	float snowHeight = 1250.0;
 	float snowBlend = 1500.0;
 	float snowSteepness = 0.3;
@@ -162,7 +150,6 @@ struct alignas(16) AerialData
 	float forestMistStrength = 15.0;
 	float forestMistCenter = 0.0;
 	float forestMistMinDis = 25.0;
-	//float forestMistMaxDis = 50.0;
 	float forestMistMaxDis = 40.0;
 	float forestMistMaxRayHeight = 100.0;
 
@@ -188,10 +175,8 @@ struct alignas(16) SkyData
 struct alignas(16) PostData
 {
 	uint32_t useLinearDepth = 0;
-	//uint32_t aerialBlendMode = 0;
 	uint32_t aerialBlendMode = 1;
 	float aerialBlendDistance = 0.5;
-	//uint32_t toneMapping = 1;
 	uint32_t toneMapping = 0;
 	float exposure = 1.0;
 	//uint32_t padding[2];
@@ -215,10 +200,7 @@ struct alignas(16) TreeData
 struct alignas(16) TreeComputeConfig
 {
 	float treeSpacing = 35.0;
-	//float treeSpacing = 30.0;
-	//float treeOffset = 50.0;
 	float treeOffset = 15.0;
-	//float maxSteepness = 0.015;
 	float maxSteepness = 0.0065;
 	uint32_t overdrawCulling = 1;
 
@@ -240,20 +222,11 @@ struct alignas(16) TreeComputeConfig
 	int32_t leafCounts[8] = {0, 0, 0, 0, 0};
 	float cascadeTolerances[4] = {0.0, 0.0, 0.02, 0.0};
 
-	//int32_t radiuses[4] = {4, 10, 25, 256};
-	//int32_t shadowRadiuses[4] = {6, 15, 38, 256};
-	//int32_t squaredLengths[4] = {0, 0, 0, 0};
-	//int32_t squaredShadowLengths[4] = {0, 0, 0, 0};
-	//float squaredDistances[4] = {0, 0, 0, 0};
-	//int32_t leafCounts[4] = {0, 0, 0, 0};
-
-	point4D treesCenter;
+	point4D treesCenter = point4D(0);
 
 	int32_t overdrawCullMinimum = 15;
 	int32_t overdrawCullMaximum = 100;
-	//float overdrawCullHeightBase = 25.0;
 	float overdrawCullHeightBase = 15.0;
-	//float overdrawCullHeightOffset = 10.0;
 	float overdrawCullHeightOffset = 0.0;
 	uint32_t overdrawCullHeightOnly = 1;
 	uint32_t overdrawLodCull = 1;
@@ -265,8 +238,6 @@ struct alignas(16) TreeComputeConfig
 	float cullHeight = 30.0;
 
 	float minTreeScale = 0.8;
-	//float minTreeScale = 1.0;
-	//float maxTreeScale = 1.75;
 	float maxTreeScale = 2.0;
 	float treeScalePower = 1.0;
 
@@ -283,7 +254,6 @@ struct alignas(16) TreeComputeConfig
 struct alignas(16) TreeShaderConfig
 {
 	int32_t weightPower = 72;
-	//float uvScale = 0.25;
 	float uvScale = 0.2;
 	//float glillNormalMix = 0.45;
 	float glillNormalMix = 0.0;
@@ -314,24 +284,14 @@ struct alignas(16) LeafShaderConfig
 {
 	float localNormalBlend = 0.1;
 	float worldNormalHeight = 0.0;
-	//float worldNormalHeight = 15.0;
-	//float worldNormalHeight = 8.0;
 	float translucencyBlend = 0.0;
 	float shadowTranslucencyDim = 0.99;
-	//float translucencyBias = 0.5;
 	float translucencyBias = 0.0;
-	//float translucencyRange = 0.425;
 	float translucencyRange = 0.25;
 
-	//float lod0Size = 1.0;
 	float lod0Size = 1.25;
-	//float lod1Size = 1.75;
 	float lod1Size = 2.0;
 	float lod2Size = 5.0;
-	//float lod3Size = 12.0;
-	//float lod3Size = 16.0;
-	//float lod3Size = 14.0;
-	//float lod4Size = 24.0;
 	float lod3Size = 12.5;
 	float lod4Size = 20.0;
 
@@ -345,14 +305,11 @@ struct alignas(16) LeafShaderConfig
 	
 	uint32_t debugMode = 0;
 	float flatLocalNormalBlend = 0.0;
-	//float qualityNormalBlendLodStart = 2.0;
 	float qualityNormalBlendLodStart = 3.0;
 	float qualityNormalBlendLodPower = 1.0;
 	float qualitySmoothness = 0.625;
-	//float qualityNormalBlendLodPower = 1.5;
 
 	float colorMult = 1.0;
-	//float ambientMult = 0.25;
 	float ambientMult = 0.2;
 
 	//uint32_t padding[1];
@@ -502,7 +459,6 @@ int terrainLodRadius = 8;
 int terrainLodLength = 2 * terrainLodRadius + 1;
 int terrainLodCount = terrainLodLength * terrainLodLength;
 
-//int heightmapResolution = 4096;
 float heightmapBaseSize = 0.075;
 int computeIterations = 2;
 int totalComputeIterations = int(pow(4, computeIterations));
@@ -538,72 +494,6 @@ float shadowDepthMultiplier = 16.0;
 static bool allMapsComputed = false;
 
 static bool shouldComputeTrees = true;
-
-/*void BlitFrameBuffer(VkCommandBuffer commandBuffer, uint32_t frameIndex)
-{
-	uint32_t renderIndex = Renderer::GetRenderIndex();
-
-	std::vector<VkImageMemoryBarrier> preBarriers(2);
-
-	VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.image = luminanceImages[renderIndex].GetImage();
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.subresourceRange.levelCount = 1;
-	barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	barrier.srcAccessMask = VK_ACCESS_NONE;
-	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-	preBarriers[0] = barrier;
-	preBarriers[1] = barrier;
-
-	preBarriers[1].image = pass.GetColorImage(renderIndex)->GetImage();
-	preBarriers[1].oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	preBarriers[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	preBarriers[1].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-	preBarriers[1].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 2, preBarriers.data());
-
-	VkImageBlit blit{};
-	blit.srcOffsets[0] = { 0, 0, 0 };
-	blit.srcOffsets[1] = { CI(Manager::GetWindow().GetConfig().extent.width), CI(Manager::GetWindow().GetConfig().extent.height), 1 };
-	blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	//blit.srcSubresource.mipLevel = i - 1;
-	blit.srcSubresource.baseArrayLayer = 0;
-	blit.srcSubresource.layerCount = 1;
-	blit.dstOffsets[0] = { 0, 0, 0 };
-	blit.dstOffsets[1] = { 4, 4, 1 };
-	blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	//blit.dstSubresource.mipLevel = i;
-	blit.dstSubresource.baseArrayLayer = 0;
-	blit.dstSubresource.layerCount = 1;
-
-	vkCmdBlitImage(commandBuffer, pass.GetColorImage(renderIndex)->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, luminanceImages[renderIndex].GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
-
-	std::vector<VkImageMemoryBarrier> barriers(2);
-
-	barriers[0] = barrier;
-	barriers[1] = barrier;
-
-	barriers[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	barriers[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	barriers[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	barriers[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	barriers[1].image = pass.GetColorImage(renderIndex)->GetImage();
-	barriers[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	barriers[1].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	barriers[1].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-	barriers[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-	//vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 2, barriers.data());
-	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 2, barriers.data());
-}*/
 
 static bool recompileAtmosphere = true;
 
@@ -764,7 +654,8 @@ void ComputeTrees(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 		barriers[1].sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
 		barriers[1].srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
 		barriers[1].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-		barriers[1].dstStageMask  = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+		barriers[1].dstStageMask  = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		//barriers[1].dstStageMask  = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
 		barriers[1].dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
 
 		VkDependencyInfo depInfo{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
@@ -782,8 +673,6 @@ void SetTerrainShadowValues(int index)
 	terrainShadowQueue[index] = true;
 
 	float shadowRange = 750.0 * pow(10.0, index);
-	//float shadowRange = 750.0;
-	//if (index == 1) {shadowRange = 5000.0;}
 
 	float spacing = (1.0 / float(shadowmapResolution)) * shadowRange;
 
@@ -957,12 +846,8 @@ void RenderShadows4(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 
 void Resize()
 {
-	//for (int i = 0; i < Manager::GetSwapchain().GetViews().size(); i++)
 	for (int i = 0; i < Renderer::GetFrameCount(); i++)
 	{
-		//postDescriptor.Update(i, 0, *pass.GetColorImage(i));
-		//postDescriptor.Update(i, 1, *pass.GetDepthImage(i));
-
 		postDescriptor.Update(i, 0, *pass.GetAttachmentImage(0, i));
 		postDescriptor.Update(i, 1, *pass.GetAttachmentImage(2, i));
 	}
@@ -1052,10 +937,6 @@ void RecaluclateTreeComputeConfig()
 		treeComputeConfig.squaredLengths[i] = (treeComputeConfig.radiuses[i] * 2 + 1) * (treeComputeConfig.radiuses[i] * 2 + 1);
 		treeComputeConfig.squaredShadowLengths[i] = (treeComputeConfig.shadowRadiuses[i] * 2 + 1) * (treeComputeConfig.shadowRadiuses[i] * 2 + 1);
 		treeComputeConfig.squaredDistances[i] = (treeComputeConfig.radiuses[i] * treeComputeConfig.treeSpacing) * (treeComputeConfig.radiuses[i] * treeComputeConfig.treeSpacing);
-
-		//std::cout << "sl" << i << ": " << treeComputeConfig.squaredLengths[i] << std::endl;
-		//std::cout << "ssl" << i << ": " << treeComputeConfig.squaredShadowLengths[i] << std::endl;
-		//std::cout << "sd" << i << ": " << treeComputeConfig.squaredDistances[i] << std::endl << std::endl;
 	}
 }
 
@@ -1299,18 +1180,7 @@ void Start()
 	std::vector<VkDrawIndexedIndirectCommand> drawCommands;
 	drawCommands.resize(5);
 
-	//std::vector<VkDrawIndexedIndirectCommand> leafDrawCommands;
-	//leafDrawCommands.resize(4);
-
-	//std::vector<VkDrawIndexedIndirectCommand> leafShadowDrawCommands;
-	//leafShadowDrawCommands.resize(4);
-
-	//shapePN16 cubeShape0(ShapeType::Cube);
-	//treeMeshConfig.seed = 6282;
-	//treeMeshConfig.seed = 9206;
 	treeMeshConfig.seed = 15;
-	//treeMeshConfig.seed = 15628;
-	//treeMeshConfig.seed = 1563;
 	shapePN32 treeShape = Tree::GenerateTree(treeMeshConfig);
 	treeShape.Scale(point3D(4.0));
 
@@ -1319,10 +1189,6 @@ void Start()
 	drawCommands[0].firstIndex = 0;
 	drawCommands[0].vertexOffset = 0;
 	drawCommands[0].firstInstance = 0;
-
-	
-	//leafShape.Rotate(180.0, Axis::z);
-	//leafShape.Scale(2.0);
 	
 	std::vector<LeafData> leafPositions = Tree::GetLeafPositions();
 	treeComputeConfig.leafCounts[0] = leafPositions.size();
@@ -1333,47 +1199,6 @@ void Start()
 	for (LeafData &p : leafPositions) {p.leafPosition *= 4.0;}
 
 	CreateLeafMesh(false);
-
-	/*shapeP16 leafShape(ShapeType::Leaf);
-	leafDrawCommands[0].indexCount = leafShape.GetIndices().size();
-	leafDrawCommands[0].instanceCount = 0;
-	leafDrawCommands[0].firstIndex = 0;
-	leafDrawCommands[0].vertexOffset = 0;
-	leafDrawCommands[0].firstInstance = 0;
-	leafDrawCommands[1].indexCount = leafShape.GetIndices().size();
-	leafDrawCommands[1].instanceCount = 0;
-	leafDrawCommands[1].firstIndex = 0;
-	leafDrawCommands[1].vertexOffset = 0;
-	leafDrawCommands[1].firstInstance = 0;
-
-	ShapeSettings leafSettings{};
-	//leafSettings.lod = 1;
-	//shapeP16 leafShape1(ShapeType::Leaf, leafSettings);
-
-	//leafDrawCommands[2].indexCount = leafShape1.GetIndices().size();
-	//leafDrawCommands[2].firstIndex = leafShape.GetIndices().size();
-	leafDrawCommands[2].indexCount = leafShape.GetIndices().size();
-	leafDrawCommands[2].firstIndex = 0;
-	leafDrawCommands[2].vertexOffset = 0;
-	leafDrawCommands[2].instanceCount = 0;
-	leafDrawCommands[2].firstInstance = 0;
-
-	//leafShape.Join(leafShape1);
-	leafShape.Rotate(180.0, Axis::z);
-	leafShape.Scale(2.0);
-	
-	leafSettings.lod = 2;
-	leafSettings.scalarized = false;
-	shapeP16 leafShape2(ShapeType::Leaf, leafSettings);
-
-	leafDrawCommands[3].indexCount = leafShape2.GetIndices().size();
-	leafDrawCommands[3].firstIndex = leafShape.GetIndices().size();
-	leafDrawCommands[3].vertexOffset = 0;
-	leafDrawCommands[3].instanceCount = 0;
-	leafDrawCommands[3].firstInstance = 0;
-
-	leafShape.Join(leafShape2);
-	leafMesh.Create(leafShape);*/
 
 	treeMeshConfig.horizontalResolution = {3, 4};
 	treeMeshConfig.verticalResolution = {1, 4};
@@ -1483,10 +1308,6 @@ void Start()
 	terrainShadowImageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	terrainShadowImageConfig.samplerConfig.minFilter = VK_FILTER_LINEAR;
 	terrainShadowImageConfig.samplerConfig.magFilter = VK_FILTER_LINEAR;
-	//terrainShadowImageConfig.format = VK_FORMAT_R8_UNORM;
-	//terrainShadowImageConfig.viewConfig.format = VK_FORMAT_R8_UNORM;
-	//terrainShadowImageConfig.format = VK_FORMAT_R16G16_UNORM;
-	//terrainShadowImageConfig.viewConfig.format = VK_FORMAT_R16G16_UNORM;
 	terrainShadowImageConfig.format = VK_FORMAT_R8G8_UNORM;
 	terrainShadowImageConfig.viewConfig.format = VK_FORMAT_R8G8_UNORM;
 
@@ -1496,8 +1317,6 @@ void Start()
 	terrainShadowQueue.resize(3);
 
 	ImageConfig glillImageConfig = Image::DefaultStorageConfig();
-	//glillImageConfig.width = glillResolution;
-	//glillImageConfig.height = glillResolution;
 	glillImageConfig.samplerConfig.repeatMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	glillImageConfig.samplerConfig.minFilter = VK_FILTER_LINEAR;
 	glillImageConfig.samplerConfig.magFilter = VK_FILTER_LINEAR;
@@ -2131,14 +1950,7 @@ void Start()
 	pipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
 	pipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 	pipelineConfig.subpass = 0;
-	//pipelineConfig.rasterization.cullMode = VK_CULL_MODE_FRONT_BIT;
-	//pipelineConfig.rasterization.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	pipeline.Create(pipelineConfig);
-
-	//PipelineConfig prePipelineConfig = pipelineConfig;
-	////prePipelineConfig.prepass = true;
-	//prePipelineConfig.subpass = 0;
-	//prePipeline.Create(prePipelineConfig);
 
 	PipelineConfig postPipelineConfig = Pipeline::DefaultConfig();
 	postPipelineConfig.shader = "post";
@@ -2151,8 +1963,6 @@ void Start()
 	postPipelineConfig.dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 	postPipelineConfig.depthStencil.depthWriteEnable = VK_FALSE;
 	postPipelineConfig.depthStencil.depthTestEnable = VK_FALSE;
-	//postPipelineConfig.rasterization.cullMode = VK_CULL_MODE_FRONT_BIT;
-	//postPipelineConfig.rasterization.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	postPipeline.Create(postPipelineConfig);
 
 	PipelineConfig luminancePipelineConfig{};
@@ -2283,45 +2093,9 @@ void Start()
 	leafShadowPipelineConfig.rasterization.cullMode = VK_CULL_MODE_NONE;
 	leafShadowPipeline.Create(leafShadowPipelineConfig);
 
-	//Manager::GetCamera().Move(point3D(-5000, 2500, 5000));
 	Input::TriggerMouse();
-	//Manager::GetCamera().Move(point3D(-1486.45, -1815.79, -3094.54));
-	//Manager::GetCamera().Move(point3D(-931.948, -2051.53, -2499.46));
-	//Manager::GetCamera().Move(point3D(-24.9147, -904.676, 5320.23));
-	//Manager::GetCamera().Move(point3D(3884.26, -1783.41, 11323.2));
-	//Manager::GetCamera().Move(point3D(0, 0, 0));
-	//Manager::GetCamera().Move(point3D(1242.74, -1730.73, 5410.96));
-	//Manager::GetCamera().Move(point3D(4641.78, -2376.92, 8547.5));
-	//Manager::GetCamera().Move(point3D(4603.41, -2411.25, 8862.13));
-	//Manager::GetCamera().Move(point3D(4638.89, -2356.18, 8880.5));
-	//Manager::GetCamera().Move(point3D(3378.99, -2204.17, -3144.48));
 	Manager::GetCamera().Move(point3D(-7215.99, 582.893, 1909.08));
-	//Manager::GetCamera().Move(point3D(3310.14, -2324.92, -3054.38));
-	//Manager::GetCamera().Move(point3D(428.953, -2005.17, 2031.84));
-	//Manager::GetCamera().Move(point3D(1249.58, -1968.5, 6361.08));
-	//Manager::GetCamera().Move(point3D(4692.71, -2418.12, 9021.92));
-	//Manager::GetCamera().Move(point3D(10379.6, 362.507, 824.909));
-	//Manager::GetCamera().Rotate(point3D(12.8998, -149.9, 0.0));
-	//Manager::GetCamera().Rotate(point3D(26.0998, -151.9, 0.0));
-	//Manager::GetCamera().Rotate(point3D(4.89981, 306.799, 0.0));
-	//Manager::GetCamera().Rotate(point3D(-3.40032, 292.801, 0.0));
-	//Manager::GetCamera().Rotate(point3D(6.39966, 343.702, 0.0));
-	//Manager::GetCamera().Rotate(point3D(24.7997, 338.802, 0.0));
-	//Manager::GetCamera().Rotate(point3D(12.1997, 669.309, 0.0));
-	//Manager::GetCamera().Rotate(point3D(-5.8003, 1071.71, 0.0));
-	//Manager::GetCamera().Rotate(point3D(0.399712, 1401.68, 0.0));
 	Manager::GetCamera().Rotate(point3D(18.8998, 1388.69, 0.0));
-	//Manager::GetCamera().Rotate(point3D(28.2997, 19.78, 0.0));
-	//Manager::GetCamera().Rotate(point3D(-3.80028, 1728.39, 0.0));
-	//Manager::GetCamera().Rotate(point3D(-46.101, 1074.21, 0.0));
-	//Manager::GetCamera().Rotate(point3D(3.49968, 781.528, 0.0));
-	//Manager::GetCamera().Rotate(point3D(31.1995, 454.71, 0.0));
-	//Manager::GetCamera().Move(point3D(7523.26, 643.268, 518.602));
-	//Manager::GetCamera().Move(point3D(0, 10, 0));
-
-	//data.shadowmapOffsets[0] = point4D(100000);
-	//data.shadowmapOffsets[1] = point4D(100000);
-	//data.shadowmapOffsets[2] = point4D(100000);
 
 	VkSemaphoreCreateInfo semaphoreCreateInfo{};
 	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -2565,15 +2339,16 @@ void Start()
 
 	//Improve renderer to allow call registering for specific subpasses!
 
+	Renderer::RegisterCall(0, ComputeTrees, true);
+	Renderer::RegisterCall(0, ComputeTerrainGlill, true);
+	Renderer::RegisterCall(0, ComputeTerrainShadow, true);
+	Renderer::RegisterCall(shadowCascades, ComputeLuminance, true);
+
 	//Renderer::RegisterCall(0, RenderPre);
 	Renderer::RegisterCall(shadowCascades, Render);
 	Renderer::RegisterCall(shadowCascades, UI::Render);
 	//Renderer::RegisterCall(1, RenderPost);
 	//Renderer::RegisterCall(0, BlitFrameBuffer, true);
-	Renderer::RegisterCall(0, ComputeLuminance, true);
-	Renderer::RegisterCall(0, ComputeTerrainShadow, true);
-	Renderer::RegisterCall(0, ComputeTerrainGlill, true);
-	Renderer::RegisterCall(0, ComputeTrees, true);
 
 	Renderer::RegisterCall(0, RenderShadows);
 	Renderer::RegisterCall(1, RenderShadows2);
@@ -2581,11 +2356,6 @@ void Start()
 	if (shadowCascades > 3) {Renderer::RegisterCall(3, RenderShadows4);}
 
 	std::cout << "rfc: " << Manager::GetSwapchain().GetFrameCount() << std::endl;
-
-	//mat4 test = mat4::Translation(point3D(10, 5, 20));
-	//std:: cout << "test: " << test << std::endl << std::endl;
-	//mat4 testi = test.Inversed();
-	//std:: cout << "testi: " << testi << std::endl;
 
 	std::cout << "leaf pos count: " << leafPositions.size() << std::endl;
 
@@ -2662,49 +2432,13 @@ mat4 ComputeShadowMatrix(float near, float far)
 	for (int i = 0; i < 8; i++)
 	{
 		corners[i] /= corners[i].w();
-		//corners[i].x() = floor(corners[i].x() * 0.1) * 10.0;
-		//corners[i].y() = floor(corners[i].y() * 0.1) * 10.0;
-		//corners[i].z() = floor(corners[i].z() * 0.1) * 10.0;
 		center += corners[i];
 	}
 	center *= 0.125;
 
-	//float radius = 0.0;
-	//for (int i = 0; i < 8; i++) {radius = maxF(radius, (corners[i] - center).Length());}
-
-	//radius = std::ceil(radius * 16.0) / 16.0;
-
-	//float extent = radius * 2.0;
-	//float texelSize = extent / 2048.0;
-
-	//float step = (distance / 4096.0);
-	//center.x() = floor(center.x() * 0.1) * 10.0;
-	//center.y() = floor(center.y() * 0.1) * 10.0;
-	//center.z() = floor(center.z() * 0.1) * 10.0;
-
-	//center += pos;
-
-	//center += pos;
-
-	//point3D front = point3D(data.lightDirection.Unitized() * -1).Unitized();
-	//point3D side = point3D::Cross(front, point3D(0.0, 1.0, 0.0)).Unitized();
-	//point3D up = point3D::Cross(side, front).Unitized();
-
-	//point3D eye = center + (point3D(data.lightDirection).Unitized() * far * (0.5 * shadowDepthMultiplier));
 	point3D eye = center + (point3D(data.lightDirection).Unitized() * far * (0.5 * shadowDepthMultiplier));
 
 	mat4 shadowView = mat4::Look(eye, center, point3D(0.0, 1.0, 0.0));
-	//mat4 shadowView = mat4::Look(eye, eye + front, up);
-
-	//point3D centerSV = shadowView * point4D(center, 1.0);
-
-	//centerSV.x() = std::floor(centerSV.x() / texelSize) * texelSize;
-	//centerSV.y() = std::floor(centerSV.y() / texelSize) * texelSize;
-
-	//float left = centerSV.x() - radius;
-	//float right = centerSV.x() + radius;
-	//float bottom = centerSV.y() - radius;
-	//float top = centerSV.y() + radius;
 
 	for (int i = 0; i < 8; i++) {corners[i] = shadowView * corners[i];}
 
@@ -2725,29 +2459,11 @@ mat4 ComputeShadowMatrix(float near, float far)
 		maxZ = maxF(maxZ, corners[i].z());
 	}
 
-	/*if (Time::newSecond)
-	{
-		//std::cout << "mid: " << (invPV * point4D(0.0, 0.0, 0.0, 1.0)) << std::endl;
-		std::cout << "cen: " << center << std::endl;
-		std::cout << "diff: " << center - pos << std::endl;
-		std::cout << "minX: " << minX << std::endl;
-		std::cout << "maxX: " << maxX << std::endl;
-		std::cout << "minY: " << minY << std::endl;
-		std::cout << "maxY: " << maxY << std::endl;
-		std::cout << "minZ: " << minZ << std::endl;
-		std::cout << "maxZ: " << maxZ << std::endl << std::endl;
-	}*/
-
 	float xb = maxX - minX;
 	float yb = maxY - minY;
 	float zb = maxZ - minZ;
 
-	//mat4 shadowOrtho = mat4::Orthographic(minX, maxX, minY, maxY, minZ, maxZ);
 	mat4 shadowOrtho = mat4::Orthographic(-xb * 0.5, xb * 0.5, -yb * 0.5, yb * 0.5, 0.0, zb * shadowDepthMultiplier);
-	//mat4 shadowOrtho = mat4::Orthographic(centerSV.x() + minX, centerSV.x() + maxX, centerSV.y() + minY, centerSV.y() + maxY, centerSV.z() + minZ, centerSV.z() + maxZ);
-	//mat4 shadowOrtho = mat4::Orthographic(-radius, radius, -radius, radius, 0.0, zb * 2.0);
-	//mat4 shadowOrtho = mat4::Orthographic(left, right, bottom, top, 0.0, zb * 2.0);
-	//mat4 shadowOrtho = mat4::Orthographic(minX, maxX, minY, maxY, 0.0, maxZ);
 
 	mat4 result = (shadowOrtho * shadowView);
 
@@ -2760,9 +2476,6 @@ bool testMove = false;
 
 void Frame()
 {
-	//static double frameTime = 0;
-	//static double frameTimeCount = 0;
-
 	if (Input::GetKey(GLFW_KEY_M).pressed)
 	{
 		Input::TriggerMouse();
@@ -2780,13 +2493,6 @@ void Frame()
 
 	if (Input::GetKey(GLFW_KEY_C).pressed)
 	{
-		//std::cout << Manager::GetCamera().GetPosition() + data.terrainOffset * 10000.0 << std::endl;
-		//std::cout << Manager::GetCamera().GetPosition().y() << std::endl;
-		//CameraConfig cameraConfig = Manager::GetCamera().GetConfig();
-		//cameraConfig.speed = 2.2f;
-		//cameraConfig.speed = 4000.0f;
-		//Manager::GetCamera().SetConfig(cameraConfig);
-
 		std::cout << "Camera position: " << Manager::GetCamera().GetPosition() + data.terrainOffset * terrainDiv << std::endl;
 		//std::cout << "Camera position: " << Manager::GetCamera().GetPosition() << std::endl;
 		std::cout << "Camera Total Rotation: " << Manager::GetCamera().GetTotalAngles() << std::endl;
@@ -2846,47 +2552,6 @@ void Frame()
 		shouldComputeTrees = true;
 	}
 
-	//if (Time::newTick)
-	//{
-	//	double fps = frameTime / frameTimeCount;
-	//	glfwSetWindowTitle(Manager::GetWindow().GetData(), std::to_string(int(1.0 / fps)).c_str());
-	//	frameTime = 0;
-	//	frameTimeCount = 0;
-	//}
-	//frameTime += Time::deltaTime;
-	//frameTimeCount += 1;
-
-	/*point3D pos = Manager::GetCamera().GetPosition() + data.lightDirection.Unitized() * 250.0;
-	//float step = (300.0 / 2048.0);
-	//pos.x() = floor(pos.x() / step) * step;
-	//pos.y() = floor(pos.y() / step) * step;
-	//pos.z() = floor(pos.z() / step) * step;
-	pos.x() = floor(pos.x() * 0.1) * 10.0;
-	pos.y() = floor(pos.y() * 0.1) * 10.0;
-	pos.z() = floor(pos.z() * 0.1) * 10.0;
-	//pos.x() = floor(pos.x());
-	//pos.y() = floor(pos.y());
-	//pos.z() = floor(pos.z());
-
-	point3D front = point3D(data.lightDirection.Unitized() * -1).Unitized();
-	point3D side = point3D::Cross(front, point3D(0.0, 1.0, 0.0)).Unitized();
-	point3D up = point3D::Cross(side, front).Unitized();
-	
-	mat4 shadowView = mat4::Look(pos, pos + front, up);
-
-	mat4 shadowOrtho = mat4::Orthographic(-250.0, 250.0, -250.0, 250.0, 0.0, 500.0);*/
-
-	//if (Input::GetKey(GLFW_KEY_X).pressed) {testMove = !testMove;}
-	//if (testMove)
-	//{
-	//	Manager::GetCamera().Move(Manager::GetCamera().GetDirection() * Time::deltaTime * Manager::GetCamera().GetConfig().speed);
-	//	Manager::GetCamera().Move(Manager::GetCamera().GetRight() * Time::deltaTime * Manager::GetCamera().GetConfig().speed);
-	//}
-
-	//Manager::GetCamera().Rotate(point3D(0.0, 45.0, 0.0) * Time::deltaTime);
-	//Manager::GetCamera().Rotate(point3D(0.0, 45.0, 0.0) * Time::deltaTime * (sin(Time::GetCurrentTime() * 4.0) > 0.0 ? 1.0 : -1.0));
-
-	//Manager::GetCamera().Frame();
 	Manager::GetCamera().UpdateView();
 	data.view = Manager::GetCamera().GetView();
 	data.projection = Manager::GetCamera().GetProjection();
@@ -2903,11 +2568,6 @@ void Frame()
 
 	data.resolution.x() = Manager::GetCamera().GetConfig().width;
 	data.resolution.y() = Manager::GetCamera().GetConfig().height;
-
-	//if (Input::GetKey(GLFW_KEY_E).pressed)
-	//{
-	//	data.resolution.z() = 1.0 - data.resolution.z();
-	//}
 
 	if (computeIterations == 0) currentLod = -1;
 
@@ -2940,14 +2600,6 @@ void Frame()
 	{
 		data.heightmapOffsets[currentLod].x() = computeDatas[currentLod].y();
 		data.heightmapOffsets[currentLod].y() = computeDatas[currentLod].z();
-		
-		//if (currentLod == 5) {SetTerrainShadowValues(2);}
-		//if (currentLod == 1) {SetTerrainShadowValues(1);}
-		//if (currentLod == 0) {SetTerrainShadowValues(0);}
-		//else if (currentLod == 3) {SetTerrainShadowValues(1);}
-		//else if (currentLod == 6) {SetTerrainShadowValues(2);}
-		//else if (currentLod <= 5) {CTSI = 1;}
-		//else {CTSI = 2;}
 	}
 
 	for (int i = 2; i >= 0; i--)
@@ -2958,30 +2610,6 @@ void Frame()
 			SetTerrainShadowValues(i);
 		}
 	}
-
-	/*if (Input::GetKey(GLFW_KEY_APOSTROPHE).pressed)
-	{
-		float val = 500.0; 
-
-		for (int i = 0; i < glillDatas.size(); i++)
-		{
-			glillDatas[i].settings.z() = 8.0;
-			glillBuffers[i].Update(&glillDatas[i], sizeof(GlillData));
-			glillQueue[i] = true;
-		}
-	}
-
-	if (Input::GetKey(GLFW_KEY_SEMICOLON).pressed)
-	{
-		float val = 200.0; 
-
-		for (int i = 0; i < glillDatas.size(); i++)
-		{
-			glillDatas[i].settings.z() = 4.0;
-			glillBuffers[i].Update(&glillDatas[i], sizeof(GlillData));
-			glillQueue[i] = true;
-		}
-	}*/
 
 	for (int i = glillDatas.size() - 1; i >= 0; i--)
 	{
@@ -3026,44 +2654,6 @@ void Frame()
 
 	if (Input::GetKey(GLFW_KEY_U).pressed)
 	{
-		//leafShaderConfig.qualityNormalBlendLodPower = 3.0;
-		//leafShaderConfig.lod3Size = 12.5;
-		//leafShaderConfig.lod4Size = 20.0;
-		//UpdateLeafShaderData();
-
-		//terrainComputeData.erodeFactor = 3.0;
-		//terrainComputeData.steepness = 1.25;
-		//terrainShaderData.rockSteepness = 0.1;
-		//terrainShaderData.rockTransition = 0.025;
-		//terrainShaderData.snowHeight = 1250.0;
-		//UpdateTerrainShaderData();
-
-		//treeComputeConfig.overdrawLodCullHeavy = 1;
-		//treeComputeConfig.overdrawMisses = 1;
-		//UpdateTreeComputeData();
-
-		//atmosphereData.mistStrength = 32.0;
-		//UpdateAtmosphereData();
-
-		//atmosphereData.skyPower = 1.0;
-		//skyData.rayleighStrength = 1.0;
-		//UpdateAtmosphereData();
-		//UpdateSkyData();
-
-		//terrainComputeData.erodeFactor = 2.5;
-		//UpdateTerrainComputeData();
-
-		//postData.toneMapping = 0;
-		//UpdatePostData();
-		//leafShaderConfig.colorMult = 0.75;
-		//UpdateLeafShaderData();
-
-		//atmosphereData.mistStrength = 24.0;
-		//UpdateAtmosphereData();
-
-		//aerialData.sunStrength = 1.5;
-		//UpdateAerialData();
-
 		atmosphereData.aerialSlicePower = 4;
 		UpdateAtmosphereData();
 
@@ -3072,44 +2662,6 @@ void Frame()
 	}
 	if (Input::GetKey(GLFW_KEY_Y).pressed)
 	{
-		//leafShaderConfig.qualityNormalBlendLodPower = 1.0;
-		//leafShaderConfig.lod3Size = 14.0;
-		//leafShaderConfig.lod4Size = 24.0;
-		//UpdateLeafShaderData();
-
-		//terrainComputeData.erodeFactor = 2.0;
-		//terrainComputeData.steepness = 1.5;
-		//terrainShaderData.rockSteepness = 0.1;
-		//terrainShaderData.rockTransition = 0.075;
-		//terrainShaderData.snowHeight = 1500.0;
-		//UpdateTerrainShaderData();
-
-		//atmosphereData.skyPower = 2.0;
-		//skyData.rayleighStrength = 0.25;
-		//UpdateAtmosphereData();
-		//UpdateSkyData();
-
-		//terrainComputeData.erodeFactor = 3.0;
-		//UpdateTerrainComputeData();
-
-		//treeComputeConfig.overdrawLodCullHeavy = 0;
-		//treeComputeConfig.overdrawMisses = 0;
-		//UpdateTreeComputeData();
-
-		//atmosphereData.mistStrength = 24.0;
-		//UpdateAtmosphereData();
-
-		//postData.toneMapping = 1;
-		//UpdatePostData();
-		//leafShaderConfig.colorMult = 1.0;
-		//UpdateLeafShaderData();
-
-		//atmosphereData.mistStrength = 32.0;
-		//UpdateAtmosphereData();
-
-		//aerialData.sunStrength = 1.0;
-		//UpdateAerialData();
-
 		atmosphereData.aerialSlicePower = 3;
 		UpdateAtmosphereData();
 
@@ -3150,12 +2702,6 @@ void End()
 
 	for (Buffer& buffer : glillBuffers) { buffer.Destroy(); }
 	glillBuffers.clear();
-
-	//for (Buffer& buffer : treeDataBuffers) { buffer.Destroy(); }
-	//treeDataBuffers.clear();
-
-	//for (Buffer& buffer : treeDrawBuffers) { buffer.Destroy(); }
-	//treeDrawBuffers.clear();
 
 	atmosphereBuffer.Destroy();
 	aerialBuffer.Destroy();

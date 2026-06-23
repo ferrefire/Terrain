@@ -66,27 +66,7 @@ void main()
 	float lodInter = currentTree.position.w - float(lod);
 	if (shaderConfig.lodInterMod == 1) {lodInter = pow(lodInter, shaderConfig.lodInterPow);}
 
-	//if (lodInter > 0.75) {lodInter = (lodInter - 0.75) * 4.0;}
-	//else {lodInter = 0;}
-
 	float scaleMult = mix(0.8, 1.25, rand01(leafIndex));
-	//float scaleMult = mix(0.66, 1.5, rand01(leafIndex));
-
-	/*if (lod < 3)
-	{
-		if (cascade == lod - 1)
-		{
-			scalar = 0;
-			if (leafIndex % factors[lod + 1] == 0) {scalar = mix(scales[lod], scales[lod + 1], lodInter);}
-			if (leafIndex % factors[lod] == 0) {scalar = mix(scales[lod], 0.0, lodInter);}
-		}
-		else
-		{
-			scalar = mix(scales[lod], 0.0, lodInter);
-			if (leafIndex % factors[lod + 1] == 0) {scalar = mix(scales[lod], scales[lod + 1], lodInter);}
-			//if (lod == 0 && leafIndex % factors[lod + 1] == 0) {scalar = scales[lod + 1];}
-		}
-	}*/
 
 	scalar *= scaleMult;
 
@@ -94,28 +74,12 @@ void main()
 	//scalar *= 1.5;
 
 	vec3 leafPosition = localPosition;
-	//if (lod == 1)
-	//{
-	//	int vertID = gl_VertexIndex;
-	//	leafPosition = mix(leafPosition, leafLodPositions[vertID].xyz, pow(lodInter, 2));
-	//}
 
 	if (shaderConfig.scaleWithTree == 1)
 	{
 		float scaleWeight = currentTree.rotation.x;
-		//if (scaleWeight > 1.0) {scaleWeight = 1.0 + pow(scaleWeight - 1.0, 6);}
-		//if (scaleWeight > 1.0) {scaleWeight = pow(scaleWeight, 0.5);}
 		leafPosition *= scaleWeight;
 	}
-	//if (shaderConfig.scaleWithTree == 1) {leafPosition *= clamp(currentTree.rotation.x, 0.0, 1.0);}
-	//if (shaderConfig.scaleWithTree == 1) {leafPosition *= mix(currentTree.rotation.x, 1.0, 0.75);}
-
-	//vec3 localNormal = vec3(0, 0, 1);
-	//localNormal = normalize(RotateY(localNormal, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w));
-	//localNormal = normalize(RotateX(localNormal, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y));
-	//localNormal = normalize(RotateZ(localNormal, currentLeaf.rotationZ.x, currentLeaf.rotationZ.y));
-	//localNormal = normalize(RotateY(localNormal, currentTree.rotation.z, currentTree.rotation.w));
-	//if (dot(localNormal, variables.lightDirection.xyz) < 0.0) {leafPosition.x *= -1.0;}
 
 	leafPosition *= scalar;
 	leafPosition = RotateX(leafPosition, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y);

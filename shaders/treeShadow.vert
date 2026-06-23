@@ -31,18 +31,12 @@ void main()
 
 	TreeData currentTree = renderData[instanceIndex];
 
-	//worldNormal = normalize(RotateY(localNormal, currentTree.rotation.z, currentTree.rotation.w));
-
 	vec3 treePosition = RotateY(localPosition * currentTree.rotation.x, currentTree.rotation.z, currentTree.rotation.w);
 	//treePosition.y += 0.5;
 	//treePosition.y *= 20.0;
 	treePosition.y -= 0.5;
 
 	vec3 worldPosition = treePosition + currentTree.position.xyz;
-
-	//terrainValues = currentTree.terrainValues;
-
-	//lod = int(currentTree.position.w);
 
 	gl_Position = variables.shadowMatrices[cascade] * vec4(worldPosition, 1.0);
 }

@@ -42,14 +42,7 @@ layout(location = 3) out vec3 flatNormal;
 layout(location = 4) out vec4 terrainValues;
 layout(location = 5) out float lod;
 layout(location = 6) out float variant;
-//layout(location = 6) out vec3 localCoords;
 
-//const int leafCount = 2916;
-//const int leafCount1 = leafCount / 3;
-//const int leafCount2 = leafCount1 / 9;
-//const int leafCount3 = leafCount2 / 9;
-
-//const float scales[4] = {1.0, 2.5, 5.0, 12.0};
 const int factors[5] = {0, 3, 3 * 6, 3 * 6 * 9, 3 * 6 * 9 * 3};
 
 void main()
@@ -81,9 +74,6 @@ void main()
 	float lodInter = currentTree.position.w - float(iLod);
 	//float morphInter = 1.0 - pow(1.0 - lodInter, shaderConfig.lodInterPow);
 	if (shaderConfig.lodInterMod == 1) {lodInter = pow(lodInter, shaderConfig.lodInterPow);}
-
-	//if (lodInter > 0.75) {lodInter = (lodInter - 0.75) * 4.0;}
-	//else {lodInter = 0;}
 
 	float leafRan = rand01(leafIndex);
 	float scaleMult = mix(0.8, 1.25, leafRan);
@@ -119,32 +109,18 @@ void main()
 	if (shaderConfig.scaleWithTree == 1)
 	{
 		float scaleWeight = currentTree.rotation.x;
-		//if (scaleWeight > 1.0) {scaleWeight = 1.0 + pow(scaleWeight - 1.0, 6);}
-		//if (scaleWeight > 1.0) {scaleWeight = pow(scaleWeight, 0.5);}
 		leafPosition *= scaleWeight;
 	}
-	//if (shaderConfig.scaleWithTree == 1) {leafPosition *= mix(currentTree.rotation.x, 1.0, 0.75);}
 
 	leafPosition = RotateX(leafPosition, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y);
 	leafPosition = RotateY(leafPosition, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w);
 	leafPosition = RotateZ(leafPosition, currentLeaf.rotationZ.x, currentLeaf.rotationZ.y);
-
-	//leafPosition = (currentLeaf.rotation * vec4(leafPosition, 1.0)).xyz;
 
 	leafPosition += currentLeaf.position.xyz * currentTree.rotation.x;
 	leafPosition = RotateY(leafPosition, currentTree.rotation.z, currentTree.rotation.w);
 	leafPosition.y -= 0.5;
 
 	worldNormal = normalize(leafPosition - vec3(0.0, shaderConfig.worldNormalHeight * currentTree.rotation.x, 0.0));
-	
-	//flatNormal = normalize(vec3(0, 0, -1));
-
-	//baseNormal = normalize(mix(localNormal, vec3(0, 0, -1), shaderConfig.flatLocalNormalBlend));
-	
-	//flatNormal = normalize(RotateX(flatNormal, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y));
-	//flatNormal = normalize(RotateY(flatNormal, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w));
-	//flatNormal = normalize(RotateZ(flatNormal, currentLeaf.rotationZ.x, currentLeaf.rotationZ.y));
-	//flatNormal = normalize(RotateY(flatNormal, currentTree.rotation.z, currentTree.rotation.w));
 
 	baseNormal = normalize(RotateX(baseNormal, currentLeaf.rotationXY.x, currentLeaf.rotationXY.y));
 	baseNormal = normalize(RotateY(baseNormal, currentLeaf.rotationXY.z, currentLeaf.rotationXY.w));

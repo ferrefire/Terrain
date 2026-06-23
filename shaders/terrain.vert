@@ -8,9 +8,6 @@ layout(set = 2, binding = 0) readonly uniform models { mat4 model; } object;
 
 layout(location = 0) in vec3 localPosition;
 
-//layout(location = 0) out vec3 worldPosition;
-//layout(location = 1) out vec3 worldNormal;
-
 layout(location = 0) flat out int lod;
 layout(location = 1) out float lodInter;
 layout(location = 2) out vec4 vertTerrainValues;
@@ -32,10 +29,6 @@ const float terrainSize = 5000.0;
 
 void main()
 {
-	//vec3 worldPosition = (object.model * vec4(localPosition, 1.0)).xyz;
-	//float scaleMult = 1.0;
-	//if (gl_InstanceIndex == 0) {scaleMult = 1.01;}
-	//vec3 worldPosition = (localPosition * scaleMult) * terrainSize;
 	vec3 worldPosition = localPosition * terrainSize;
 	int instanceIndex = gl_InstanceIndex;
 	int xi = terrainRadius;
@@ -84,30 +77,11 @@ void main()
 
 	lodInter = float(chunkLod) / float(terrainLodRadius);
 
-	//vec2 uv = localPosition.xz + 0.5;
-	//vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz;
-	//vec2 uv = (worldPosition.xz / 5000.0) + 0.5;
-	//float height = texture(heightmap, uv).r;
-
-	//vec3 noise = fbm2D_withDeriv(uv + 2, 6, 4, 0.2);
-
-	//float lodInter = float(max(abs(xi - terrainRadius), abs(yi - terrainRadius))) / float(terrainRadius);
-	//lod = int(round(mix(0, 10, lodInter)));
-	
-	//float height = TerrainData(uv, int(variables.terrainOffset.w) - lod, true).x;
-	//float height = TerrainData(uv, int(variables.terrainOffset.w) - (lod == 0 ? 0 : 5), true).x;
-	//float height = texture(heightmaps[1], uv).r;
-	//float height = TerrainValues(worldPosition.xz).r;
 	vec4 terrainValues = TerrainValues(worldPosition.xz);
 	vertTerrainValues = terrainValues;
 
-	//worldNormal = (object.model * vec4(DerivativeToNormal(vec2(hx, hz)), 0.0)).xyz;
-
-	//vec3 sampledPosition = localPosition;
-	//sampledPosition.y += height * 0.5;
 	worldPosition.y = terrainValues.x * maxHeight - variables.terrainOffset.y * terrainDiv;
 
-	//vec3 worldPosition = (object.model * vec4(sampledPosition, 1.0)).xyz;
 	gl_Position = vec4(worldPosition, 1.0);
 	//gl_Position = variables.projection * variables.view * object.model * vec4(sampledPosition, 1.0);
 }

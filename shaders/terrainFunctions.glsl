@@ -498,10 +498,10 @@ float SampleShadows(vec3 worldPosition, int mode)
 			if (border > 0.4) {fade = clamp((border - 0.4) * 10.0, 0.0, 1.0);}
 		}
 
-		float inter = clamp(SquaredDistance(worldPosition, variables.viewPosition.xyz) / (1000.0 * 1000.0), 0.0, 1.0);
-
 		if (mode == -1)
 		{
+			float inter = clamp(SquaredDistance(worldPosition, variables.viewPosition.xyz) / (1000.0 * 1000.0), 0.0, 1.0);
+
 			mode = 0;
 			if (inter < shadowData.blend1Dis) {mode = 1;}
 			if (inter < shadowData.blend0Dis) {mode = 2;}

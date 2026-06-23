@@ -4,15 +4,6 @@
 
 #include "variables.glsl"
 
-//layout(set = 0, binding = 1) uniform sampler2D heightmaps[3];
-
-//layout(set = 2, binding = 0) uniform models { mat4 model; } object;
-
-//layout(location = 0) in vec3 localPosition;
-
-//layout(location = 0) out vec3 worldPosition;
-//layout(location = 1) out vec3 worldNormal;
-
 layout(location = 0) flat in int lod[];
 layout(location = 1) in float lodInter[];
 layout(location = 2) in vec4 vertTerrainValues[];
@@ -58,18 +49,6 @@ bool CullWinding(vec3 pos, vec4 terrainValues)
 {
 	//vec4 terrainValues = vec4(0);
 	float cullAngle = 0.4;
-	//if (lod[0] > 0) cullAngle = 0.75;
-
-	//if (lod[0] == 0) {terrainValues = TerrainValuesLod(pos.xz, cascadeCount - 2);}
-	//else {terrainValues = TerrainValues(pos.xz);}
-
-	//else if (terrainValues.x == -1) {terrainValues = TerrainValues(center.xz);}
-
-	//terrainValues = TerrainValues(pos.xz);
-	//terrainValues = TerrainValuesLod(pos.xz, cascadeCount);
-
-	//if (lod[0] == 1) {cullAngle = 0.75;}
-	//if (lod[0] == 2) {cullAngle = 0.75;}
 
 	return (dot(terrainValues.yzw, normalize(pos - variables.viewPosition.xyz)) > cullAngle);
 }
@@ -126,43 +105,15 @@ void main()
 	}
 	else
 	{
-		//float factor = 20;
-		//if (lod[0] == 1) factor = 15;
-		//if (lod[0] == 0) factor = 10;
-
-		//factor -= 5;
-
-		//if (lod[0] == 2 && lodInter[0])
-		//factor = mix(10, 20, lodInter[0]);
-
 		float tessLevel1 = TessellationFactor(p1, p2);
     	float tessLevel2 = TessellationFactor(p2, p0);
     	float tessLevel3 = TessellationFactor(p0, p1);
-
-		//vec3 p0CS = WorldToClip(p0);
-		//vec3 p1CS = WorldToClip(p1);
-		//vec3 p2CS = WorldToClip(p2);
-		//float tessLevel1 = TessellationFactorScreen(p1CS, p2CS, factor);
-    	//float tessLevel2 = TessellationFactorScreen(p2CS, p0CS, factor);
-    	//float tessLevel3 = TessellationFactorScreen(p0CS, p1CS, factor);
-		//float tessLevel1 = TessellationFactorDepth(p0CS, factor);
-    	//float tessLevel2 = TessellationFactorDepth(p1CS, factor);
-    	//float tessLevel3 = TessellationFactorDepth(p2CS, factor);
 
     	gl_TessLevelOuter[0] = tessLevel1;
     	gl_TessLevelOuter[1] = tessLevel2;
     	gl_TessLevelOuter[2] = tessLevel3;
     	gl_TessLevelInner[0] = (tessLevel1 + tessLevel2 + tessLevel3) * (1.0 / 3.0);
 	}
-
-	/*float tessLevel1 = TessellationFactor(p1, p2);
-    float tessLevel2 = TessellationFactor(p2, p0);
-    float tessLevel3 = TessellationFactor(p0, p1);
-
-    gl_TessLevelOuter[0] = tessLevel1;
-    gl_TessLevelOuter[1] = tessLevel2;
-    gl_TessLevelOuter[2] = tessLevel3;
-    gl_TessLevelInner[0] = (tessLevel1 + tessLevel2 + tessLevel3) * (1.0 / 3.0);*/
 
 	if (gl_InvocationID == 0)
 	{

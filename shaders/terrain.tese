@@ -4,13 +4,6 @@
 
 #include "variables.glsl"
 
-//layout(set = 2, binding = 0) uniform models { mat4 model; } object;
-
-//layout(location = 0) in vec3 localPosition;
-
-//layout(location = 0) out vec3 worldPosition;
-//layout(location = 1) out vec3 worldNormal;
-
 layout(triangles, fractional_odd_spacing, cw) in;
 //layout(triangles, fractional_even_spacing, cw) in;
 layout(location = 0) patch in int patchLod;

@@ -51,15 +51,6 @@ layout(set = 1, binding = 7, std430) readonly buffer ComputeConfig
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-//const float treeSpacing = 50;
-//const float treeRandomOffset = 20;
-//const int lod0Radius = 3;
-
-//const int leafCount = 2916;
-//const int leafCount1 = leafCount / 3;
-//const int leafCount2 = leafCount1 / 9;
-//const int leafCount3 = leafCount2 / 9;
-
 float InsideBounds(uint lod, vec3 worldPosition, float tolerance)
 {
 	vec4 lightClip = variables.shadowMatrices[lod] * vec4(worldPosition, 1.0);
@@ -180,23 +171,7 @@ uint BehindTrees(vec3 worldPosition, int iterations, uint amount, uint lod)
 					counter += 1;
 					misses = 0;
 				}
-				else
-				{
-					//misses += 1;
-					//if (config.overdrawMisses == 1 && counter > 0) {counter -= 1;}
-				}
-				//counter += 1;
-				//misses = 0;
 			}
-			else
-			{
-				//if (config.overdrawMisses == 1 && counter > 0) {counter -= 1;}
-			}
-			//else
-			//{
-			//	misses += 1;
-			//}
-			//if (currentTree.position.w >= 0.0 && SquaredDistance(rayPosition, (currentTree.position.xyz + vec3(0.0, 12.5, 0.0))) < 15.0 * 15.0) {counter += 1;}
 
 			if (counter >= amount) {return (1);}
 			//if (config.overdrawMisses == 1 && misses >= amount) {return (0);}
@@ -234,23 +209,6 @@ void main()
 				leafShadowDrawCommands[i].firstInstance = config.squaredShadowLengths[i - 1] * config.leafCounts[0];
 			}
 		}
-
-		/*if (config.highQualityLodLeaves == 1)
-		{
-			leafDrawCommands[3].firstIndex = leafDrawCommands[2].firstIndex;
-			leafDrawCommands[3].indexCount = leafDrawCommands[2].indexCount;
-
-			leafShadowDrawCommands[3].firstIndex = leafShadowDrawCommands[2].firstIndex;
-			leafShadowDrawCommands[3].indexCount = leafShadowDrawCommands[2].indexCount;
-		}
-		else
-		{
-			leafDrawCommands[3].firstIndex = config.originalFirstIndex;
-			leafDrawCommands[3].indexCount = config.originalIndexCount;
-
-			leafShadowDrawCommands[3].firstIndex = config.originalFirstIndex;
-			leafShadowDrawCommands[3].indexCount = config.originalIndexCount;
-		}*/
 	}
 
 	TreeData currentTree = setupData[setupIndex];

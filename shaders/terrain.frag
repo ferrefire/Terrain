@@ -25,51 +25,6 @@ layout(location = 0) out vec4 pixelColor;
 #include "noise.glsl"
 #include "terrainFunctions.glsl"
 
-//const float rockSteepness = 0.10;
-//const float rockTransition = 0.075;
-//const float snowSteepness = 0.3;
-//const float snowSteepness = 0.25;
-//const float snowTransition = 0.075;
-//const float steepnessHalfTransition = steepnessTransition * 0.5;
-
-/*vec3 GetColor(sampler2D samplers[3], PBRInput data, vec3 weights, vec3 _worldNormal, vec3 triplanarUV, bool lod)
-{
-	//vec3 weights = GetWeights(_worldNormal, 2.0);
-	vec3 color = SampleTriplanarColor(samplers[0], triplanarUV, weights);
-	vec3 normal = _worldNormal;
-	if (!lod) normal = SampleTriplanarNormal(samplers[1], triplanarUV, weights, _worldNormal, 1.0);
-	vec3 arm = vec3(1, 1, 0);
-	if (!lod) arm = SampleTriplanarColor(samplers[2], triplanarUV, weights);
-	float roughness = arm.g;
-	float metallic = arm.b;
-	float ao = arm.r;
-
-	if (variables.terrainOffset.w > 0)
-	{
-		float cascadeDebug = TerrainCascadeLod(worldPosition.xz);
-		if (variables.terrainOffset.w == 1 && mod(cascadeDebug, 1.0) > 0.99) {color = RandomColor(int(floor(cascadeDebug)));}
-		else if (variables.terrainOffset.w == 2) {color = RandomColor(int(floor(cascadeDebug)));}
-		//color = RandomColor(chunkLod);
-	}
-
-	//PBRInput data;
-	data.N = normal;
-	//data.V = normalize(variables.viewPosition.xyz - worldPosition);
-	//data.L = variables.lightDirection.xyz;
-	data.albedo = color;
-	data.metallic = metallic;
-	data.roughness = roughness;
-	//data.lightColor = vec3(1.0, 0.9, 0.7) * 4;
-
-	vec3 diffuse = PBRLighting(data);
-
-	vec3 ambientDiffuse = 0.15 * color * vec3(1.0, 0.9, 0.7);
-	vec3 ambient = ambientDiffuse * ao;
-	diffuse += ambient;
-
-	return (diffuse);
-}*/
-
 void SampleSteepnessTexture(sampler2D samplers[3], inout TextureData textureData, float strength, float scale, float lodInter, float normalStrength)
 {
 	if (lodInter <= 0.0) {textureData.color += SampleTriplanarColor(samplers[0], textureData.uv * scale, textureData.weights) * strength;}
@@ -80,34 +35,12 @@ void SampleSteepnessTexture(sampler2D samplers[3], inout TextureData textureData
 
 void main()
 {
-	//vec2 uv = (worldPosition.xz / 10000.0) + variables.terrainOffset.xz;
-	//vec2 uv = (worldPosition.xz / 5000.0) + 0.5;
-	//vec3 noise = fbm2D_withDeriv(uv + 2, 6, 4, 0.2);
-	//vec3 noise = fbm(uv + 2, 6, 3.75, 0.2);
-
-	//const int power = 3;
-	//float height = pow(noise.x, power);
-	//float hx = power * pow(noise.x, power - 1) * noise.y;
-	//float hz = power * pow(noise.x, power - 1) * noise.z;
-
 	float viewDistance = distance(variables.viewPosition.xyz, worldPosition);
-	//float qualityInter = clamp(viewDistance, 0.0, 2500.0) / 2500.0;
-	//int qualityDescrease = int(round(mix(0, 5, qualityInter)));
-
-	//vec3 tnoise = TerrainData(uv, int(variables.terrainOffset.w) - qualityDescrease, false);
-	//vec3 _worldNormal = DerivativeToNormal(vec2(tnoise.y, tnoise.z));
-
-	//vec4 heightData = texture(heightmaps[1], uv).rgba;
-	//vec3 _worldNormal = normalize(heightData.gba * 2.0 - 1.0);
 
 	vec4 terrainValues = TerrainValues(worldPosition.xz);
 	vec3 _worldNormal = terrainValues.yzw;
-	//if (viewDistance > 75.0) {_worldNormal = TerrainValues(worldPosition.xz).yzw;}
-	//else {_worldNormal = normalize(worldNormal);}
 
-	//vec3 _worldNormal = worldNormal;
 	vec3 triplanarUV = worldPosition + mod(variables.terrainOffset.xyz * terrainDiv, 5000.0);
-	//vec3 triplanarUV = worldPosition;
 
 	float steepness = 1.0 - (dot(_worldNormal, vec3(0, 1, 0)) * 0.5 + 0.5);
 
@@ -115,8 +48,6 @@ void main()
 	//float lightStrength = 6;
 	float lightStrength = 8;
 	//float lightStrength = 10;
-
-	//if (variables.glillOffsets[0].y == 1) {lightStrength = 8;}
 
 	PBRInput data;
 	data.V = normalize(variables.viewPosition.xyz - worldPosition);
@@ -142,102 +73,17 @@ void main()
 	//if (steepness <= rockSteepness + steepnessHalfTransition)
 	float viewInter = clamp(viewDistance / 10000.0, 0.0, 1.0);
 
-	//float snow = clamp(worldPosition.y + (variables.terrainOffset.y * 10000.0) + 1000.0 + (1.0 - steepness) * 500.0, 0.0, 1000.0) / 500.0;
-	//float rockSnow = pow(clamp(snow - 1.0, 0.0, 1.0), 0.5);
-	//snow = clamp(snow, 0.0, 1.0);
-	//float blendSteepness = mix(rockSteepness, snowSteepness, rockSnow);
-
-	//float snowHeight = 1500.0;
-	//float snowHeight = 500.0;
-	//float snowHeightBlend = 1500.0;
-
 	float snow = pow(clamp(worldPosition.y + (variables.terrainOffset.y * terrainDiv) + config.snowHeight, 0.0, config.snowBlend) / config.snowBlend, 0.75);
-	//float coverSteepness = 0;
-	//float diff = 0;
 
-	//if (variables.terrainOffset.w > 0 && snow > 0.0)
-	//{
-	//	coverSteepness = mix(0.0, snowSteepness, snow);
-	//	diff = coverSteepness - steepness;
-	//}
-
-	//float blendSteepness = rockSteepness;
-	
-	//if (steepness <= drySteepness)
 	if (steepness <= config.rockSteepness)
 	{
-		//diffuse = GetColor(grassTextures, data, weights, _worldNormal, triplanarUV, false);
-
-		//color = SampleTriplanarColor(grassTextures[0], triplanarUV, weights);
-		//normal = SampleTriplanarNormal(grassTextures[1], triplanarUV, weights, _worldNormal, 1.0);
-		//arm = SampleTriplanarColor(grassTextures[2], triplanarUV, weights);
-
 		textureData.color *= 0.0;
 		textureData.normal *= 0.0;
 		textureData.arm *= 0.0;
 
 		SampleSteepnessTexture(grassTextures, textureData, 1.0, 0.5, clamp((viewInter - 0.0075) / 0.0025, 0.0, 1.0), 1.0);
-
-		/*const int scaleCascades = 4;
-		const float scales[4] = {0.0005, 0.005, 0.05, 0.5};
-		const float distances[4] = {0.25, 0.015, 0.0025, 0.0};
-
-		float strength = 1.0;
-
-		if (viewInter > distances[0])
-		{
-			SampleSteepnessTexture(grassTextures, textureData, strength, scales[0], 0.0);
-		}
-		else
-		{
-			for (int i = 1; i < scaleCascades; i++)
-			{
-				if (viewInter > distances[i])
-				{
-					float blendDistance = distances[i - 1] * 0.5;
-					float blendCutoff = distances[i - 1] - blendDistance;
-					float scaleStrength = 1.0;
-					if (viewInter > blendCutoff)
-					{
-						scaleStrength = 1.0 - ((viewInter - blendCutoff) / blendDistance);
-						SampleSteepnessTexture(grassTextures, textureData, strength * (1.0 - scaleStrength), scales[i - 1], 0.0);
-					}
-
-					SampleSteepnessTexture(grassTextures, textureData, strength * scaleStrength, scales[i], 0.0);
-					break;
-				}
-			}
-		}*/
-
-		//if (snow >= 1.0)
-		//{
-		//	textureData.color = vec3(1.0);
-		//}
-		//else if (snow > 0.0)
-		//{
-		//	textureData.color = mix(textureData.color, vec3(1.0), snow);
-		//}
-
-		//if (worldPosition.y + (variables.terrainOffset.y * 10000.0) > -1500.0) {textureData.color = vec3(1.0);}
 	}
-	/*if (steepness > drySteepness - dryTransition && steepness <= rockSteepness)
-	{
-		float strength = clamp(steepness - (drySteepness - dryTransition), 0.0, dryTransition) / dryTransition;
-		//diffuse *= 1.0 - strength;
-		//diffuse += GetColor(dryTextures, data, weights, _worldNormal, triplanarUV * 0.1, false) * (strength);
 
-		float scale = 0.1;
-		if (viewInter < 0.0025) scale = 0.25;
-
-		//color *= 1.0 - strength;
-		//normal *= 1.0 - strength;
-		//arm *= 1.0 - strength;
-		//color += SampleTriplanarColor(dryTextures[0], triplanarUV * scale, weights) * strength;
-		//normal += SampleTriplanarNormal(dryTextures[1], triplanarUV * scale, weights, _worldNormal, 1.0) * strength;
-		//arm += SampleTriplanarColor(dryTextures[2], triplanarUV * scale, weights) * strength;
-
-		SampleSteepnessTexture(dryTextures, textureData, strength, scale);
-	}*/
 	if (steepness > config.rockSteepness - config.rockTransition)
 	{
 		float strength = clamp(steepness - (config.rockSteepness - config.rockTransition), 0.0, config.rockTransition) / config.rockTransition;
@@ -279,10 +125,6 @@ void main()
 			}
 		}
 	}
-
-	//float snowArea = SimpleFractalNoise((worldPosition.xz * 0.0001 + variables.terrainOffset.xz) * 0.5, 1, 4);
-	//snowArea = ((((exp(pow(snowArea * 2.0 - 2.0, 3.0))) + (pow(snowArea, 2.0))) * 0.5) - 0.5) * 2.0;
-	//snow = clamp(snow + snowArea, 0.0, 1.0);
 
 	if (config.snowEnabled == 1 && snow > 0.0)
 	{
@@ -342,115 +184,20 @@ void main()
 	diffuse *= shadow;
 
 	vec3 illumination = TerrainIllumination(worldPosition, _worldNormal);
-	//vec4 illumination = TerrainIllumination(worldPosition, _worldNormal);
-	//float occlusion = illumination.w;
 	float occlusion = TerrainOcclusion(worldPosition.xz);
 
-	//float upDot = dot(data.N, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5;
-	//float illuminationExposure = mix(0.5, 1.0, upDot);
-	//vec3 ambientDiffuse = 0.25 * (textureData.color * illumination.rgb * illuminationExposure);
 	vec3 ambientDiffuse = 0.25 * (textureData.color * illumination.rgb);
 	vec3 ambient = ambientDiffuse * ao;
 
 	float aoMult = pow(occlusion, 0.5);
 	//float aoMult = 1.0;
 
-	//if (variables.glillOffsets[0].y == 1) {aoMult =  pow(mix(0.9, 1.0, occlusion), 8.0);}
-	//if (variables.glillOffsets[0].y == 1) {aoMult = pow(occlusion, 0.75);}
-
 	diffuse *= ao * aoMult;
 	diffuse += ambient * occlusion;
 
-	//diffuse *= ao * ao;
-
-	//diffuse += ambient;
-	//diffuse += ambient * occlusion;
-	//diffuse *= ao;
-
-	/*if (steepness <= rockSteepness + steepnessHalfTransition)
-	{
-		float strength = 1.0 - clamp(steepness - (rockSteepness - steepnessHalfTransition), 0.0, steepnessTransition) / steepnessTransition;
-		//diffuse += GetColor(grassTextures, _worldNormal, triplanarUV, viewDistance > 1000.0) * strength;
-		//diffuse += GetColor(grassTextures, data, weights, _worldNormal, triplanarUV, viewDistance > 1000.0) * strength;
-		diffuse += GetColor(grassTextures, data, weights, _worldNormal, triplanarUV, false) * strength;
-	}
-	if (steepness >= rockSteepness - steepnessHalfTransition)
-	{
-		float strength = 1.0 - clamp((rockSteepness + steepnessHalfTransition) - steepness, 0.0, steepnessTransition) / steepnessTransition;
-		//diffuse += GetColor(rockTextures, _worldNormal, triplanarUV * 0.005, false) * strength;
-		diffuse += GetColor(rockTextures, data, weights, _worldNormal, triplanarUV * 0.005, false) * strength;
-	}*/
-
-	//if (steepness <= 0.15)
-	//{
-	//	diffuse = GetColor(grassTextures, _worldNormal, triplanarUV);
-	//}
-	//else if (steepness > 0.15)
-	//{
-	//	diffuse = GetColor(rockTextures, _worldNormal, triplanarUV * 0.005);
-	//}
-
-	/*int total = int(floor(abs(worldPosition.x)) + floor(abs(worldPosition.z)));
-
-	vec3 color = vec3(0.25, 1.0, 0.25);
-	if (SquaredDistance(worldPosition, variables.viewPosition.xyz) < 100 * 100) color *= (total % 2 == 0 ? 1 : 0.5);
-	color *= ((total / 100) % 2 == 0 ? 1 : 0.5);
-	color *= ((total / 1000) % 2 == 0 ? 1 : 0.5);
-
-	if (dot(normalize(worldPosition.xz), normalize(variables.lightDirection.xz)) > 0.999) color = vec3(1, 0, 0);
-
-	//vec3 normal = normalize(vec3(0, 1, 0));
-	vec3 normal = worldNormal;
-	float roughness = 0.5;
-	float metallic = 0.0;
-	float ao = 0.4;
-
-	PBRInput data;
-	data.N = normal;
-	data.V = normalize(variables.viewPosition.xyz - worldPosition);
-	data.L = variables.lightDirection.xyz;
-	data.albedo = color;
-	data.metallic = metallic;
-	data.roughness = roughness;
-	data.lightColor = vec3(1.0, 0.9, 0.7) * 4;
-
-	vec3 diffuse = PBRLighting(data);
-
-	vec3 ambientDiffuse = 0.1 * color * vec3(1.0, 0.9, 0.7);
-	vec3 ambient = ambientDiffuse * ao;
-	diffuse += ambient;*/
-
-	//int centerDistance = int(length(worldPosition));
-	//if (centerDistance % 1000 <= 10) diffuse *= 0.0;
-
-	
-	////float fog = exp(-(viewDistance / 10000.0));
-	////float fog = viewDistance / 10000.0;
-	//float fog = viewDistance / 30000.0;
-	////vec3 finalColor = mix(diffuse, vec3(0.75), clamp(pow(1.0 - exp(-fog), 3.0), 0.0, 1.0));
-	//vec3 finalColor = mix(diffuse, vec3(0.75), clamp(1.0 - exp(-fog), 0.0, 1.0));
-	////vec3 finalColor = diffuse;
-
-	//float fog = viewDistance / variables.resolution.w;
-	//vec3 finalColor = mix(diffuse, vec3(0.75), clamp(pow(fog, 1), 0.0, 1.0));
-
-	//int total = int(floor(abs(worldPosition.x) * 0.2) * 5 + floor(abs(worldPosition.z) * 0.2) * 5);
-	//finalColor *= (total % 2 == 0 ? 1.0 : 0.75);
 	vec3 finalColor = diffuse;
-	//vec3 finalColor = vec3(snowArea);
-
-	//if (terrainValues.x + 0.5 > 0.75) {finalColor = vec3(0.0);}
-
-	//float occlusion = TerrainIllumination(worldPosition.xz);
-	//if (occlusion < 0.9) {occlusion = 0;}
-	//finalColor = vec3(occlusion);
-	//if (snow > 0.999) finalColor = vec3(1.0);
 
 	pixelColor = vec4(finalColor, 1.0);
 	if (config.debugMode == 1) {pixelColor = vec4(_worldNormal * 0.5 + 0.5, 1.0);}
 	if (config.debugMode == 2) {pixelColor = vec4(data.N * 0.5 + 0.5, 1.0);}
-	//pixelColor = vec4((texture(textures[1], worldPosition.xz * vec2(0.25, 0.25)).rgb ), 1.0);
-
-	//if (worldPosition.z > 0 && abs(worldPosition.x) < 100) pixelColor = vec4(0, 0, 1, 1);
-	//if (worldPosition.x > 0 && abs(worldPosition.z) < 100) pixelColor = vec4(0, 1, 0, 1);
 }
