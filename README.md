@@ -125,8 +125,9 @@ Still, here is a list of external libraries used:
 
 ### Pre-compiled
 
-For Windows: [TerrainWindows.zip](https://github.com/user-attachments/files/29269381/TerrainWindows.zip)
+Provided are pre-compiled binaries for Windows and Linux. Simply download and extract the file. Then run the Terrain executable.
 
+For Windows: [TerrainWindows.zip](https://github.com/user-attachments/files/29269381/TerrainWindows.zip)
 For Linux: Will do later.
 
 Controls:
