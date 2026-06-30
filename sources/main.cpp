@@ -1432,7 +1432,8 @@ void Start()
 	//data.lightDirection = point4D(point3D(0.613087, 0.116438, 0.781388));
 	//data.lightDirection = point4D(point3D(0.582976, 0.328745, 0.743011));
 	//data.lightDirection = point4D(point3D(0.139343, 0.53843, 0.83107));
-	data.lightDirection = point4D(point3D(0.89623, 0.1058, 0.430789).Unitized());
+	//data.lightDirection = point4D(point3D(0.89623, 0.1058, 0.430789).Unitized());
+	data.lightDirection = point4D(point3D(0.584809, 0.35806, 0.727867).Unitized());
 	//data.lightDirection = point4D(point3D(0.749465, 0.596829, 0.286527));
 	//data.lightDirection = point4D(point3D(0.310526, 0.408194, 0.858459));
 	data.resolution = point4D(Manager::GetCamera().GetConfig().width, Manager::GetCamera().GetConfig().height, 
@@ -2094,8 +2095,10 @@ void Start()
 	leafShadowPipeline.Create(leafShadowPipelineConfig);
 
 	Input::TriggerMouse();
-	Manager::GetCamera().Move(point3D(-7215.99, 582.893, 1909.08));
-	Manager::GetCamera().Rotate(point3D(18.8998, 1388.69, 0.0));
+	//Manager::GetCamera().Move(point3D(-7215.99, 582.893, 1909.08));
+	//Manager::GetCamera().Rotate(point3D(18.8998, 1388.69, 0.0));
+	Manager::GetCamera().Move(point3D(-6758.79, -1703.62, 1642.21));
+	Manager::GetCamera().Rotate(point3D(-8.5002, 1362.39, 0.0));
 
 	VkSemaphoreCreateInfo semaphoreCreateInfo{};
 	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;

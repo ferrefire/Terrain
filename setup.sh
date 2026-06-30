@@ -45,7 +45,7 @@ run_command ()
 			fi
 		elif [[ $OSTYPE == "msys" ]]; then
 			cd $path/build
-			cmake --build . -j --config Release
+			cmake --build . -j --parallel --config Release
 		fi
 	fi
 }
